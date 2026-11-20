@@ -1,0 +1,98 @@
+@* Análisis de causa de un plan: miniatura del diagrama (clic = maximizar) y botón + / editar que abre el editor de
+   herramientas (js/analisisCausa.js, ventana propia sobre la página). No guarda nada: avisa con OnCambio y quien lo
+   usa decide (el formulario lo guarda con el plan; la vista Plan por plan lo escribe al momento).
+   El SVG se muestra solo dentro de <img> (data URI): aunque lleve texto del usuario, nunca se inserta como HTML.
+   En pantalla la miniatura se vuelve a dibujar desde la estructura con los colores del tema (sigCausas.pintarMini, también
+   al cambiar de tema); la imagen guardada (fondo blanco) queda para informes, Word y como respaldo. *@
+@using SigWeb.Data.Planes
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (TieneDiagrama || !SoloLectura)
+{
+    <div class="ac-campo @(Compacto ? "ac-campo-compacto" : "") @(Grande ? "ac-campo-grande" : "") @(TieneDiagrama ? "" : "ac-campo-vacio")">
+        @if (TieneDiagrama)
+        {
+            <button type="button" class="ac-mini" title="Maximizar" @onclick:stopPropagation="true" @onclick="Maximizar">
+                <img @ref="refImg" src="@uri" alt="Análisis de causa" loading="lazy" />
+            </button>
+        }
+        @if (!SoloLectura || (TieneDiagrama && !Compacto))
+        {
+            <span class="ac-campo-btns">
+                @if (!SoloLectura)
+                {
+                    <button type="button" class="ens-mini" title="@(TieneDiagrama ? "Editar análisis de causa" : "Agregar herramienta de análisis de causa (5 porqués, Ishikawa, árbol, Pareto…)")"
+                            @onclick:stopPropagation="true" @onclick="Abrir"><Ico Nombre="@(TieneDiagrama ? "editar" : "agregar")" /></button>
+                }
+                @if (TieneDiagrama && !Compacto)
+                {
+                    <button type="button" class="ens-mini" title="Maximizar" @onclick:stopPropagation="true" @onclick="Maximizar"><Ico Nombre="pantalla-completa" /></button>
+                }
+                @if (TieneDiagrama && PuedeQuitar && !SoloLectura)
+                {
+                    <button type="button" class="ens-mini" title="Quitar el diagrama (se aplica al guardar)" @onclick:stopPropagation="true" @onclick="Quitar"><Ico Nombre="eliminar" /></button>
+                }
+            </span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Json { get; set; }
+    [Parameter] public string? Svg { get; set; }
+    // Código del plan (título de la ventana y del archivo descargado).
+    [Parameter] public string? Titulo { get; set; }
+    [Parameter] public bool SoloLectura { get; set; }
+    // Celda de tabla: miniatura pequeña, sin botones (clic = maximizar).
+    [Parameter] public bool Compacto { get; set; }
+    // Widget: la imagen llena el espacio disponible.
+    [Parameter] public bool Grande { get; set; }
+    // Formulario: permite quitar el diagrama (se aplica al guardar el plan).
+    [Parameter] public bool PuedeQuitar { get; set; }
+    [Parameter] public EventCallback<ResultadoAnalisisCausa> OnCambio { get; set; }
+
+    private DotNetObjectReference<CampoAnalisisCausa>? _ref;
+    private ElementReference refImg;
+    private string? jsonPintado;
+
+    // Miniatura acorde al tema: se pinta tras cada cambio de la estructura (y el script la repinta al cambiar de tema).
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!TieneDiagrama || string.IsNullOrWhiteSpace(Json) || ReferenceEquals(jsonPintado, Json)) return;
+        jsonPintado = Json;
+        try { await JS.InvokeVoidAsync("sigCausas.pintarMini", refImg, Json); } catch (JSDisconnectedException) { } catch (JSException) { }
+    }
+    private string? uri, svgUri;
+    private bool TieneDiagrama => !string.IsNullOrWhiteSpace(Svg);
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(svgUri, Svg)) { svgUri = Svg; uri = AnalisisCausa.DataUri(Svg); }
+    }
+
+    private async Task Abrir()
+    {
+        _ref ??= DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("sigCausas.abrir", new { json = Json, titulo = Titulo }, _ref);
+    }
+
+    private async Task Maximizar()
+    {
+        if (uri is not null) await JS.InvokeVoidAsync("sigCausas.maximizar", uri, string.IsNullOrWhiteSpace(Titulo) ? "Análisis de causa" : $"Análisis de causa · {Titulo}", Json);
+    }
+
+    private Task Quitar() => OnCambio.InvokeAsync(new ResultadoAnalisisCausa(null, null, null));
+
+    [JSInvokable]
+    public async Task Guardar(string? json, string? svg, string? resumen)
+    {
+        await OnCambio.InvokeAsync(new ResultadoAnalisisCausa(json, svg, resumen));
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void Cerrado() { }
+
+    public void Dispose() => _ref?.Dispose();
+}

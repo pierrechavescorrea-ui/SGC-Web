@@ -1,0 +1,229 @@
+@page "/proyectos"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Policy = SigWeb.Data.Seguridad.ArranqueSeguridad.PoliticaAdmin)]
+@using SigWeb.Data.Inicio
+@using SigWeb.Data.Seguridad
+@using SigWeb.Data.CostosNoCalidad
+
+<PageTitle>Tablero de proyectos · SGC Web</PageTitle>
+
+@* Tablero del administrador: todos los proyectos a la vez. El ícono del encabezado lista los proyectos para ver el tablero
+   de cada uno (Inicio del proyecto). Widgets: el administrador elige cuáles ve y en qué orden (Personalizar; navegador).
+   Datos en Data/Inicio/TableroProyectos (cada base con su contexto); lógica en TableroProyectos.razor.cs; estilos tp-*. *@
+<div class="tp">
+<EncabezadoPagina Titulo="Tablero de proyectos" Icono="tablero" Subtitulo="@Subtitulo" Atras="/">
+    <Acciones>
+        <button type="button" class="pg-btn" title="Actualizar" disabled="@cargando" @onclick="RecargarAsync"><Ico Nombre="restaurar" /></button>
+        <a class="pg-btn" href="admin" title="Administración del SGC"><Ico Nombre="mantenimiento" /></a>
+        <span class="pg-sep"></span>
+        @if (editando)
+        {
+            <button type="button" class="pg-btn" title="Volver a los widgets de fábrica" @onclick="RestablecerWidgets"><Ico Nombre="restaurar" /></button>
+            <button type="button" class="pg-btn pg-btn-primario" title="Listo" @onclick="() => editando = false"><Ico Nombre="guardar" /></button>
+        }
+        else
+        {
+            <button type="button" class="pg-btn" title="Personalizar widgets" @onclick="() => editando = true"><Ico Nombre="editar" /></button>
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@* Cambio de proyecto: el menú del ícono llena y envía este formulario (POST con antifalsificación → /cuenta/proyecto). *@
+<form id="sig-cambio-proyecto" method="post" action="cuenta/proyecto" data-enhance="false" class="d-none">
+    <AntiforgeryToken />
+    <input type="hidden" name="id" />
+    <input type="hidden" name="volver" />
+</form>
+
+@if (editando)
+{
+    <div class="tp-paleta">
+        <span class="tp-paleta-tit">Agregar widget</span>
+        @foreach (var w in Catalogo.Where(c => !widgets.Contains(c.Clave)))
+        {
+            var cw = w;
+            <button type="button" class="tp-paleta-item" title="@cw.Descripcion" @onclick="() => Agregar(cw.Clave)"><Ico Nombre="@cw.Icono" /> @cw.Nombre</button>
+        }
+        @if (Catalogo.All(c => widgets.Contains(c.Clave))) { <span class="small text-muted">Todos los widgets están en el tablero.</span> }
+    </div>
+}
+
+@if (cargando && resumenes.Count == 0)
+{
+    <Esqueleto Tipo="tarjetas" Filas="4" />
+}
+else
+{
+    <div class="tp-rejilla">
+        @foreach (var clave in widgets)
+        {
+            var w = Catalogo.FirstOrDefault(c => c.Clave == clave);
+            if (w is null) continue;
+            var idx = widgets.IndexOf(clave);
+            <section class="tp-w tp-w-@w.Clave @(w.AnchoFabrica ? "tp-ancho" : "")">
+                <header class="tp-w-cab">
+                    <span class="tp-w-tit"><Ico Nombre="@w.Icono" /> @w.Nombre</span>
+                    @if (editando)
+                    {
+                        <span class="tp-w-acc">
+                            <button type="button" class="ens-mini" title="Subir" disabled="@(idx == 0)" @onclick="() => Mover(clave, -1)"><Ico Nombre="subir" /></button>
+                            <button type="button" class="ens-mini" title="Bajar" disabled="@(idx == widgets.Count - 1)" @onclick="() => Mover(clave, 1)"><Ico Nombre="bajar" /></button>
+                            <button type="button" class="ens-mini" title="@(w.AnchoFabrica ? "Media columna" : "Ancho completo")" @onclick="() => AlternarAncho(clave)"><Ico Nombre="ajustar" /></button>
+                            <button type="button" class="ens-mini" title="Quitar" @onclick="() => Quitar(clave)"><Ico Nombre="cancelar" /></button>
+                        </span>
+                    }
+                </header>
+                <div class="tp-w-cuerpo">@Widget(w.Clave)</div>
+            </section>
+        }
+        @if (widgets.Count == 0)
+        {
+            <div class="tp-vacio">Sin widgets. Use Personalizar para agregarlos.</div>
+        }
+    </div>
+}
+</div>
+
+@code {
+    // Solo fragmentos; la lógica en TableroProyectos.razor.cs.
+    private RenderFragment Widget(string clave) => __builder =>
+    {
+        var lista = Proyectos.ToArray();
+        switch (clave)
+        {
+            case "cifras":
+                <div class="tp-cifras">
+                    <div class="tp-cifra"><span class="tp-eti">Proyectos activos</span><b>@lista.Count(r => !r.P.EsEmpresa && r.P.Estado == EstadoProyecto.Activo)</b><small>@lista.Count(r => !r.Disponible) sin datos</small></div>
+                    <div class="tp-cifra"><span class="tp-eti">Hallazgos y planes abiertos</span><b>@lista.Sum(r => r.Total("planes"))</b><small>@lista.Sum(r => r.Total("acciones")) acciones vencidas</small></div>
+                    <div class="tp-cifra @(lista.Sum(r => r.Total("materializados")) > 0 ? "rojo" : "")"><span class="tp-eti">Riesgos materializados (30 d)</span><b>@lista.Sum(r => r.Total("materializados"))</b><small>@lista.Sum(r => r.Total("seguimiento")) sin seguimiento</small></div>
+                    <div class="tp-cifra @(CalVencidas(lista) > 0 ? "rojo" : "")"><span class="tp-eti">Calibraciones ≤ 30 días</span><b>@lista.Sum(r => r.Total("calibracion"))</b><small>@CalVencidas(lista) vencidas</small></div>
+                    <div class="tp-cifra"><span class="tp-eti">Costo de no calidad</span><b title="@ServicioCostosNoCalidad.Moneda(lista.Sum(r => r.CostoNoCalidad))">$ @ServicioCostosNoCalidad.Corto(lista.Sum(r => r.CostoNoCalidad))</b><small>@lista.Sum(r => r.PlanesConCosto) planes con costo</small></div>
+                    <div class="tp-cifra"><span class="tp-eti">Cumplimiento PIE promedio</span><b>@PiePromedio(lista)</b><small>proyectos con Matriz PIE</small></div>
+                </div>
+                break;
+
+            case "proyectos":
+                <div class="tp-proyectos">
+                    @foreach (var r in lista)
+                    {
+                        var res = r;
+                        <article class="tp-proy @(res.Disponible ? "" : "tp-sin")" style="--c:@(res.P.Color ?? "#EC1C24")">
+                            <div class="tp-proy-cab">
+                                <SigWeb.Components.Admin.MarcaProyecto EsEmpresa="res.P.EsEmpresa" Codigo="@res.P.Codigo" Clase="tp-marca" />
+                                <div class="tp-proy-nom"><b>@res.P.Nombre</b><small>@(res.P.EsEmpresa ? "Espacio de la empresa" : res.P.Cliente ?? res.P.Ubicacion ?? res.P.Codigo) · @res.Miembros usuario(s)</small></div>
+                                @if (res.Alertas > 0) { <span class="tp-alarma" title="Pendientes en rojo (vencidos, materializados, fuera de meta)">@res.Alertas</span> }
+                                @if (res.P.Estado != EstadoProyecto.Activo) { <span class="tp-chip">@res.P.Estado</span> }
+                            </div>
+                            @if (!res.Disponible)
+                            {
+                                <div class="tp-proy-error">@res.Error</div>
+                            }
+                            else
+                            {
+                                <div class="tp-proy-kpis">
+                                    @foreach (var k in res.Datos!.Kpis.Take(6))
+                                    {
+                                        <div class="tp-kpi tp-tono-@k.Tono" title="@k.Sub"><b>@k.Valor</b><span>@k.Titulo</span></div>
+                                    }
+                                </div>
+                            }
+                            <div class="tp-proy-pie">
+                                <button type="button" class="btn btn-sm btn-primary" title="Ver el tablero de este proyecto" @onclick="() => VerProyectoAsync(res.P.Id)"><Ico Nombre="tablero" /></button>
+                                <a class="btn btn-sm btn-outline-secondary" href="@($"admin/proyectos?id={res.P.Id}")" title="Datos y módulos del proyecto"><Ico Nombre="editar" /></a>
+                                <a class="btn btn-sm btn-outline-secondary" href="@($"admin/usuarios?proyecto={res.P.Id}")" title="Usuarios del proyecto"><Ico Nombre="personal" /></a>
+                            </div>
+                        </article>
+                    }
+                </div>
+                break;
+
+            case "comparativo":
+                <div class="tabla-scroll">
+                    <table class="table table-sm align-middle mb-0 tp-tabla">
+                        <thead>
+                            <tr>
+                                <th>Proyecto</th>
+                                @foreach (var (c, t) in Columnas) { <th class="text-center">@t</th> }
+                                <th class="text-end">Costo no calidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in lista.Where(x => x.Disponible))
+                            {
+                                var res = r;
+                                <tr>
+                                    <td><button type="button" class="doc-vinculo" title="Ver el tablero del proyecto" @onclick="() => VerProyectoAsync(res.P.Id)">@res.P.Nombre</button></td>
+                                    @foreach (var (c, t) in Columnas)
+                                    {
+                                        var k = res.Kpi(c);
+                                        <td class="text-center"><span class="tp-celda tp-tono-@(k?.Tono ?? "gris")">@(k?.Valor ?? "—")</span></td>
+                                    }
+                                    <td class="text-end">@(res.CostoNoCalidad == 0 ? "—" : ServicioCostosNoCalidad.Moneda(res.CostoNoCalidad))</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                break;
+
+            case "alertas":
+                var items = Alertas(lista).Take(12).ToArray();
+                @if (items.Length == 0) { <div class="tp-vacio-w">Sin pendientes en rojo en ningún proyecto.</div> }
+                <ul class="tp-alertas">
+                    @foreach (var (res, sec, it) in items)
+                    {
+                        <li>
+                            <SigWeb.Components.Admin.MarcaProyecto EsEmpresa="res.P.EsEmpresa" Codigo="@res.P.Codigo" Clase="tp-marca tp-marca-mini" Estilo="@($"--c:{res.P.Color ?? "#EC1C24"}")" />
+                            <span class="tp-alerta-txt"><b>@it.Titulo</b><small>@sec.Titulo · @res.P.Nombre@(it.Detalle is null ? "" : " · " + it.Detalle)</small></span>
+                            <span class="tp-celda tp-tono-@it.Tono">@it.Etiqueta</span>
+                        </li>
+                    }
+                </ul>
+                break;
+
+            case "costos":
+                var maxC = lista.Select(r => r.CostoNoCalidad).DefaultIfEmpty(0).Max();
+                @if (maxC == 0) { <div class="tp-vacio-w">Ningún proyecto tiene costos de no calidad registrados.</div> }
+                <div class="tp-barras">
+                    @foreach (var r in lista.Where(x => x.CostoNoCalidad != 0).OrderByDescending(x => x.CostoNoCalidad))
+                    {
+                        <div class="tp-barra-fila">
+                            <span class="tp-barra-nom" title="@r.P.Nombre">@r.P.Nombre</span>
+                            <span class="tp-barra"><span style="width:@Pct(maxC == 0 ? 0 : r.CostoNoCalidad / maxC * 100)%; background:@(r.P.Color ?? "#2a78d6")"></span></span>
+                            <span class="tp-barra-val">@ServicioCostosNoCalidad.Moneda(r.CostoNoCalidad)</span>
+                        </div>
+                    }
+                </div>
+                break;
+
+            case "pie":
+                var conPie = lista.Where(r => r.Datos?.Pie?.Pct is not null).ToArray();
+                @if (conPie.Length == 0) { <div class="tp-vacio-w">Ningún proyecto tiene Matriz PIE.</div> }
+                <div class="tp-barras">
+                    @foreach (var r in conPie.OrderByDescending(x => x.Datos!.Pie!.Pct))
+                    {
+                        var pct = (double)(r.Datos!.Pie!.Pct ?? 0);
+                        <div class="tp-barra-fila">
+                            <span class="tp-barra-nom" title="@r.P.Nombre">@r.P.Nombre</span>
+                            <span class="tp-barra tp-barra-meta"><span style="width:@Pct(Math.Clamp(pct, 0, 100))%"></span></span>
+                            <span class="tp-barra-val">@SigWeb.Data.Pie.CumplimientoPie.Formato(r.Datos.Pie.Pct)</span>
+                        </div>
+                    }
+                </div>
+                break;
+
+            case "salud":
+                <ul class="tp-salud">
+                    @foreach (var r in lista)
+                    {
+                        <li>
+                            <span class="tp-punto @(r.Disponible ? "ok" : "mal")"></span>
+                            <span class="tp-alerta-txt"><b>@r.P.Nombre</b><small>@(r.Disponible ? $"Base lista · {r.Miembros} usuario(s) activos" : r.Error)</small></span>
+                            <span class="small text-muted">@r.P.Codigo</span>
+                        </li>
+                    }
+                </ul>
+                break;
+        }
+    };
+}

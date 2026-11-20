@@ -1,0 +1,455 @@
+@page "/costos"
+@rendermode InteractiveServer
+@using SigWeb.Data
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Data.Plantillas
+@using SigWeb.Data.Seguridad
+@inject UsuarioActual UsuarioCostos
+@using SigWeb.Models
+@inject AppDbContext Db
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Costos y presupuestos</PageTitle>
+
+<EncabezadoPagina Titulo="Costos y presupuestos" Icono="costos" OnAtras="Atras">
+    <Acciones>
+        <label class="cp-corte" title="Fecha de corte">
+            <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(corte)" @onchange="CambiarCorte" />
+        </label>
+        <button type="button" class="pg-btn @(s?.PrecioActual == true ? "activo" : "")" title="@(s?.PrecioActual == true ? "Valorizado al precio del año de corte (como el Excel)" : "Valorizado al precio del año de ejecución")" @onclick="CambiarPrecio">
+            <span class="cp-btn-txt">@(s?.PrecioActual == true ? "$ actual" : "$ año")</span>
+        </button>
+        <span class="pg-sep"></span>
+        <span class="pg-vistas">
+            @foreach (var v in Vistas)
+            {
+                <button type="button" class="pg-btn @(vista == v.Clave ? "activo" : "")" title="@v.Titulo" @onclick="() => VerVista(v.Clave)"><Ico Nombre="@v.Icono" /></button>
+            }
+        </span>
+        <span class="pg-sep"></span>
+        <BotonBaseDatos Activo="verBaseDatos" Cantidad="cargasLibro.Count" Detalle="@($"{cargasLibro.Count} carga(s) del libro de costos")" OnClick="() => { verBaseDatos = !verBaseDatos; elimCarga = null; }" />
+        <button type="button" class="pg-btn @(verImportar ? "activo" : "")" title="Importar el libro de costos (Excel)" @onclick="() => { verImportar = !verImportar; plan = null; panelPlantilla = null; }"><Ico Nombre="cargar-excel" /></button>
+        @if (ModuloPlantilla is not null && Actual?.Editando != true)
+        {
+            @if (PuedeDescargarPlantilla)
+            {
+                <button type="button" class="pg-btn @(panelPlantilla == "descargar" ? "activo" : "")" title="Descargar plantilla" @onclick='() => AbrirPlantilla("descargar")'><Ico Nombre="exportar-excel" /></button>
+            }
+            @if (PuedeCargarPlantilla)
+            {
+                <button type="button" class="pg-btn @(panelPlantilla == "cargar" ? "activo" : "")" title="Cargar plantilla" @onclick='() => AbrirPlantilla("cargar")'><Ico Nombre="cargar-excel" /></button>
+            }
+        }
+        @if (Actual?.SelectorExportar is string sel)
+        {
+            <BotonExportar Titulo="@($"Costos - {Vistas.First(x => x.Clave == vista).Titulo}")" Selector="@sel" />
+        }
+        <span class="pg-sep"></span>
+        @if (Actual is { Editando: true } a)
+        {
+            <button type="button" class="pg-btn" title="Cancelar edición" @onclick="() => { a.Cancelar(); StateHasChanged(); }"><Ico Nombre="cancelar" /></button>
+            var pendientesDetalle = a is VistaDetalle detalle ? detalle.Pendientes : 0;
+            @if (a is VistaDetalle)
+            {
+                <AvisoCambios Pendientes="@pendientesDetalle" />
+            }
+            <button type="button" class="pg-btn pg-btn-primario" title="Guardar" disabled="@a.Guardando" @onclick="a.GuardarAsync"><Ico Nombre="guardar" />@(pendientesDetalle > 0 ? $" {pendientesDetalle}" : "")</button>
+        }
+        else if (Actual is { } b)
+        {
+            @if (b.PuedeEditar)
+            {
+                <button type="button" class="pg-btn" title="Editar" @onclick="b.EditarAsync"><Ico Nombre="editar" /></button>
+            }
+            @if (b.PuedeAgregar)
+            {
+                <button type="button" class="pg-btn pg-btn-primario" title="Agregar" @onclick="b.AgregarAsync"><Ico Nombre="agregar" /></button>
+            }
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@if (ModuloPlantilla is string modulo && Actual?.Editando != true &&
+    ((panelPlantilla == "descargar" && PuedeDescargarPlantilla) || (panelPlantilla == "cargar" && PuedeCargarPlantilla)))
+{
+    <PanelPlantillasProyecto @key="(modulo, panelPlantilla)" Modulo="@modulo"
+                             MostrarDescarga='@(panelPlantilla == "descargar")' MostrarCarga='@(panelPlantilla == "cargar")'
+                             PuedeDeshacer="@PuedeDeshacerPlantilla" OnCambio="Recargar" />
+}
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-warning py-1 small">@error <button type="button" class="btn-close btn-sm float-end" @onclick="() => error = null"></button></div>
+}
+@if (!string.IsNullOrEmpty(aviso))
+{
+    <div class="alert alert-success py-1 small">@aviso <button type="button" class="btn-close btn-sm float-end" @onclick="() => aviso = null"></button></div>
+}
+
+@* ---------- Base de datos: cargas del libro (registros de avance por hoja y fecha de importación) ---------- *@
+@if (verBaseDatos)
+{
+    <div class="card panel-formulario mb-3">
+        <div class="card-body">
+            @if (cargasLibro.Count == 0) { <div class="text-muted small">—</div> }
+            else
+            {
+                <div class="tabla-scroll mb-2" style="max-height:280px;">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead><tr><th>Hoja</th><th>Cargado</th><th title="Registros de avance vigentes de esta carga">Reg.</th><th>Fechas</th><th style="width:40px;"></th></tr></thead>
+                        <tbody>
+                            @foreach (var c in cargasLibro)
+                            {
+                                <tr>
+                                    <td>@c.Origen.Replace("Libro: ", "")</td>
+                                    <td>@c.CreadoEn.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="text-end">@c.Registros.ToString("N0")</td>
+                                    <td>@c.Desde.ToString("dd/MM/yyyy") – @c.Hasta.ToString("dd/MM/yyyy")</td>
+                                    <td><button type="button" class="ens-mini" title="Eliminar esta carga (sus registros van a la Papelera)" @onclick="() => elimCarga = c"><Ico Nombre="eliminar" /></button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (elimCarga is { } ec)
+                {
+                    <div class="alert alert-warning py-2 small d-flex align-items-center gap-2 mb-0">
+                        <span>¿Enviar a la Papelera los @ec.Registros.ToString("N0") registros de avance de «@ec.Origen.Replace("Libro: ", "")» cargados el @ec.CreadoEn.ToString("dd/MM/yyyy HH:mm")? El tablero, el valor ganado y el control dejarán de contarlos.</span>
+                        <button type="button" class="btn btn-secondary btn-sm ms-auto" title="Cancelar" @onclick="() => elimCarga = null"><Ico Nombre="cancelar" /></button>
+                        <button type="button" class="btn btn-danger btn-sm" title="Eliminar" disabled="@importando" @onclick="EliminarCargaLibro"><Ico Nombre="eliminar" /></button>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@if (verImportar)
+{
+    <div class="panel-formulario cp-importar">
+        <label class="cp-imp-archivo" title="Elegir el libro (INFORME DIARIO…xlsx)">
+            <Ico Nombre="cargar-excel" />
+            <InputFile class="form-control form-control-sm" accept=".xlsx,.xlsm" OnChange="LeerLibro" disabled="@importando" />
+        </label>
+        @if (importando)
+        {
+            <span class="cp-sub"><span class="spinner-border spinner-border-sm"></span> Leyendo el libro…</span>
+        }
+        @if (plan is { } p)
+        {
+            <div class="cp-imp-res">
+                <div><b>@p.Hojas.Count hojas</b>: @string.Join(" · ", p.Hojas)</div>
+                <div>@p.Items.Count(i => !i.EsCapitulo) ítems · @p.Ajustes.Count ajustes de precio · @p.Codigos.Count códigos · @p.Costos.Count costos · @p.Personas.Count personas · @p.Previstas.Count cantidades por torre · @p.Registros.Count registros de avance (@p.Registros.Count(r => r.Torre != null) por torre) · @p.Actas.Select(a => a.Acta).Distinct().Count() actas · @p.Metas.Count metas por día</div>
+                @if (p.Diferencias.Count > 0)
+                {
+                    <details>
+                        <summary>@p.Diferencias.Count ítem(s) donde DETALLE y Avance diario no cuadran (desde @FormatoCostos.Fecha(p.InicioDetalle)); se toma el DETALLE</summary>
+                        <table class="table table-sm cp-tabla w-auto mb-0">
+                            <thead><tr><th>Ítem</th><th class="cp-num">DETALLE (por torre)</th><th class="cp-num">Avance diario</th><th class="cp-num">Diferencia</th></tr></thead>
+                            <tbody>
+                                @foreach (var d in p.Diferencias)
+                                {
+                                    <tr><td>@d.Item</td><td class="cp-num">@FormatoCostos.Num(d.Detalle, 3)</td><td class="cp-num">@FormatoCostos.Num(d.Avance, 3)</td><td class="cp-num">@FormatoCostos.Num(d.Detalle - d.Avance, 3)</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </details>
+                }
+                @if (p.TorresSinCasar.Count > 0)
+                {
+                    <details><summary>@p.TorresSinCasar.Count torre(s) sin casar con el Trazado (sus filas no se importan)</summary><div>@string.Join(", ", p.TorresSinCasar)</div></details>
+                }
+                @foreach (var a in p.Avisos)
+                {
+                    <div class="cp-sub">@a</div>
+                }
+                <div class="frm-pie frm-pie-plano">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Descartar" @onclick="() => plan = null"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="btn btn-sm btn-primary" title="Importar (lo importado antes del libro va a la Papelera)" data-texto="Importar" disabled="@importando" @onclick="AplicarLibro"><Ico Nombre="guardar" /></button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (s is null)
+{
+    <Esqueleto Tipo="tarjetas" Filas="4" Etiqueta="Cargando costos y presupuestos…" />
+}
+else
+{
+    @switch (vista)
+    {
+        case "tablero":
+            <VistaTablero S="s" Corte="corte" />
+            break;
+        case "seguimiento":
+            <VistaSeguimiento S="s" Corte="corte" />
+            break;
+        case "programa":
+            <VistaPrograma @ref="vPrograma" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "costo-actividad":
+            <VistaCostoActividad @ref="vCostoAct" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "control":
+            <VistaControl @ref="vControl" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "actas":
+            <VistaActas @ref="vActas" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "metas":
+            <VistaMetas @ref="vMetas" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "avance":
+            <VistaAvance @ref="vAvance" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "torres":
+            <VistaDetalle @ref="vDetalleTorres" S="s" Corte="corte" Montaje="false" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "montaje":
+            <VistaDetalle @ref="vDetalleMontaje" S="s" Corte="corte" Montaje="true" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "precios":
+            <VistaPrecios @ref="vPrecios" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "presupuesto":
+            <VistaPresupuesto @ref="vPresupuesto" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "costos":
+            <VistaCostos @ref="vCostos" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "personal":
+            <VistaPersonal @ref="vPersonal" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+        case "ajustes":
+            <VistaAjustes @ref="vAjustes" S="s" Corte="corte" OnCambio="Recargar" OnEstado="StateHasChanged" OnError="MostrarError" />
+            break;
+    }
+}
+
+@code {
+    private sealed record VistaDef(string Clave, string Titulo, string Icono);
+
+    private static readonly VistaDef[] Vistas =
+    {
+        new("tablero", "Tablero (informe)", "tablero"),
+        new("seguimiento", "Seguimiento de meta", "curva-s"),
+        new("avance", "Avance diario (cantidades por torre e ítem)", "seguimiento"),
+        new("torres", "Detalle de torres", "torre"),
+        new("montaje", "Detalle de montaje", "montaje"),
+        new("programa", "PDT (programa de trabajo)", "programa"),
+        new("control", "Control por tiro", "control"),
+        new("precios", "Formulario de precios", "precios"),
+        new("actas", "Actas de facturación", "acta"),
+        new("presupuesto", "Presupuesto", "presupuesto"),
+        new("costos", "Costos (órdenes y gastos)", "costos"),
+        new("personal", "Personal", "personal"),
+        new("costo-actividad", "Costo por actividad", "indicador"),
+        new("metas", "Metas de producción y facturación", "meta"),
+        new("ajustes", "Contrato, indirectos y parámetros", "catalogos"),
+    };
+
+    private InstantaneaCostos? s;
+    private DateTime corte = DateTime.Today;
+    private string vista = "tablero";
+    private string? panelPlantilla;
+    private string? ModuloPlantilla => vista switch
+    {
+        "precios" => PlantillaCostos.Items,
+        "presupuesto" => PlantillaCostos.Presupuesto,
+        "torres" => PlantillaCostos.Previstas,
+        "avance" => PlantillaCostos.Produccion,
+        _ => null
+    };
+
+    private bool PuedeDescargarPlantilla => UsuarioCostos.Puede("costos", Accion.Ver | Accion.Descargar);
+    private bool PuedeCargarPlantilla => !UsuarioCostos.VeComoOtro && UsuarioCostos.Puede("costos", Accion.Ver | Accion.Importar);
+    private bool PuedeDeshacerPlantilla => PuedeCargarPlantilla && UsuarioCostos.Puede("costos", Accion.Eliminar);
+    private void AbrirPlantilla(string modo)
+    {
+        panelPlantilla = panelPlantilla == modo ? null : modo;
+        verImportar = false;
+        plan = null;
+    }
+    private string? error, aviso;
+    private bool verImportar, importando;
+
+    // Base de datos: los registros de avance que trajo cada importación del libro, por hoja y minuto de carga.
+    private sealed record CargaLibro(string Origen, DateTime CreadoEn, int Registros, DateTime Desde, DateTime Hasta);
+    private List<CargaLibro> cargasLibro = new();
+    private CargaLibro? elimCarga;
+    private bool verBaseDatos;
+
+    private static DateTime AlMinuto(DateTime f) => new(f.Year, f.Month, f.Day, f.Hour, f.Minute, 0);
+
+    private async Task CargarCargasLibroAsync()
+    {
+        var filas = await Db.RegistrosCantidad.AsNoTracking()
+            .Where(r => r.Origen != null && r.Origen.StartsWith("Libro:"))
+            .Select(r => new { r.Origen, r.CreadoEn, r.Fecha }).ToListAsync();
+        cargasLibro = filas.GroupBy(r => (r.Origen!, AlMinuto(r.CreadoEn)))
+            .Select(g => new CargaLibro(g.Key.Item1, g.Key.Item2, g.Count(), g.Min(x => x.Fecha), g.Max(x => x.Fecha)))
+            .OrderByDescending(c => c.CreadoEn).ThenBy(c => c.Origen).ToList();
+    }
+
+    private async Task EliminarCargaLibro()
+    {
+        if (elimCarga is not { } c) return;
+        importando = true;
+        try
+        {
+            var hasta = c.CreadoEn.AddMinutes(1);
+            var ahora = DateTime.Now;
+            var regs = await Db.RegistrosCantidad.Where(r => r.Origen == c.Origen && r.CreadoEn >= c.CreadoEn && r.CreadoEn < hasta).ToListAsync();
+            foreach (var r in regs) { r.Eliminado = true; r.FechaEliminacion = ahora; }
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            aviso = $"{regs.Count} registros enviados a la Papelera.";
+            elimCarga = null;
+            await Recargar();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); error = "No se pudo eliminar la carga: " + (ex.InnerException?.Message ?? ex.Message); }
+        finally { importando = false; }
+    }
+    private PlanImportacionCostos? plan;
+
+    private VistaAvance? vAvance;
+    private VistaDetalle? vDetalleTorres, vDetalleMontaje;
+    private VistaPrecios? vPrecios;
+    private VistaPresupuesto? vPresupuesto;
+    private VistaCostos? vCostos;
+    private VistaPersonal? vPersonal;
+    private VistaAjustes? vAjustes;
+    private VistaControl? vControl;
+    private VistaActas? vActas;
+    private VistaMetas? vMetas;
+    private VistaPrograma? vPrograma;
+    private VistaCostoActividad? vCostoAct;
+
+    private IVistaCostos? Actual => vista switch
+    {
+        "avance" => vAvance,
+        "torres" => vDetalleTorres,
+        "montaje" => vDetalleMontaje,
+        "precios" => vPrecios,
+        "presupuesto" => vPresupuesto,
+        "costos" => vCostos,
+        "personal" => vPersonal,
+        "ajustes" => vAjustes,
+        "control" => vControl,
+        "actas" => vActas,
+        "metas" => vMetas,
+        "programa" => vPrograma,
+        "costo-actividad" => vCostoAct,
+        _ => null
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+        // Estado de las torres vive en Avance de obra desde el 2026-11-19 (los vínculos viejos llevan allá).
+        if (q.TryGetValue("vista", out var ve) && ve.ToString() == "estado") { Nav.NavigateTo("avance-obra?vista=estado", replace: true); return; }
+        if (q.TryGetValue("vista", out var v) && Vistas.Any(x => x.Clave == v.ToString())) vista = v.ToString();
+        Nav.LocationChanged += AlCambiarDireccion;
+        await Recargar();
+    }
+
+    // El menú lateral tiene un vínculo por vista (costos?vista=…): estando en la página, Blazor no la vuelve a crear.
+    private void AlCambiarDireccion(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        var uri = new Uri(e.Location);
+        if (!uri.AbsolutePath.TrimEnd('/').EndsWith("/costos", StringComparison.OrdinalIgnoreCase)) return;
+        var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        var v = q.TryGetValue("vista", out var x) && Vistas.Any(d => d.Clave == x.ToString()) ? x.ToString() : "tablero";
+        if (v == vista) return;
+        _ = InvokeAsync(() =>
+        {
+            if (Actual is { Editando: true } a) a.Cancelar();
+            vista = v;
+            panelPlantilla = null;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => Nav.LocationChanged -= AlCambiarDireccion;
+
+    private async Task Recargar()
+    {
+        try
+        {
+            var precioActual = s?.PrecioActual;
+            s = await InstantaneaCostos.CargarAsync(Db);
+            if (precioActual is bool pa) s.PrecioActual = pa;
+            await CargarCargasLibroAsync();
+        }
+        catch (Exception ex) { error = "No se pudieron cargar los datos: " + ex.Message; }
+    }
+
+    private void VerVista(string v)
+    {
+        if (Actual is { Editando: true } a) a.Cancelar();
+        vista = v;
+        panelPlantilla = null;
+        Nav.NavigateTo($"costos?vista={v}", replace: true);
+    }
+
+    private void CambiarCorte(ChangeEventArgs e)
+    {
+        if (DateTime.TryParse(e.Value?.ToString(), out var f)) corte = f.Date;
+    }
+
+    private void CambiarPrecio()
+    {
+        if (s is not null) s.PrecioActual = !s.PrecioActual;
+    }
+
+    private void MostrarError(string m) => error = m;
+
+    // Vuelve a la vista anterior de la página y, si no hay, a la pantalla anterior.
+    private readonly PilaVistas pila = new();
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await pila.CargarAsync(JS, "costos");
+        pila.Observar(vista);
+        await pila.GuardarAsync(JS, "costos", "/costos");
+    }
+
+    private async Task Atras()
+    {
+        if (pila.Volver(vista) is { } previa && Vistas.Any(x => x.Clave == previa)) { VerVista(previa); return; }
+        await JS.VolverAsync();
+    }
+
+    private async Task LeerLibro(InputFileChangeEventArgs e)
+    {
+        importando = true; error = null; plan = null;
+        try
+        {
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(60 * 1024 * 1024).CopyToAsync(ms);
+            ms.Position = 0;
+            plan = ImportadorLibroCostos.Analizar(Db, ms);
+        }
+        catch (Exception ex) { error = "No se pudo leer el libro: " + ex.Message; }
+        finally { importando = false; }
+    }
+
+    private async Task AplicarLibro()
+    {
+        if (plan is null) return;
+        importando = true;
+        try
+        {
+            await ImportadorLibroCostos.AplicarAsync(Db, plan);
+            aviso = $"Libro importado: {plan.Registros.Count} registros de avance, {plan.Costos.Count} costos, {plan.Personas.Count} personas.";
+            plan = null; verImportar = false;
+            await Recargar();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); error = "No se pudo importar: " + (ex.InnerException?.Message ?? ex.Message); }
+        finally { importando = false; }
+    }
+}

@@ -1,0 +1,132 @@
+/* Vistas configurables de un registro (Plan por plan de Planes de acción). Clases vr-*.
+   La rejilla y el arrastre son los del panel de Inicio (pw-* en css/inicio.css). */
+.vr-det { min-width: 0; }
+.vr-barra { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.vr-sel-et { font-size: .75rem; font-weight: 700; color: var(--frm-texto-2, var(--bs-secondary-color)); margin: 0; }
+.vr-sel { width: auto; min-width: 200px; max-width: 320px; }
+.vr-dis-tit { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--frm-ac, #EC1C24); }
+.vr-nombre { max-width: 280px; }
+.ind-det > .vr-barra { justify-content: flex-end; margin: -4px 0 6px; }
+.ind-det > .vr-barra .vr-sel { min-width: 160px; }
+
+.vr-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+.vr-cuerpo.vr-disenando { grid-template-columns: minmax(0, 1fr) 290px; }
+@media (max-width: 1100px) { .vr-cuerpo.vr-disenando { grid-template-columns: minmax(0, 1fr); } }
+.vr-panel { min-height: 120px; }
+.vr-w { display: flex; }
+.vr-tarjeta { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden;
+    background: var(--frm-sup, var(--bs-body-bg)); border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 12px; }
+.vr-tit { font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--frm-texto-2, var(--bs-secondary-color)); padding: 9px 12px 4px; }
+.vr-contenido { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 4px 12px 10px; }
+.vr-t-kpi > .vr-contenido, .vr-t-encabezado > .vr-contenido { padding: 0; overflow: hidden; }
+.vr-t-kpi, .vr-t-encabezado { background: transparent; border: 0; }
+.vr-kpi { height: 100%; box-sizing: border-box; }
+.vr-kpi-texto { font-size: 1.15rem !important; }
+.vr-encabezado { height: 100%; align-items: flex-start; }
+.vr-sel-w > .vr-tarjeta { outline: 2px solid var(--frm-ac, #EC1C24); outline-offset: 2px; }
+.pw-editando .vr-w { cursor: grab; }
+.vr-nota { white-space: pre-wrap; font-size: .88rem; }
+
+/* Pasos con sus campos: rejilla de 12 columnas con el ancho de cada campo en el formulario */
+.vr-paso + .vr-paso { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--frm-borde, var(--bs-border-color)); }
+.vr-paso-tit { font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--frm-ac, #EC1C24); margin-bottom: 6px; }
+.vr-campos { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px 14px; margin: 0; }
+.vr-campo { grid-column: span var(--vw, 6); min-width: 0; }
+.vr-campo dt { font-size: .7rem; font-weight: 700; color: var(--frm-texto-2, var(--bs-secondary-color)); }
+.vr-campo dd { margin: 0; font-size: .88rem; overflow-wrap: anywhere; }
+@container (max-width: 520px) { .vr-campo { grid-column: 1 / -1; } }
+.vr-contenido { container-type: inline-size; }
+
+/* Adjuntos con ícono por tipo de archivo */
+.vr-carpeta + .vr-carpeta { margin-top: 8px; }
+.vr-carpeta-tit { display: flex; align-items: center; gap: 5px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--frm-texto-2, var(--bs-secondary-color)); margin-bottom: 3px; }
+.vr-archivo { display: flex; align-items: center; gap: 7px; padding: 3px 4px; border-radius: 6px; font-size: .84rem; text-decoration: none; min-width: 0; }
+.vr-archivo:hover { background: var(--frm-sup-2, var(--bs-tertiary-bg)); }
+.vr-archivo > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vr-ext { flex: 0 0 auto; min-width: 30px; text-align: center; font-size: .58rem; font-weight: 800; letter-spacing: .02em; padding: 2px 3px; border-radius: 4px; color: #fff; background: #6b7686; }
+.vr-ext-pdf { background: #d93025; } .vr-ext-xls { background: #1e7e45; } .vr-ext-doc { background: #2a5bd7; }
+.vr-ext-ppt { background: #d24726; } .vr-ext-img { background: #8e44ad; } .vr-ext-cad { background: #c0392b; }
+.vr-ext-zip { background: #7f6a00; } .vr-ext-vid { background: #00838f; }
+.vr-tabla { font-size: .82rem; }
+.vr-tabla th { font-size: .7rem; text-transform: uppercase; color: var(--frm-texto-2, var(--bs-secondary-color)); }
+
+/* Paleta del modo diseño */
+.vr-paleta { position: sticky; top: 8px; padding: 12px; border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 12px; background: var(--frm-sup, var(--bs-body-bg)); max-height: calc(100vh - 120px); overflow: auto; }
+.vr-paleta h6 { font-weight: 700; margin: 0 0 8px; }
+.vr-props { display: flex; flex-direction: column; gap: 6px; padding-bottom: 8px; border-bottom: 1px dashed var(--frm-borde, var(--bs-border-color)); }
+.vr-lista-widgets { display: flex; flex-direction: column; gap: 4px; }
+.vr-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 1px solid var(--frm-borde, var(--bs-border-color)); background: none; border-radius: 9px; padding: 6px 8px; color: var(--frm-texto, var(--bs-body-color)); }
+.vr-item:hover { border-color: var(--frm-ac, #EC1C24); background: var(--frm-sup-2, var(--bs-tertiary-bg)); }
+.vr-item-ico { flex: 0 0 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; background: var(--frm-sup-2, var(--bs-tertiary-bg)); }
+.vr-item-txt { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.vr-item-txt > span { font-size: .82rem; font-weight: 600; }
+.vr-item-txt > small { font-size: .68rem; color: var(--frm-texto-2, var(--bs-secondary-color)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Diseño de una vista: el encabezado solo deja pantalla completa. */
+body:has(.vr-disenando) .pg-tabla-cfg { display: none !important; }
+
+/* Selector de vista del detalle en el encabezado (grupo aparte junto a los botones de vista). */
+.pg-vistas-reg { margin-left: .35rem; }
+.pg-cab .pg-vista-sel {
+    appearance: none; -webkit-appearance: none; justify-content: flex-start; text-align: left;
+    max-width: 210px; min-width: 150px; padding: 0 30px 0 12px; overflow: hidden; text-overflow: ellipsis;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-opacity='.75' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e");
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
+}
+.pg-cab .pg-vista-sel option { color: #1f2a3a; background: #fff; }
+html:is([data-tema="calido"],[data-tema="empresarial"],[data-tema="pastel"]) .pg-cab .pg-vista-sel {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23333333' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e");
+}
+
+/* Listado de vistas (Configuración › Editor › Vistas): tabla con el estilo de las listas, en todos los temas. */
+.gv-marco { border: 1px solid var(--t-borde, var(--bs-border-color)); border-radius: 12px; overflow: hidden; background: var(--t-superficie, var(--bs-body-bg)); }
+.gv-tabla { --bs-table-bg: transparent; color: var(--t-texto, var(--bs-body-color)); }
+.gv-tabla thead th {
+    font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--t-texto-2, var(--bs-secondary-color));
+    background: var(--t-solido-2, var(--t-superficie-2, var(--bs-tertiary-bg))); border-bottom: 2px solid var(--t-acento, var(--sig-rojo, #EC1C24));
+    padding: .6rem .75rem; white-space: nowrap;
+}
+.gv-tabla td { padding: .5rem .75rem; border-color: var(--t-borde, var(--bs-border-color)); color: inherit; }
+.gv-tabla tbody tr:hover td { background: color-mix(in srgb, var(--t-acento, #EC1C24) 6%, transparent); }
+.gv-clasica td { background: color-mix(in srgb, currentColor 3%, transparent); }
+.gv-nom { display: inline-flex; align-items: center; gap: .6rem; min-width: 0; }
+.gv-nom > span:last-child { display: flex; flex-direction: column; line-height: 1.2; }
+.gv-nom small { color: var(--t-texto-2, var(--bs-secondary-color)); font-size: .74rem; }
+.gv-ico { flex: 0 0 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: color-mix(in srgb, currentColor 8%, transparent); }
+.gv-link { cursor: pointer; }
+.gv-link:hover { color: var(--t-acento, var(--sig-rojo, #EC1C24)); text-decoration: underline; }
+.gv-chip { display: inline-block; padding: .12rem .55rem; border-radius: 999px; font-size: .72rem; font-weight: 600; background: color-mix(in srgb, var(--bs-success) 18%, transparent); color: var(--bs-success); }
+.gv-acc { display: inline-flex; gap: 2px; }
+.gv-btn { border: 0; background: transparent; color: inherit; opacity: .7; padding: .25rem .45rem; }
+.gv-btn:hover:not(:disabled) { opacity: 1; background: color-mix(in srgb, currentColor 10%, transparent); }
+.gv-btn:disabled { opacity: .25; }
+.gv-btn-peligro:hover:not(:disabled) { color: var(--bs-danger); background: color-mix(in srgb, var(--bs-danger) 12%, transparent); }
+.gv-nom.frm-linea { display: flex; gap: 4px; }
+
+/* Widget nota: texto propio de cada plan, editable en la vista. */
+.vr-nota { position: relative; white-space: pre-line; padding-right: 30px; }
+.vr-nota-vacia { color: var(--t-texto-2, var(--bs-secondary-color)); font-style: italic; }
+.vr-nota-editar { position: absolute; top: 0; right: 0; opacity: .55; }
+.vr-nota:hover .vr-nota-editar, .vr-nota-editar:focus-visible { opacity: 1; }
+.vr-nota-edicion { display: flex; flex-direction: column; gap: 4px; padding-right: 0; }
+.vr-nota-acc { display: flex; justify-content: flex-end; gap: 4px; }
+
+/* Selector de vista en las pantallas principales con VistaWidgets (Costos de no calidad, Riesgos, Indicadores). */
+.vw-selector { display: flex; justify-content: flex-end; align-items: center; gap: .35rem; margin: 0 0 .5rem; }
+.vw-selector .form-select { width: auto; max-width: 280px; }
+.vw-cuerpo .vr-contenido { overflow: auto; }
+.vw-kpi { display: flex; flex-direction: column; justify-content: center; height: 100%; padding: .2rem .4rem; }
+.vw-kpi small { font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--t-texto-2, #6b7686); }
+.vw-kpi b { font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--t-texto, #1f2a3a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vw-kpi span { font-size: .75rem; color: var(--t-texto-2, #6b7686); }
+.vw-kpi.vw-rojo b { color: #d93636; } .vw-kpi.vw-ambar b { color: #c98200; } .vw-kpi.vw-verde b { color: #1f9254; }
+.vw-barras { display: flex; flex-direction: column; gap: .35rem; font-size: .8rem; }
+.vw-barra { display: grid; grid-template-columns: minmax(80px, 38%) 1fr auto; align-items: center; gap: .5rem; cursor: default; }
+.vw-barra-pista { height: 8px; border-radius: 999px; background: var(--t-superficie-2, #eef1f5); overflow: hidden; }
+.vw-barra-pista > span { display: block; height: 100%; border-radius: 999px; }
+.vw-barra-et { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-marco.rm-solo { grid-template-columns: 1fr; height: 100%; }
+
+/* Indicadores: lista o detalle solos dentro de un widget (sin la columna de 290 px de .ind-foco) */
+.ind-foco.vw-ind-solo { grid-template-columns: minmax(0, 1fr); height: 100%; overflow: auto; }
+.ind-foco.vw-ind-solo > * { position: static; max-height: none; }

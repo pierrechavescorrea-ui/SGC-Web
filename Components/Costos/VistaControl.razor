@@ -1,0 +1,294 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.AvanceObra
+@using SigWeb.Data.Costos
+@using SigWeb.Data.Pie
+@using SigWeb.Models
+@inject IServiceScopeFactory Scopes
+@inject IWebHostEnvironment Env
+
+@* Control por tiro (hoja C. CONTROL) en una sola matriz: cada tiro es un grupo plegable con sus torres.
+   Por torre: estado (calculado de las cantidades o manual con fecha), avance FÍSICO de Avance de obra por
+   grupo (obra civil, puesta a tierra, montaje y total ponderado, a la fecha de corte), cumplimiento de la
+   Matriz PIE (estado de hoy, con pendientes), avance por CANTIDADES de Costos (obra civil y montaje) y valor
+   producido. Arriba, un mapa de tiros (ancho ∝ torres, color = estados) que filtra la matriz. *@
+
+<div class="cp-kpis cp-kpis-ctl">
+    @foreach (var (clase, nombre) in Clases)
+    {
+        var n = filas.Count(f => f.Est.Clase == clase);
+        <button type="button" class="cp-kpi cp-kpi-btn @(filtroEstado == clase ? "activo" : "")" @onclick="() => filtroEstado = filtroEstado == clase ? null : clase">
+            <span class="cp-kpi-tit"><i class="cp-punto cp-est-@clase"></i>@nombre</span>
+            <span class="cp-kpi-val">@n</span>
+            <span class="cp-kpi-sub">@FormatoCostos.Pct(filas.Count > 0 ? (decimal)n / filas.Count : null, 0) de @filas.Count torres</span>
+        </button>
+    }
+    <div class="cp-kpi"><span class="cp-kpi-tit">Avance de obra</span><span class="cp-kpi-val">@FormatoCostos.Pct(Prom(filas.Select(f => f.Obra.Total)), 1)</span><span class="cp-kpi-sub">ponderado F-054 · al corte</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit">Cumplimiento PIE</span><span class="cp-kpi-val">@FormatoCostos.Pct(Prom(filas.Select(f => f.Pie)), 1)</span><span class="cp-kpi-sub">@filas.Sum(f => f.PiePend) registros pendientes · hoy</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit">Producido en torres</span><span class="cp-kpi-val">@FormatoCostos.Millones(filas.Sum(f => f.Valor))</span><span class="cp-kpi-sub">de @FormatoCostos.Millones(filas.Sum(f => f.ValorPrevisto)) previsto</span></div>
+</div>
+
+@if (grupos.Count > 0)
+{
+    <div class="cp-mapa-tiros" title="Ancho = n.º de torres; color = estado">
+        @foreach (var g in grupos)
+        {
+            var n = g.Filas.Count;
+            <button type="button" class="cp-mt @(filtroTiro == g.Clave ? "activo" : "")" style="flex:@n 1 0" title="@g.Nombre · @n torres" @onclick="() => filtroTiro = filtroTiro == g.Clave ? null : g.Clave">
+                <span class="cp-mt-barra">
+                    @foreach (var (clase, _) in Clases)
+                    {
+                        var k = g.Filas.Count(f => f.Est.Clase == clase);
+                        if (k > 0) { <i class="cp-est-@clase" style="flex:@k 1 0"></i> }
+                    }
+                </span>
+                <span class="cp-mt-nom">@g.Corto</span>
+            </button>
+        }
+    </div>
+}
+
+<div class="cp-filtros">
+    <input class="form-control form-control-sm" style="max-width:180px" placeholder="Buscar torre…" @bind="buscar" @bind:event="oninput" />
+    @if (filtroTiro is not null || filtroEstado is not null || buscar != "")
+    {
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Quitar filtros" @onclick="() => { filtroTiro = null; filtroEstado = null; buscar = string.Empty; }"><Ico Nombre="cancelar" /></button>
+    }
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="@(plegados.Count > 0 ? "Desplegar todos" : "Plegar todos")" @onclick="PlegarTodos"><Ico Nombre="@(plegados.Count > 0 ? "bajar" : "subir")" /></button>
+    @if (cargando) { <span class="spinner-border spinner-border-sm"></span><span class="cp-sub">avance de obra y PIE…</span> }
+    else if (aviso is not null) { <span class="cp-sub">@aviso</span> }
+    <span class="cp-sub ms-auto">Avance de obra y cantidades al @FormatoCostos.Fecha(Corte) · PIE: estado actual</span>
+</div>
+
+<div class="tabla-scroll tabla-auto cp-marco">
+    <table class="table table-sm cp-tabla cp-control">
+        <thead class="tabla-pin">
+            <tr class="cp-th-grupo">
+                <th class="cp-fija" rowspan="2">Tiro / torre</th><th rowspan="2">Estado</th>
+                <th colspan="4" class="cp-th-sec">Avance de obra (físico)</th>
+                <th colspan="2" class="cp-th-sec">Matriz PIE</th>
+                <th colspan="2" class="cp-th-sec">Cantidades (Costos)</th>
+                <th colspan="2" class="cp-th-sec">Producción</th>
+            </tr>
+            <tr>
+                <th class="cp-num">Obra civil</th><th class="cp-num">Puesta a tierra</th><th class="cp-num">Montaje</th><th class="cp-num">Total</th>
+                <th class="cp-num">Cumplimiento</th><th class="cp-num" title="Registros que aplican y no están al 100 %">Pend.</th>
+                <th class="cp-num">Obra civil</th><th class="cp-num">Montaje</th>
+                <th class="cp-num">Valor</th><th class="cp-num" title="Valor producido / valor previsto de la torre">% del previsto</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var g in grupos.Where(g => filtroTiro is null || g.Clave == filtroTiro))
+            {
+                var vis = g.Filas.Where(Visible).ToList();
+                if (vis.Count == 0) { continue; }
+                var plegado = plegados.Contains(g.Clave);
+                <tr class="cp-tiro-fila" @onclick="() => Plegar(g.Clave)">
+                    <td class="cp-fija"><span class="cp-plegar">@(plegado ? "▸" : "▾")</span> <b>@g.Nombre</b> <span class="cp-sub">@g.Filas.Count torres</span></td>
+                    <td>
+                        <span class="cp-mini-estados">
+                            @foreach (var (clase, _) in Clases)
+                            {
+                                var k = g.Filas.Count(f => f.Est.Clase == clase);
+                                if (k > 0) { <i class="cp-est-@clase" style="flex:@k 1 0" title="@k"></i> }
+                            }
+                        </span>
+                    </td>
+                    @Pct(Prom(g.Filas.Select(f => f.Obra.Civil)))
+                    @Pct(Prom(g.Filas.Select(f => f.Obra.Spt)))
+                    @Pct(Prom(g.Filas.Select(f => f.Obra.Montaje)))
+                    @Pct(Prom(g.Filas.Select(f => f.Obra.Total)), true)
+                    @Pct(Prom(g.Filas.Select(f => f.Pie)), true)
+                    <td class="cp-num">@Cero(g.Filas.Sum(f => f.PiePend))</td>
+                    @Pct(Pond(g.Filas, f => f.CantCivil, f => f.PesoCivil))
+                    @Pct(Pond(g.Filas, f => f.CantMontaje, f => f.PesoMontaje))
+                    <td class="cp-num">@FormatoCostos.Millones(g.Filas.Sum(f => f.Valor))</td>
+                    @Pct(g.Filas.Sum(f => f.ValorPrevisto) > 0 ? g.Filas.Sum(f => f.Valor) / g.Filas.Sum(f => f.ValorPrevisto) : null)
+                </tr>
+                @if (!plegado)
+                {
+                    @foreach (var f in vis)
+                    {
+                        <tr>
+                            <td class="cp-fija cp-torre-nom"><a href="trazado?torre=@f.Torre.Id" title="Hoja de vida">@S.NombreTorre(f.Torre.Id)</a></td>
+                            <td>
+                                @if (Editando)
+                                {
+                                    var m = manual[f.Torre.Id];
+                                    <div class="d-flex gap-1">
+                                        <input class="form-control form-control-sm cp-in-estado" placeholder="@f.Est.Estado" @bind="m.Estado" title="Estado manual (vacío = calculado)" />
+                                        <input type="date" class="form-control form-control-sm cp-in-fecha" value="@FormatoCostos.Iso(m.Desde)" @onchange="x => m.Desde = Fec(x.Value) ?? m.Desde" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="cp-estado cp-est-@f.Est.Clase">@f.Est.Estado</span>
+                                }
+                            </td>
+                            @Pct(f.Obra.Civil)
+                            @Pct(f.Obra.Spt)
+                            @Pct(f.Obra.Montaje)
+                            @Pct(f.Obra.Total, true)
+                            @Pct(f.Pie, true)
+                            <td class="cp-num">@Cero(f.PiePend)</td>
+                            @Pct(f.CantCivil)
+                            @Pct(f.CantMontaje)
+                            <td class="cp-num">@(f.Valor != 0 ? FormatoCostos.Millones(f.Valor) : "")</td>
+                            @Pct(f.ValorPrevisto > 0 ? f.Valor / f.ValorPrevisto : null)
+                        </tr>
+                    }
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private sealed record Grupo(string Clave, string Nombre, string Corto, List<Fila> Filas);
+    private sealed record Obra(decimal? Civil, decimal? Spt, decimal? Montaje, decimal? Total, InstantaneaCostos.ObraTorre? Estado = null);
+    private sealed record Fila(ElementoTrazado Torre, InstantaneaCostos.EstadoTorre Est, Obra Obra, decimal? Pie, int PiePend,
+        decimal? CantCivil, decimal PesoCivil, decimal? CantMontaje, decimal PesoMontaje, decimal Valor, decimal ValorPrevisto);
+    private sealed class Manual { public string? Estado; public DateTime Desde; public string? Original; }
+
+    private static readonly (string, string)[] Clases =
+    {
+        ("montada", "Montadas"), ("montaje", "En montaje"), ("obra", "Obra civil"), ("manual", "Estado manual"), ("sin", "Sin iniciar")
+    };
+
+    private List<Fila> filas = new();
+    private List<Grupo> grupos = new();
+    private Dictionary<int, Manual> manual = new();
+    private HashSet<string> plegados = new();
+    private string? filtroTiro, filtroEstado, aviso;
+    private string buscar = "";
+    private bool cargando;
+
+    // Avance de obra y PIE: se leen con su propio contexto (fuera del render) y se guardan por torre.
+    private Dictionary<int, Obra> obraPorTorre = new();
+    private Dictionary<int, CumplimientoPie.TorrePie> piePorTorre = new();
+    private DateTime? corteObra;
+
+    public override bool PuedeAgregar => false;
+
+    private bool Visible(Fila f) =>
+        (filtroEstado is null || f.Est.Clase == filtroEstado)
+        && (buscar.Trim() == "" || S.NombreTorre(f.Torre.Id).Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!DatosNuevos()) return;
+        Armar();                                   // con lo que haya (rápido), luego avance de obra y PIE
+        cargando = true;
+        StateHasChanged();
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var corte = Corte;
+            var (obra, pie) = await Task.Run(() =>
+            {
+                var av = ServicioAvanceObra.Cargar(db, Env.WebRootPath);
+                var o = av.Torres.ToDictionary(t => t.Id, t => new Obra(
+                    Frac(av.PctGrupo(t, "Obra civil", corte)), Frac(av.PctGrupo(t, "SPT", corte)),
+                    Frac(av.PctGrupo(t, "Montaje", corte)), Frac(av.PctTorre(t, corte)),
+                    new InstantaneaCostos.ObraTorre(Frac(av.PctGrupo(t, "Obra civil", corte)), Frac(av.PctMontajeEstructura(t, corte)),
+                        av.Iniciada(t, "Obra civil", corte) || av.Iniciada(t, "SPT", corte), av.Iniciada(t, "Montaje", corte))));
+                var p = CumplimientoPie.PorTorre(db).Where(x => x.ElementoTrazadoId is not null)
+                    .GroupBy(x => x.ElementoTrazadoId!.Value).ToDictionary(g => g.Key, g => g.First());
+                return (o, p);
+            });
+            obraPorTorre = obra; piePorTorre = pie; corteObra = corte; aviso = null;
+        }
+        catch (Exception ex) { aviso = "No se pudo leer el avance de obra o el PIE: " + ex.Message; }
+        finally { cargando = false; }
+        Armar();
+    }
+
+    private static decimal? Frac(decimal? pct) => pct is decimal p ? p / 100m : null;
+
+    private void Armar()
+    {
+        var celdas = S.Detalle(Corte);
+        var porTorre = celdas.GroupBy(c => c.TorreId).ToDictionary(g => g.Key, g => g.ToList());
+        var anio = S.AnioValor(Corte, Corte);
+        var valorPorTorre = S.RegistrosHasta(Corte).Where(r => r.ElementoTrazadoId is not null)
+            .GroupBy(r => r.ElementoTrazadoId!.Value).ToDictionary(g => g.Key, g => g.Sum(r => S.Valor(r, Corte)));
+        filas = S.Torres.Select(t =>
+        {
+            var cs = porTorre.GetValueOrDefault(t.Id) ?? new();
+            var mont = cs.Where(c => S.ItemPorId.TryGetValue(c.ItemId, out var it) && InstantaneaCostos.EsMontaje(it)).ToList();
+            var civil = cs.Except(mont).ToList();
+            decimal Previsto(IEnumerable<InstantaneaCostos.CeldaDetalle> l) => l.Sum(c => S.ItemPorId.TryGetValue(c.ItemId, out var it) ? c.Prevista * S.PrecioConAiu(it, anio) : 0);
+            var valor = valorPorTorre.GetValueOrDefault(t.Id);
+            var pie = piePorTorre.GetValueOrDefault(t.Id);
+            var obra = obraPorTorre.GetValueOrDefault(t.Id) ?? new Obra(null, null, null, null);
+            return new Fila(t, S.Estado(t.Id, Corte, celdas, obra.Estado), obra,
+                pie?.Pct is decimal pp ? pp / 100m : null, pie?.Pendientes ?? 0,
+                civil.Count > 0 ? S.PctTorre(civil, Corte) : null, Previsto(civil),
+                mont.Count > 0 ? S.PctTorre(mont, Corte) : null, Previsto(mont),
+                valor, Previsto(cs));
+        }).ToList();
+
+        var tiros = S.Tiros.ToDictionary(x => x.Id);
+        grupos = filas.GroupBy(f => f.Torre.TiroId is int id && tiros.ContainsKey(id) ? id : (int?)null)
+            .Select(g =>
+            {
+                var nombre = g.Key is int id ? tiros[id].Nombre : "Sin tiro";
+                var corto = g.Key is int id2 && System.Text.RegularExpressions.Regex.Match(tiros[id2].Nombre, @"\d+") is { Success: true } m ? "T" + m.Value : nombre;
+                return (Orden: g.Key is int i ? tiros[i].Orden : int.MaxValue, G: new Grupo(g.Key?.ToString() ?? "-", nombre, corto, g.ToList()));
+            })
+            .OrderBy(x => x.Orden).ThenBy(x => x.G.Nombre).Select(x => x.G).ToList();
+    }
+
+    private void Plegar(string clave) { if (!plegados.Remove(clave)) plegados.Add(clave); }
+    private void PlegarTodos() { if (plegados.Count > 0) plegados.Clear(); else plegados = grupos.Select(g => g.Clave).ToHashSet(); }
+
+    private static decimal? Prom(IEnumerable<decimal?> l) { var v = l.Where(x => x is not null).Select(x => x!.Value).ToList(); return v.Count == 0 ? null : v.Average(); }
+    private static decimal? Pond(IEnumerable<Fila> l, Func<Fila, decimal?> pct, Func<Fila, decimal> peso)
+    {
+        decimal n = 0, d = 0;
+        foreach (var f in l) if (pct(f) is decimal p && peso(f) > 0) { n += p * peso(f); d += peso(f); }
+        return d > 0 ? n / d : null;
+    }
+    private static string Cero(int n) => n == 0 ? "" : n.ToString();
+
+    // Celda de % con barra (100 % = verde completo); vacía si no aplica.
+    private RenderFragment Pct(decimal? v, bool fuerte = false) => __b =>
+    {
+        __b.OpenElement(0, "td");
+        __b.AddAttribute(1, "class", "cp-num cp-celda-pct" + (fuerte ? " fuerte" : ""));
+        if (v is decimal p)
+        {
+            __b.OpenElement(2, "span");
+            __b.AddAttribute(3, "class", "cp-pct-barra" + (p >= 0.999m ? " lleno" : ""));
+            __b.AddAttribute(4, "style", $"--p:{(int)Math.Round(Math.Clamp(p, 0, 1) * 100)}%");
+            __b.AddContent(5, FormatoCostos.Pct(p, 0));
+            __b.CloseElement();
+        }
+        __b.CloseElement();
+    };
+
+    public override Task EditarAsync()
+    {
+        manual = S.Torres.ToDictionary(t => t.Id, t =>
+        {
+            var m = S.EstadosManuales.Where(e => e.ElementoTrazadoId == t.Id).OrderByDescending(e => e.Desde).ThenByDescending(e => e.Id).FirstOrDefault();
+            return new Manual { Estado = m?.Estado, Desde = m?.Desde ?? Corte.Date, Original = m?.Estado };
+        });
+        return base.EditarAsync();
+    }
+
+    // Cada cambio agrega un estado con su fecha (historial); vacío = vuelve al calculado desde esa fecha.
+    protected override async Task GuardarCambiosAsync()
+    {
+        foreach (var (id, m) in manual)
+        {
+            var nuevo = (m.Estado ?? "").Trim().ToUpperInvariant();
+            if (nuevo == (m.Original ?? "").Trim().ToUpperInvariant()) continue;
+            Db.EstadosTorreManual.Add(new EstadoTorreManual { ElementoTrazadoId = id, Estado = nuevo, Desde = m.Desde.Date });
+        }
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+    }
+}

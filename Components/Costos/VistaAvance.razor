@@ -1,0 +1,282 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Avance diario por cantidades: cada registro = fecha × ítem × lugar (torre, pata, tiro o global) ×
+   cantidad × cuadrilla. El valor sale del formulario de precios; el % de la torre, de la cantidad
+   prevista (Detalle de torres). Borrar = Papelera. *@
+
+<div class="cp-filtros">
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="Día anterior con registros" @onclick="() => Mover(-1)">‹</button>
+    <input type="date" class="form-control form-control-sm" style="width:150px" value="@FormatoCostos.Iso(dia)" @onchange="CambiarDia" disabled="@todoRango" />
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="Día siguiente con registros" @onclick="() => Mover(1)">›</button>
+    <label class="cp-check"><input type="checkbox" @bind="todoRango" @bind:after="Avisar" /> Hasta el corte</label>
+    <input class="form-control form-control-sm" style="max-width:220px" placeholder="Buscar ítem, torre, cuadrilla…" @bind="buscar" @bind:event="oninput" />
+    <select class="form-select form-select-sm" style="max-width:180px" @bind="cuadrilla">
+        <option value="">Todas las cuadrillas</option>
+        @foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }
+    </select>
+    <span class="cp-sub ms-auto">@Filas.Count() registro(s) · @FormatoCostos.Dinero(Filas.Sum(f => f.Valor))</span>
+</div>
+
+<div class="tabla-scroll tabla-auto cp-marco">
+    <table class="table table-sm cp-tabla cp-avance">
+        <thead class="tabla-pin">
+            <tr>
+                <th class="cp-fija">Fecha</th><th>Ítem</th><th>Descripción del ítem</th><th>Und</th><th>Torre / tiro</th><th>Pata</th>
+                <th class="cp-num">Cantidad</th><th class="cp-num">Prevista torre</th><th class="cp-num">Acum. torre</th><th class="cp-num">%</th>
+                <th class="cp-num">Valor</th><th>Cuadrilla</th><th>Observación</th><th>Origen</th>
+                @if (Editando) { <th></th> }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var f in nuevos)
+            {
+                var it = f.ItemPagoId > 0 ? S.ItemPorId.GetValueOrDefault(f.ItemPagoId) : null;
+                <tr class="cp-nueva">
+                    <td class="cp-fija"><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(f.Fecha)" @onchange="e => f.Fecha = Fec(e.Value) ?? f.Fecha" /></td>
+                    <td colspan="3">
+                        <select class="form-select form-select-sm" @bind="f.ItemPagoId" @bind:after="() => AlElegirItem(f)">
+                            <option value="0">— ítem —</option>
+                            @foreach (var i in itemsOrdenados) { <option value="@i.Id">@i.Codigo · @Corto(i.Descripcion)</option> }
+                        </select>
+                    </td>
+                    <td>
+                        @if (it?.Ambito == AmbitoItemPago.Tiro)
+                        {
+                            <select class="form-select form-select-sm" @bind="f.TiroId">
+                                <option value="">—</option>
+                                @foreach (var t in S.Tiros) { <option value="@t.Id">@t.Nombre</option> }
+                            </select>
+                        }
+                        else if (it?.Ambito != AmbitoItemPago.Global)
+                        {
+                            <select class="form-select form-select-sm" @bind="f.ElementoTrazadoId">
+                                <option value="">—</option>
+                                @foreach (var t in S.Torres) { <option value="@t.Id">@S.NombreTorre(t.Id)</option> }
+                            </select>
+                        }
+                    </td>
+                    <td>
+                        @if (it?.Ambito == AmbitoItemPago.Pata && f.ElementoTrazadoId is int tid)
+                        {
+                            <select class="form-select form-select-sm" @bind="f.ComponenteId">
+                                <option value="">—</option>
+                                @foreach (var c in patas.Where(p => p.ElementoTrazadoId == tid)) { <option value="@c.Id">@c.Nombre</option> }
+                            </select>
+                        }
+                    </td>
+                    <td><input class="form-control form-control-sm cp-in-num" @bind="f.Cantidad" /></td>
+                    @{ var (prev, acum) = Control(f.ItemPagoId, f.ElementoTrazadoId, null); }
+                    <td class="cp-num">@FormatoCostos.Num(prev, 3)</td>
+                    <td class="cp-num @(prev > 0 && acum + f.Cantidad > prev * 1.001m ? "cp-sobre" : "")">@FormatoCostos.Num(acum + f.Cantidad, 3)</td>
+                    <td class="cp-num">@FormatoCostos.Pct(prev > 0 ? (acum + f.Cantidad) / prev : null)</td>
+                    <td class="cp-num">@(it is null ? "" : FormatoCostos.Dinero(f.Cantidad * S.PrecioConAiu(it, S.AnioValor(f.Fecha, Corte))))</td>
+                    <td>
+                        <select class="form-select form-select-sm" @bind="f.Cuadrilla">
+                            <option value="">—</option>
+                            @foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }
+                        </select>
+                    </td>
+                    <td><input class="form-control form-control-sm" @bind="f.Descripcion" /></td>
+                    <td class="cp-sub">nuevo</td>
+                    <td><button type="button" class="btn btn-sm btn-link p-0" title="Quitar" @onclick="() => nuevos.Remove(f)"><Ico Nombre="cancelar" /></button></td>
+                </tr>
+            }
+            @foreach (var f in Filas)
+            {
+                var r = f.R;
+                var e = Editando ? ed.GetValueOrDefault(r.Id) : null;
+                <tr class="@(e?.Borrar == true ? "cp-borrar" : "")">
+                    <td class="cp-fija">
+                        @if (e is not null) { <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(e.Fecha)" @onchange="x => e.Fecha = Fec(x.Value) ?? e.Fecha" /> }
+                        else { @FormatoCostos.Fecha(r.Fecha) }
+                    </td>
+                    <td>@f.It?.Codigo</td>
+                    <td class="cp-desc" title="@f.It?.Descripcion">@Corto(f.It?.Descripcion ?? "")</td>
+                    <td>@f.It?.Unidad</td>
+                    <td>@(r.TiroId is int ti ? S.Tiros.FirstOrDefault(t => t.Id == ti)?.Nombre : S.NombreTorre(r.ElementoTrazadoId))</td>
+                    <td>@(r.ComponenteId is int ci ? patas.FirstOrDefault(p => p.Id == ci)?.Nombre : "")</td>
+                    <td class="cp-num">
+                        @if (e is not null) { <input class="form-control form-control-sm cp-in-num" @bind="e.Cantidad" /> }
+                        else { @FormatoCostos.Num(r.Cantidad, 3) }
+                    </td>
+                    <td class="cp-num">@(r.ElementoTrazadoId is null ? "" : FormatoCostos.Num(f.Prevista, 3))</td>
+                    <td class="cp-num @(f.Prevista > 0 && f.Acum > f.Prevista * 1.001m ? "cp-sobre" : "")" title="@(f.Prevista > 0 && f.Acum > f.Prevista * 1.001m ? "Supera la cantidad prevista de la torre" : "")">@(r.ElementoTrazadoId is null ? "" : FormatoCostos.Num(f.Acum, 3))</td>
+                    <td class="cp-num" style="background:@FormatoCostos.ColorPct(f.Pct)">@FormatoCostos.Pct(f.Pct)</td>
+                    <td class="cp-num">@FormatoCostos.Dinero(f.Valor)</td>
+                    <td>
+                        @if (e is not null)
+                        {
+                            <select class="form-select form-select-sm" @bind="e.Cuadrilla">
+                                <option value="">—</option>
+                                @foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }
+                            </select>
+                        }
+                        else { @r.Cuadrilla }
+                    </td>
+                    <td>
+                        @if (e is not null) { <input class="form-control form-control-sm" @bind="e.Descripcion" /> }
+                        else { @r.Descripcion }
+                    </td>
+                    <td class="cp-sub cp-nowrap">@r.Origen?.Replace("Libro: ", "Libro · ")</td>
+                    @if (e is not null)
+                    {
+                        <td><button type="button" class="btn btn-sm btn-link p-0" title="@(e.Borrar ? "No eliminar" : "Eliminar (a la Papelera al guardar)")" @onclick="() => e.Borrar = !e.Borrar"><Ico Nombre="@(e.Borrar ? "restaurar" : "eliminar")" /></button></td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+@if (sobreContrato.Count > 0)
+{
+    <div class="cp-sub cp-alerta">Ejecutado por encima de la cantidad contratada vigente: @string.Join(" · ", sobreContrato)</div>
+}
+
+@code {
+    private DateTime dia;
+    private bool todoRango;
+    private string buscar = "", cuadrilla = "";
+    private List<Componente> patas = new();
+    private List<ItemPago> itemsOrdenados = new();
+    private List<string> sobreContrato = new();
+    private Dictionary<(int, int), decimal> previstas = new();
+    private Dictionary<int, RegEd> ed = new();
+    private List<RegistroCantidad> nuevos = new();
+    private DateTime? corteAnterior;
+
+    public override string? SelectorExportar => "table.cp-avance";
+
+    private sealed class RegEd { public DateTime Fecha; public decimal Cantidad; public string? Cuadrilla; public string? Descripcion; public bool Borrar; }
+    private sealed record Fila(RegistroCantidad R, ItemPago? It, decimal Prevista, decimal Acum, decimal? Pct, decimal Valor);
+
+    protected override async Task OnInitializedAsync()
+    {
+        patas = await Db.Componentes.AsNoTracking().OrderBy(c => c.Nombre).ToListAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!DatosNuevos()) return;
+        if (corteAnterior != Corte) { dia = Corte.Date; corteAnterior = Corte; }
+        itemsOrdenados = S.Items.Where(i => !i.EsCapitulo).OrderBy(i => i.Orden).ThenBy(i => i.Codigo).ToList();
+        previstas = S.CantidadesTorre.GroupBy(c => (c.ElementoTrazadoId, c.ItemPagoId)).ToDictionary(g => g.Key, g => g.Sum(c => c.CantidadPrevista));
+        var ejec = S.RegistrosHasta(Corte).GroupBy(r => r.ItemPagoId).ToDictionary(g => g.Key, g => g.Sum(r => r.Cantidad));
+        sobreContrato = itemsOrdenados
+            .Where(i => S.CantidadVigente(i) > 0 && ejec.GetValueOrDefault(i.Id) > S.CantidadVigente(i) * 1.0001m)
+            .Select(i => $"{i.Codigo} ({FormatoCostos.Num(ejec.GetValueOrDefault(i.Id), 2)} de {FormatoCostos.Num(S.CantidadVigente(i), 2)})").ToList();
+        // Acumulado por (ítem, torre) a cada fecha: una pasada, luego búsqueda binaria por fila.
+        acumulados = S.Registros.Where(r => r.ElementoTrazadoId is not null)
+            .GroupBy(r => (r.ItemPagoId, r.ElementoTrazadoId!.Value))
+            .ToDictionary(g => g.Key, g =>
+            {
+                decimal a = 0;
+                return g.GroupBy(r => r.Fecha.Date).OrderBy(x => x.Key).Select(x => (Fecha: x.Key, Acum: a += x.Sum(r => r.Cantidad))).ToList();
+            });
+    }
+
+    private Dictionary<(int, int), List<(DateTime Fecha, decimal Acum)>> acumulados = new();
+
+    private decimal AcumuladoA(int item, int torre, DateTime fecha)
+    {
+        if (!acumulados.TryGetValue((item, torre), out var l)) return 0;
+        int lo = 0, hi = l.Count - 1, res = -1;
+        while (lo <= hi) { var m = (lo + hi) / 2; if (l[m].Fecha <= fecha.Date) { res = m; lo = m + 1; } else hi = m - 1; }
+        return res < 0 ? 0 : l[res].Acum;
+    }
+
+    private static string Corto(string t) => t.Length > 60 ? t[..60] + "…" : t;
+
+    // Cantidad prevista de la torre y acumulado hasta el corte (sin el registro indicado).
+    private (decimal prev, decimal acum) Control(int itemId, int? torreId, int? sinId)
+    {
+        if (torreId is not int t || itemId <= 0) return (0, 0);
+        var acum = S.Registros.Where(r => r.ItemPagoId == itemId && r.ElementoTrazadoId == t && r.Fecha.Date <= Corte.Date && r.Id != sinId).Sum(r => r.Cantidad);
+        return (previstas.GetValueOrDefault((t, itemId)), acum);
+    }
+
+    private IEnumerable<Fila> Filas
+    {
+        get
+        {
+            var regs = todoRango ? S.RegistrosHasta(Corte) : S.Registros.Where(r => r.Fecha.Date == dia.Date);
+            if (cuadrilla != "") regs = regs.Where(r => InstantaneaCostos.Norm(r.Cuadrilla) == cuadrilla);
+            var q = buscar.Trim();
+            foreach (var r in regs.OrderByDescending(r => r.Fecha).ThenBy(r => S.ItemPorId.GetValueOrDefault(r.ItemPagoId)?.Orden).ThenBy(r => r.Id))
+            {
+                var it = S.ItemPorId.GetValueOrDefault(r.ItemPagoId);
+                if (q != "" && !$"{it?.Codigo} {it?.Descripcion} {S.NombreTorre(r.ElementoTrazadoId)} {r.Cuadrilla} {r.Descripcion}".Contains(q, StringComparison.OrdinalIgnoreCase)) continue;
+                decimal prev = 0, acum = 0;
+                if (r.ElementoTrazadoId is int t)
+                {
+                    prev = previstas.GetValueOrDefault((t, r.ItemPagoId));
+                    acum = AcumuladoA(r.ItemPagoId, t, r.Fecha);
+                }
+                yield return new Fila(r, it, prev, acum, prev > 0 ? acum / prev : null, S.Valor(r, Corte));
+            }
+        }
+    }
+
+    private void CambiarDia(ChangeEventArgs e) { if (Fec(e.Value) is DateTime f) dia = f; }
+
+    private void Mover(int paso)
+    {
+        var dias = S.Registros.Select(r => r.Fecha.Date).Distinct();
+        var sig = paso > 0 ? dias.Where(d => d > dia).OrderBy(d => d).FirstOrDefault() : dias.Where(d => d < dia).OrderByDescending(d => d).FirstOrDefault();
+        if (sig != default) { dia = sig; todoRango = false; }
+    }
+
+    private void AlElegirItem(RegistroCantidad f)
+    {
+        if (S.ItemPorId.TryGetValue(f.ItemPagoId, out var it) && string.IsNullOrEmpty(f.Cuadrilla)) f.Cuadrilla = it.CuadrillaPorDefecto;
+    }
+
+    public override Task EditarAsync()
+    {
+        ed = Filas.ToDictionary(f => f.R.Id, f => new RegEd { Fecha = f.R.Fecha, Cantidad = f.R.Cantidad, Cuadrilla = f.R.Cuadrilla, Descripcion = f.R.Descripcion });
+        return base.EditarAsync();
+    }
+
+    public override async Task AgregarAsync()
+    {
+        if (!Editando) await EditarAsync();
+        var ultimo = nuevos.FirstOrDefault();
+        nuevos.Insert(0, new RegistroCantidad { Fecha = todoRango ? Corte.Date : dia, Cuadrilla = ultimo?.Cuadrilla, ElementoTrazadoId = ultimo?.ElementoTrazadoId, Origen = "Manual" });
+        await Avisar();
+    }
+
+    public override void Cancelar() { nuevos.Clear(); ed.Clear(); base.Cancelar(); }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        var malos = nuevos.Where(n => n.ItemPagoId <= 0 || n.Cantidad == 0).ToList();
+        if (malos.Count > 0) throw new InvalidOperationException($"{malos.Count} registro(s) nuevo(s) sin ítem o sin cantidad.");
+        foreach (var n in nuevos)
+        {
+            var it = S.ItemPorId[n.ItemPagoId];
+            if (it.Ambito != AmbitoItemPago.Pata) n.ComponenteId = null;
+            if (it.Ambito == AmbitoItemPago.Tiro) { n.ElementoTrazadoId = null; n.ComponenteId = null; }
+            else n.TiroId = null;
+            if (it.Ambito == AmbitoItemPago.Global) { n.ElementoTrazadoId = null; n.TiroId = null; }
+            n.Cuadrilla = string.IsNullOrWhiteSpace(n.Cuadrilla) ? null : n.Cuadrilla;
+            n.CreadoEn = DateTime.Now;
+            Db.RegistrosCantidad.Add(n);
+        }
+        if (ed.Count > 0)
+        {
+            var ids = ed.Keys.ToList();
+            var ahora = DateTime.Now;
+            foreach (var r in await Db.RegistrosCantidad.Where(r => ids.Contains(r.Id)).ToListAsync())
+            {
+                var e = ed[r.Id];
+                if (e.Borrar) { r.Eliminado = true; r.FechaEliminacion = ahora; continue; }
+                r.Fecha = e.Fecha.Date; r.Cantidad = e.Cantidad; r.Cuadrilla = string.IsNullOrWhiteSpace(e.Cuadrilla) ? null : e.Cuadrilla; r.Descripcion = e.Descripcion;
+            }
+        }
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        nuevos.Clear(); ed.Clear();
+    }
+}

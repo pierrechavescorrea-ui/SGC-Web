@@ -1,0 +1,211 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Actas de facturación: número, fecha, periodo y líneas (ítem × cantidad × valor con AIU). Acta nueva
+   = sugiere lo ejecutado hasta el fin del periodo que aún no se ha facturado; todo se puede ajustar. *@
+
+<div class="cp-kpis">
+    <div class="cp-kpi"><span class="cp-kpi-tit">Facturado al corte</span><span class="cp-kpi-val">@FormatoCostos.Millones(S.Facturado(Corte))</span><span class="cp-kpi-sub">@S.Actas.Count(a => a.Fecha <= Corte) acta(s)</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit">Producido al corte</span><span class="cp-kpi-val">@FormatoCostos.Millones(S.ProduccionAcumulada(Corte))</span><span class="cp-kpi-sub">por facturar @FormatoCostos.Millones(S.ProduccionAcumulada(Corte) - S.Facturado(Corte))</span></div>
+    @if (S.MetaDe(Corte) is { } m)
+    {
+        var f = S.FacturadoEntre(m.Desde, m.Hasta);
+        <div class="cp-kpi"><span class="cp-kpi-tit">Meta de facturación @FormatoCostos.Fecha(m.Desde) – @FormatoCostos.Fecha(m.Hasta)</span><span class="cp-kpi-val">@FormatoCostos.Millones(m.MetaFacturacion)</span><span class="cp-kpi-sub">facturado @FormatoCostos.Millones(f) · @FormatoCostos.Pct(m.MetaFacturacion > 0 ? f / m.MetaFacturacion : null)</span></div>
+    }
+</div>
+
+<div class="cp-tablero">
+    <div class="cp-caja">
+        <div class="cp-panel-tit">Actas</div>
+        <table class="table table-sm cp-tabla cp-actas mb-0">
+            <thead><tr><th>N.º</th><th>Fecha</th><th>Periodo</th><th class="cp-num">Líneas</th><th class="cp-num">Valor</th></tr></thead>
+            <tbody>
+                @foreach (var a in S.Actas.OrderByDescending(a => a.Fecha).ThenByDescending(a => a.Id))
+                {
+                    var lineas = S.LineasActa.Where(l => l.ActaFacturacionId == a.Id).ToList();
+                    <tr class="cp-clic @(sel?.Id == a.Id ? "cp-sel" : "")" @onclick="() => AbrirClic(a)">
+                        <td>@a.Numero</td><td>@FormatoCostos.Fecha(a.Fecha)</td>
+                        <td class="cp-sub">@FormatoCostos.Fecha(a.PeriodoDesde) – @FormatoCostos.Fecha(a.PeriodoHasta)</td>
+                        <td class="cp-num">@lineas.Count</td><td class="cp-num">@FormatoCostos.Dinero(lineas.Sum(l => l.Valor))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (sel is not null)
+    {
+        <div class="cp-caja">
+            <div class="cp-panel-tit">
+                @(sel.Id == 0 ? "Acta nueva" : $"Acta {sel.Numero}")
+                <span class="cp-sub">@FormatoCostos.Dinero(lineas.Sum(l => l.Valor))</span>
+                @if (Editando && sel.Id != 0)
+                {
+                    <button type="button" class="btn btn-sm btn-link p-0 ms-auto" title="@(borrar ? "No eliminar" : "Eliminar el acta (a la Papelera al guardar)")" @onclick="() => borrar = !borrar"><Ico Nombre="@(borrar ? "restaurar" : "eliminar")" /></button>
+                }
+            </div>
+            <div class="cp-form mb-2 @(borrar ? "cp-borrar" : "")">
+                <label>Número</label><input class="form-control form-control-sm" @bind="sel.Numero" disabled="@(!Editando)" />
+                <label>Fecha</label><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(sel.Fecha)" @onchange="e => sel.Fecha = Fec(e.Value) ?? sel.Fecha" disabled="@(!Editando)" />
+                <label>Periodo</label>
+                <div class="d-flex gap-1">
+                    <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(sel.PeriodoDesde)" @onchange="e => sel.PeriodoDesde = Fec(e.Value)" disabled="@(!Editando)" />
+                    <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(sel.PeriodoHasta)" @onchange="e => sel.PeriodoHasta = Fec(e.Value)" disabled="@(!Editando)" />
+                    @if (Editando)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Sugerir líneas: ejecutado hasta el fin del periodo menos lo ya facturado" @onclick="Sugerir"><Ico Nombre="sugerencia" /></button>
+                    }
+                </div>
+                <label>Observaciones</label><input class="form-control form-control-sm" @bind="sel.Observaciones" disabled="@(!Editando)" />
+            </div>
+            <div class="tabla-scroll cp-marco">
+                <table class="table table-sm cp-tabla cp-acta">
+                    <thead class="tabla-pin"><tr><th>Ítem</th><th>Descripción</th><th class="cp-num">Cantidad</th><th class="cp-num">Precio</th><th class="cp-num">Valor</th><th class="cp-num">Ejecutado</th><th class="cp-num">Facturado antes</th>@if (Editando) { <th></th> }</tr></thead>
+                    <tbody>
+                        @foreach (var l in lineas)
+                        {
+                            var it = S.ItemPorId.GetValueOrDefault(l.ItemPagoId);
+                            var antes = AntesDe(l.ItemPagoId);
+                            var ejec = it is null ? 0 : S.CantidadEjecutada(it.Id, sel.PeriodoHasta ?? sel.Fecha);
+                            <tr>
+                                <td>
+                                    @if (Editando && l.Id == 0)
+                                    {
+                                        <select class="form-select form-select-sm" @bind="l.ItemPagoId" @bind:after="() => Valorar(l)">
+                                            <option value="0">—</option>
+                                            @foreach (var i in items) { <option value="@i.Id">@i.Codigo</option> }
+                                        </select>
+                                    }
+                                    else { @it?.Codigo }
+                                </td>
+                                <td class="cp-desc" title="@it?.Descripcion">@it?.Descripcion</td>
+                                <td class="cp-num">
+                                    @if (Editando) { <input class="form-control form-control-sm cp-in-num" @bind="l.Cantidad" @bind:after="() => Valorar(l)" /> }
+                                    else { @FormatoCostos.Num(l.Cantidad, 3) }
+                                </td>
+                                <td class="cp-num">@FormatoCostos.Dinero(l.Cantidad != 0 ? l.Valor / l.Cantidad : null)</td>
+                                <td class="cp-num">@FormatoCostos.Dinero(l.Valor)</td>
+                                <td class="cp-num">@FormatoCostos.Num(ejec, 3)</td>
+                                <td class="cp-num @(antes + l.Cantidad > ejec * 1.001m ? "cp-sobre" : "")" title="@(antes + l.Cantidad > ejec * 1.001m ? "Se factura más de lo ejecutado" : "")">@FormatoCostos.Num(antes, 3)</td>
+                                @if (Editando)
+                                {
+                                    <td><button type="button" class="btn btn-sm btn-link p-0" title="Quitar línea" @onclick="() => lineas.Remove(l)"><Ico Nombre="cancelar" /></button></td>
+                                }
+                            </tr>
+                        }
+                        @if (Editando)
+                        {
+                            <tr><td colspan="8"><button type="button" class="btn btn-sm btn-outline-secondary" title="Agregar línea" @onclick="() => lineas.Add(new LineaActaFacturacion())"><Ico Nombre="agregar" /></button></td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private ActaFacturacion? sel;
+    private List<LineaActaFacturacion> lineas = new();
+    private List<ItemPago> items = new();
+    private bool borrar;
+
+    public override bool PuedeEditar => sel is not null;
+    public override string? SelectorExportar => sel is null ? "table.cp-actas" : "table.cp-acta";
+
+    protected override void OnParametersSet()
+    {
+        if (!DatosNuevos()) return;
+        items = S.Items.Where(i => !i.EsCapitulo).OrderBy(i => i.Orden).ToList();
+        if (sel is not null && sel.Id != 0 && !Editando)
+        {
+            var a = S.Actas.FirstOrDefault(x => x.Id == sel.Id);
+            if (a is null) sel = null; else Abrir(a);
+        }
+    }
+
+    private void Abrir(ActaFacturacion a)
+    {
+        if (Editando) return;
+        sel = new ActaFacturacion { Id = a.Id, Numero = a.Numero, Fecha = a.Fecha, PeriodoDesde = a.PeriodoDesde, PeriodoHasta = a.PeriodoHasta, Observaciones = a.Observaciones };
+        lineas = S.LineasActa.Where(l => l.ActaFacturacionId == a.Id)
+            .Select(l => new LineaActaFacturacion { Id = l.Id, ItemPagoId = l.ItemPagoId, Cantidad = l.Cantidad, Valor = l.Valor })
+            .OrderBy(l => S.ItemPorId.GetValueOrDefault(l.ItemPagoId)?.Orden).ToList();
+        borrar = false;
+    }
+
+    private async Task AbrirClic(ActaFacturacion a) { Abrir(a); await Avisar(); }
+
+    // Cantidad facturada del ítem en actas anteriores a esta (por fecha, sin contar esta misma).
+    private decimal AntesDe(int itemId)
+    {
+        var ids = S.Actas.Where(a => a.Id != sel!.Id && a.Fecha.Date <= sel.Fecha.Date).Select(a => a.Id).ToHashSet();
+        return S.LineasActa.Where(l => l.ItemPagoId == itemId && ids.Contains(l.ActaFacturacionId)).Sum(l => l.Cantidad);
+    }
+
+    private void Valorar(LineaActaFacturacion l)
+    {
+        if (S.ItemPorId.TryGetValue(l.ItemPagoId, out var it))
+            l.Valor = Math.Round(l.Cantidad * S.PrecioConAiu(it, S.AnioValor(sel!.PeriodoHasta ?? sel.Fecha, Corte)), 2);
+    }
+
+    private void Sugerir()
+    {
+        if (sel is null) return;
+        var hasta = sel.PeriodoHasta ?? sel.Fecha;
+        lineas = items.Select(i => new LineaActaFacturacion { ItemPagoId = i.Id, Cantidad = S.CantidadEjecutada(i.Id, hasta) - AntesDe(i.Id) })
+            .Where(l => l.Cantidad > 0.0005m).ToList();
+        foreach (var l in lineas) Valorar(l);
+    }
+
+    public override async Task AgregarAsync()
+    {
+        var ultima = S.Actas.OrderByDescending(a => a.Fecha).FirstOrDefault();
+        var nums = S.Actas.Select(a => int.TryParse(a.Numero, out var n) ? n : 0).ToList();
+        var num = nums.Count > 0 ? (nums.Max() + 1).ToString() : "1";
+        sel = new ActaFacturacion { Numero = num, Fecha = Corte.Date, PeriodoDesde = ultima?.PeriodoHasta?.AddDays(1) ?? ultima?.Fecha.AddDays(1), PeriodoHasta = Corte.Date };
+        lineas = new();
+        Sugerir();
+        Editando = true;
+        await Avisar();
+    }
+
+    public override void Cancelar()
+    {
+        base.Cancelar();
+        if (sel?.Id == 0) sel = null;
+        else if (sel is not null && S.Actas.FirstOrDefault(a => a.Id == sel.Id) is { } a) Abrir(a);
+    }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        if (sel is null) return;
+        var ahora = DateTime.Now;
+        if (borrar)
+        {
+            var a0 = await Db.ActasFacturacion.FirstAsync(a => a.Id == sel.Id);
+            a0.Eliminado = true; a0.FechaEliminacion = ahora;
+            await Db.SaveChangesAsync(); Db.ChangeTracker.Clear();
+            sel = null; return;
+        }
+        if (string.IsNullOrWhiteSpace(sel.Numero)) throw new InvalidOperationException("El acta necesita número.");
+        if (S.Actas.Any(a => a.Id != sel.Id && a.Numero.Trim() == sel.Numero.Trim())) throw new InvalidOperationException($"Ya existe el acta {sel.Numero}.");
+        var validas = lineas.Where(l => l.ItemPagoId > 0 && l.Cantidad != 0).ToList();
+        if (validas.Count == 0) throw new InvalidOperationException("El acta no tiene líneas con cantidad.");
+
+        ActaFacturacion acta;
+        if (sel.Id == 0) { acta = new ActaFacturacion(); Db.ActasFacturacion.Add(acta); }
+        else acta = await Db.ActasFacturacion.FirstAsync(a => a.Id == sel.Id);
+        acta.Numero = sel.Numero.Trim(); acta.Fecha = sel.Fecha.Date; acta.PeriodoDesde = sel.PeriodoDesde; acta.PeriodoHasta = sel.PeriodoHasta; acta.Observaciones = sel.Observaciones;
+        await Db.SaveChangesAsync();
+
+        // Las líneas son detalle del acta: se reemplazan (borrado directo, el acta va a la Papelera entera).
+        Db.LineasActaFacturacion.RemoveRange(await Db.LineasActaFacturacion.Where(l => l.ActaFacturacionId == acta.Id).ToListAsync());
+        foreach (var l in validas)
+            Db.LineasActaFacturacion.Add(new LineaActaFacturacion { ActaFacturacionId = acta.Id, ItemPagoId = l.ItemPagoId, Cantidad = l.Cantidad, Valor = l.Valor });
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        sel.Id = acta.Id;
+    }
+}

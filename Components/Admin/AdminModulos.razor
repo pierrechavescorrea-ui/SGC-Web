@@ -1,0 +1,639 @@
+@page "/admin/modulos"
+@page "/admin/modulos/{Id:int}"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+@using SigWeb.Data.CreadorModulos
+@using SigWeb.Components.CreadorModulos
+@implements IAsyncDisposable
+
+<PageTitle>Creador de módulos · Administración</PageTitle>
+
+@if (ed is null)
+{
+<div class="ad crm">
+    @* ---------- Lista de módulos creados ---------- *@
+    <EncabezadoPagina Titulo="Creador de módulos" Subtitulo="Módulos nuevos sin programar: pasos, campos y vínculos a toda la app" Icono="lista-chequeo" Atras="/admin">
+        <Acciones>
+            <button type="button" class="pg-btn pg-btn-primario @(creando ? "activo" : "")" title="Módulo nuevo" @onclick="() => { creando = !creando; nombreNuevo = null; }"><Ico Nombre="agregar" /></button>
+        </Acciones>
+    </EncabezadoPagina>
+
+    @if (Mensaje is not null)
+    {
+        <div class="alert @(MensajeError ? "alert-danger" : "alert-success")" role="alert">@Mensaje</div>
+    }
+
+    @if (creando)
+    {
+        <div class="frm-linea crm-nuevo">
+            <label for="crm-nom">Nombre del módulo nuevo</label>
+            <input id="crm-nom" class="form-control" maxlength="80" placeholder="Ej.: Inspecciones de obra" @bind="nombreNuevo" @bind:event="oninput"
+                   @onkeydown="TeclaNuevo" />
+            <button type="button" class="frm-icono-btn" title="Crear" disabled="@(string.IsNullOrWhiteSpace(nombreNuevo) || Ocupado)" @onclick="CrearAsync"><Ico Nombre="aceptar" /></button>
+            <button type="button" class="frm-icono-btn" title="Cancelar" @onclick="() => creando = false"><Ico Nombre="cancelar" /></button>
+        </div>
+    }
+
+    @if (lista.All(m => m.Estado == EstadoModuloCreado.Eliminado) && !cargando)
+    {
+        <div class="crm-vacio">
+            <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos("lista-chequeo"))</svg>
+            <p>Aún no hay módulos creados. Con <b>＋</b> arme uno nuevo y diséñelo como un formulario de Windows: arrastre herramientas
+               (campos, firma, fotos, tablas, gráficos, mapas, PDF, modelos 3D…) al lienzo y enlácelas a los datos de la app. Al
+               <b>publicar</b> aparece en el menú de todos los proyectos con sus permisos por rol.</p>
+        </div>
+    }
+    <div class="crm-tarjetas">
+        @foreach (var m in lista.Where(m => m.Estado != EstadoModuloCreado.Eliminado))
+        {
+            <button type="button" class="crm-tarjeta @(m.Estado == EstadoModuloCreado.Archivado ? "archivado" : "")" @onclick="() => Nav.NavigateTo(Ruta(m.Id))" title="Diseñar «@m.Nombre»">
+                <span class="crm-tarjeta-ico"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos(m.Icono))</svg></span>
+                <span class="crm-tarjeta-txt">
+                    <b>@m.Nombre</b>
+                    <small>@m.Grupo · @AmbitoTexto(m.Ambito)</small>
+                    @if (!string.IsNullOrWhiteSpace(m.Descripcion)) { <small class="crm-desc">@m.Descripcion</small> }
+                </span>
+                <span class="crm-estado crm-estado-@EstadoClase(m)">@EstadoTexto(m)</span>
+            </button>
+        }
+    </div>
+
+    @if (lista.Any(m => m.Estado == EstadoModuloCreado.Eliminado))
+    {
+        <details class="crm-eliminados">
+            <summary>Eliminados (@lista.Count(m => m.Estado == EstadoModuloCreado.Eliminado)) · fuera del menú, con sus registros guardados</summary>
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>Módulo</th><th>Eliminado</th><th>Versión</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var m in lista.Where(m => m.Estado == EstadoModuloCreado.Eliminado))
+                {
+                    <tr>
+                        <td><span class="crm-elim-ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos(m.Icono))</svg></span> @m.Nombre <small class="text-muted">/mod/@m.Clave</small></td>
+                        <td>@Fecha(m.ModificadoEn)</td>
+                        <td>v@(m.Version)</td>
+                        <td class="text-end text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Restaurar (vuelve al menú con sus registros)" disabled="@Ocupado" @onclick="() => RestaurarAsync(m)"><Ico Nombre="restaurar" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar definitivamente (borra también sus registros en todos los proyectos)" disabled="@Ocupado" @onclick="() => PedirPurgaAsync(m)"><Ico Nombre="eliminar-definitivo" /></button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </details>
+    }
+
+    @if (purga is not null)
+    {
+        <div class="modal-backdrop-custom" data-imp-emergente>
+            <div class="modal-box-custom crm-confirmar">
+                <h6 class="text-danger"><Ico Nombre="eliminar-definitivo" /> Eliminar definitivamente «@purga.Nombre»</h6>
+                @if (conteos is null)
+                {
+                    <Esqueleto Tipo="texto" Filas="3" />
+                }
+                else
+                {
+                    <p class="small mb-2">Se borra el diseño, su historia de versiones y, en <b>todos los proyectos</b>, sus registros (también los de la
+                        Papelera), valores, vínculos y adjuntos. <b>No se puede deshacer.</b></p>
+                    @if (conteos.Count == 0)
+                    {
+                        <p class="small text-muted">No tiene registros en ningún proyecto.</p>
+                    }
+                    else
+                    {
+                        <ul class="small mb-2">
+                            @foreach (var c in conteos)
+                            {
+                                <li>@c.Proyecto: @(c.Registros < 0 ? "no se pudo leer la base" : $"{c.Registros} registro(s), {c.Adjuntos} adjunto(s)")</li>
+                            }
+                        </ul>
+                    }
+                    <label for="crm-purga">Escriba el nombre exacto para confirmar</label>
+                    <input id="crm-purga" class="form-control mb-3" autocomplete="off" placeholder="@purga.Nombre" @bind="textoPurga" @bind:event="oninput" />
+                }
+                <div class="frm-pie frm-pie-plano">
+                    <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" data-modal-cancelar @onclick="() => purga = null"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="btn btn-danger btn-sm" title="Eliminar definitivamente" disabled="@(Ocupado || conteos is null || conteos.Any(c => c.Registros < 0) || textoPurga?.Trim() != purga.Nombre)" @onclick="PurgarAsync"><Ico Nombre="eliminar-definitivo" /></button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+}
+else
+{
+<div class="dmz" @ref="raizDmz">
+    @* ---------- Diseñador ---------- *@
+    <EncabezadoPagina Titulo="@(string.IsNullOrWhiteSpace(ed.Nombre) ? "Módulo" : ed.Nombre)" Subtitulo="@SubtituloEditor" Icono="@ed.Icono" Atras="/admin/modulos">
+        <Acciones>
+            <span class="pg-vistas">
+                <button type="button" class="pg-btn @(vista == "diseno" ? "activo" : "")" title="Diseño" @onclick="@(() => vista = "diseno")"><Ico Nombre="formularios" /></button>
+                <button type="button" class="pg-btn @(vista == "previa" ? "activo" : "")" title="Vista previa (así lo verá el usuario)" @onclick="@(() => vista = "previa")"><Ico Nombre="pantalla-completa" /></button>
+                <button type="button" class="pg-btn @(vista == "versiones" ? "activo" : "")" title="Versiones publicadas" @onclick="VerVersionesAsync"><Ico Nombre="versiones" /></button>
+            </span>
+            @if (vista == "diseno")
+            {
+                <span class="pg-sep"></span>
+                @if (HayPanelesSueltos)
+                {
+                    <button type="button" class="pg-btn" title="Fijar todos los paneles a los costados" @onclick="FijarTodo"><Ico Nombre="ajustar" /></button>
+                }
+                <button type="button" class="pg-btn" title="Deshacer (Ctrl+Z)" disabled="@(deshacer.Count == 0)" @onclick="Deshacer"><Ico Nombre="atras" /></button>
+                <button type="button" class="pg-btn dmz-espejo" title="Rehacer (Ctrl+Y)" disabled="@(rehacer.Count == 0)" @onclick="Rehacer"><Ico Nombre="atras" /></button>
+            }
+            <span class="pg-sep"></span>
+            @if (ed.Version > 0 && ed.Estado == EstadoModuloCreado.Publicado)
+            {
+                <a class="pg-btn" href="@("mod/" + ed.Clave)" title="Abrir el módulo publicado"><Ico Nombre="enlace" /></a>
+            }
+            <button type="button" class="pg-btn" title="Duplicar (módulo nuevo con este diseño)" @onclick="DuplicarAsync"><Ico Nombre="unificar" /></button>
+            @if (ed.Version > 0)
+            {
+                <button type="button" class="pg-btn" title="@(ed.Estado == EstadoModuloCreado.Archivado ? "Reactivar (vuelve al menú)" : "Archivar (sale del menú; los registros se conservan)")"
+                        @onclick="@(() => confirmar = ed.Estado == EstadoModuloCreado.Archivado ? "reactivar" : "archivar")"><Ico Nombre="@(ed.Estado == EstadoModuloCreado.Archivado ? "candado-abierto" : "candado")" /></button>
+            }
+            <button type="button" class="pg-btn" title="@(ed.Version == 0 ? "Eliminar (nunca se publicó: se borra el diseño)" : "Eliminar (va a «Eliminados»: sale del menú, los registros se conservan y se puede restaurar)")" @onclick="PedirEliminar"><Ico Nombre="eliminar" /></button>
+            @if (ed.TieneBorrador && ed.Version > 0)
+            {
+                <button type="button" class="pg-btn" title="Descartar los cambios sin publicar (vuelve a la versión publicada)" @onclick="PedirDescartar"><Ico Nombre="restaurar" /></button>
+            }
+            <span class="pg-sep"></span>
+            <AvisoCambios Pendientes="@(Sucio ? 1 : 0)" />
+            <button type="button" class="pg-btn" title="Guardar borrador (Ctrl+S; no cambia lo publicado)" disabled="@Ocupado" @onclick="GuardarAsync"><Ico Nombre="guardar" /></button>
+            <button type="button" class="pg-btn pg-btn-primario" title="Publicar: aplicar en todos los proyectos" disabled="@Ocupado" @onclick="PedirPublicar"><Ico Nombre="aprobar" /></button>
+        </Acciones>
+    </EncabezadoPagina>
+
+    @if (Mensaje is not null)
+    {
+        <div class="alert @(MensajeError ? "alert-danger" : "alert-success") dmz-msj" role="alert">@Mensaje</div>
+    }
+    @if (errores.Count > 0)
+    {
+        <div class="alert alert-warning dmz-msj crm-errores"><b>Para publicar falta:</b><ul>@foreach (var e in errores) { <li>@e</li> }</ul></div>
+    }
+
+    @if (vista == "previa")
+    {
+        <div class="crm-previa">
+            <FormularioSig Titulo="@($"Nuevo registro · {ed.Nombre}")" Icono="formularios">
+                <Subtitulo>
+                    @if (ed.Def.Estados.Count > 0)
+                    {
+                        <span class="mc-estados">@foreach (var s in ed.Def.Estados) { <span class="mc-estado @(s == ed.Def.Estados[0] ? "activo" : "")">@s.Nombre</span> }</span>
+                    }
+                    <span class="mc-meta">Código: @ed.Def.Codigo(1)</span>
+                </Subtitulo>
+                <ChildContent>
+                    <FormularioModulo Definicion="ed.Def" Edicion="previa" VistaPrevia="true" OnCambio="StateHasChanged" />
+                </ChildContent>
+            </FormularioSig>
+        </div>
+    }
+    else if (vista == "versiones")
+    {
+        <section class="ad-tarjeta">
+            @if (versiones.Count == 0)
+            {
+                <p class="text-muted mb-0">Aún no se ha publicado ninguna versión.</p>
+            }
+            else
+            {
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th>Versión</th><th>Publicada</th><th>Por</th><th>Nota</th><th>Contenido</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var v in versiones)
+                    {
+                        <tr>
+                            <td><b>v@(v.Version)</b>@if (v.Version == ed.Version) { <span class="crm-estado crm-estado-pub ms-1">vigente</span> }</td>
+                            <td>@Fecha(v.PublicadoEn)</td>
+                            <td>@v.PublicadoPor</td>
+                            <td>@v.Nota</td>
+                            <td class="small text-muted">@AdminModulosCreados.Resumen(DefinicionModulo.Leer(v.Json))</td>
+                            <td><button type="button" class="btn btn-sm btn-outline-secondary" title="Traer esta versión al borrador para revisarla y volver a publicarla" @onclick="() => TraerVersionAsync(v.Version)"><Ico Nombre="restaurar" /></button></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </section>
+    }
+    else
+    {
+        <div class="dmz-esc">
+            @* Barra de herramientas tipo Photoshop: solo íconos, 1–3 columnas, scroll propio, fija o suelta. *@
+            <div class="dmz-herr @(Suelto("herramientas") ? "suelto" : "")" data-panel="herramientas" style="--cols:@colsHerr">
+                <div class="dmz-herr-cab" data-panel-cab>
+                    <span class="dmz-agarre" data-tip="Herramientas|@(Suelto("herramientas") ? "Arrastre para moverla" : "Suéltela con el pin para moverla")">⋮⋮</span>
+                    <button type="button" data-tip="Columnas: @colsHerr|Cambiar a @(colsHerr % 3 + 1)" @onclick="CambiarColumnas">@(new string('▮', colsHerr))</button>
+                    <button type="button" class="@(Suelto("herramientas") ? "" : "fijo")" data-tip="@(Suelto("herramientas") ? "Fijar a la izquierda" : "Soltar: barra flotante")" @onclick="@(() => AlternarPanel("herramientas"))">@Pin</button>
+                </div>
+                <div class="dmz-herr-lista">
+                    @foreach (var g in GruposHerramientas)
+                    {
+                        <div class="dmz-herr-grupo">
+                            @foreach (var h in g)
+                            {
+                                <button type="button" class="dmz-ico @(h.Dato ? "dato" : "")" draggable="true" data-herramienta="@h.Tipo" data-tip="@TipHerramienta(h)"
+                                     title="@TipHerramienta(h).Split('|')[0]" aria-label="@($"Agregar {TipHerramienta(h).Split('|')[0]}")"
+                                     @onclick="e => { if (e.Detail == 0 || e.Detail == 2) AgregarAlFinal(h.Tipo); }">
+                                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)h.Trazos)</svg>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <section class="dmz-centro">
+                <div class="dmz-tabs" role="group" aria-label="Pasos del módulo">
+                    @for (int i = 0; i < ed.Def.Pasos.Count; i++)
+                    {
+                        var idx = i; var p = ed.Def.Pasos[i];
+                        <button type="button" class="dmz-tab @(idx == paso ? "on" : "")" aria-pressed="@(idx == paso ? "true" : "false")" @onclick="() => ElegirPaso(idx)">@(idx + 1). @(string.IsNullOrWhiteSpace(p.Titulo) ? "(sin título)" : p.Titulo)</button>
+                    }
+                    <button type="button" class="dmz-tab mas" data-tip="Agregar paso" @onclick="AgregarPaso">＋</button>
+                </div>
+                <div class="dmz-marco">
+                    <div class="dmz-lienzo">
+                        @if (PasoActual is { } pa)
+                        {
+                            <div class="dmz-rej" style="grid-template-rows:repeat(@FilasLienzo, 40px)">
+                                @foreach (var c in pa.Campos.OrderBy(c => c.Tipo == TipoCampoModulo.Grupo ? 0 : 1))
+                                {
+                                    @Control(c)
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </section>
+
+            @if (!Suelto("esquema") || !Suelto("propiedades"))
+            {
+                <div class="dmz-dock">
+                    @if (!Suelto("esquema")) { @Panel("esquema", "Esquema", Esquema) }
+                    @if (!Suelto("propiedades")) { @Panel("propiedades", PropTitulo, Propiedades) }
+                </div>
+            }
+            @if (Suelto("esquema")) { @Panel("esquema", "Esquema", Esquema) }
+            @if (Suelto("propiedades")) { @Panel("propiedades", PropTitulo, Propiedades) }
+        </div>
+    }
+
+    @* ----- Confirmaciones ----- *@
+    @if (confirmar is not null)
+    {
+        <div class="modal-backdrop-custom">
+            <div class="modal-box-custom crm-confirmar">
+                @switch (confirmar)
+                {
+                    case "publicar":
+                        <h6><Ico Nombre="aprobar" /> Publicar v@(ed.Version + 1) de «@ed.Nombre»</h6>
+                        <p class="small">El módulo se verá así en el menú de @(AmbitoTexto(ed.Ambito).ToLowerInvariant()), con los permisos que le den los roles (Administración › Roles). Los registros ya guardados se conservan.</p>
+                        <label for="crm-nota">Qué cambió (opcional)</label>
+                        <input id="crm-nota" class="form-control mb-3" maxlength="500" @bind="notaPublicar" />
+                        break;
+                    case "archivar":
+                        <h6>Archivar «@ed.Nombre»</h6>
+                        <p class="small">Sale del menú y de los permisos en todos los proyectos. Los registros quedan guardados y vuelven al reactivarlo.</p>
+                        break;
+                    case "reactivar":
+                        <h6>Reactivar «@ed.Nombre»</h6>
+                        <p class="small">Vuelve al menú con su última versión publicada.</p>
+                        break;
+                    case "descartar":
+                        <h6>Descartar cambios sin publicar</h6>
+                        <p class="small">El diseño vuelve a la versión publicada v@(ed.Version).</p>
+                        break;
+                    case "eliminar":
+                        <h6>Eliminar «@ed.Nombre»</h6>
+                        @if (ed.Version == 0)
+                        {
+                            <p class="small">Nunca se publicó: no tiene registros. Se borra el diseño.</p>
+                        }
+                        else
+                        {
+                            <p class="small">Sale del menú y de los permisos en todos los proyectos. Sus registros se conservan y el módulo queda en
+                                <b>Eliminados</b> (lista de módulos), desde donde se restaura o se elimina definitivamente.</p>
+                        }
+                        break;
+                }
+                <div class="frm-pie frm-pie-plano">
+                    <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" data-modal-cancelar @onclick="() => confirmar = null"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="btn btn-sm @(confirmar == "eliminar" ? "btn-danger" : "btn-primary")" title="Confirmar" disabled="@Ocupado" @onclick="ConfirmarAsync"><Ico Nombre="@(confirmar == "eliminar" ? "eliminar" : "aceptar")" /></button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+}
+
+@code {
+    // ---------- Fragmentos (la lógica está en AdminModulos.razor.cs) ----------
+
+    private RenderFragment Pin => __builder =>
+    {
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7" /></svg>
+    };
+
+    private RenderFragment Panel(string id, string titulo, RenderFragment contenido) => __builder =>
+    {
+        var suelto = Suelto(id); var plegado = Plegado(id);
+        <div class="dmz-pnl @id @(suelto ? "suelto" : "") @(plegado ? "plegado" : "")" data-panel="@id">
+            <div class="dmz-pnl-cab" data-panel-cab>
+                <span>@titulo</span>
+                <button type="button" data-tip="@(plegado ? "Desplegar" : "Plegar")" @onclick="() => AlternarPlegado(id)"><Ico Nombre="@(plegado ? "desplegar" : "plegar")" /></button>
+                <button type="button" class="@(suelto ? "" : "fijo")" data-tip="@(suelto ? "Fijar al costado" : "Soltar: panel flotante")" @onclick="() => AlternarPanel(id)">@Pin</button>
+            </div>
+            @if (!plegado) { <div class="dmz-pnl-cuerpo">@contenido</div> }
+        </div>
+    };
+
+    private RenderFragment Control(CampoModulo c) => __builder =>
+    {
+        var h = CampoModulo.HerramientaDe(c.Tipo);
+        var sel = selCampo == c.Clave;
+        <div class="dmz-ctl t-@c.Tipo.ToString().ToLowerInvariant() @(sel ? "sel" : "")" data-clave="@c.Clave" data-x="@c.X" data-y="@c.Y" data-w="@c.Ancho" data-h="@c.Alto"
+             style="grid-column:@(c.X + 1) / span @c.Ancho;grid-row:@(c.Y + 1) / span @c.Alto">
+            @if (c.Tipo == TipoCampoModulo.Separador)
+            {
+                <hr class="dmz-sep" />
+            }
+            else
+            {
+                <div class="dmz-ctl-et">
+                    @if (h is not null) { <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)h.Trazos)</svg> }
+                    <span class="dmz-ctl-nom">@(string.IsNullOrWhiteSpace(c.Etiqueta) ? h?.Nombre : c.Etiqueta)@(c.Obligatorio ? " *" : "")</span>
+                    @if (c.GuardaValor || c.EsHerramientaApp) { <i class="dmz-modo m-@c.Modo.ToString().ToLowerInvariant()">@ModoTexto(c.Modo)</i> }
+                </div>
+                @if (c.EsHerramientaApp || c.Tipo == TipoCampoModulo.Vinculo)
+                {
+                    <div class="dmz-bind">⛁ @(NombreFuente(c.Fuente) ?? "sin fuente")@(c.FiltroCampo is not null ? " · por " + (ed!.Def.Campo(c.FiltroCampo)?.Etiqueta ?? "?") : "")</div>
+                }
+                @if (c.Tipo != TipoCampoModulo.Titulo && c.Tipo != TipoCampoModulo.Grupo)
+                {
+                    <div class="dmz-ctl-vista @(EsCampoSimple(c) ? "campo" : "")">@VistaMuestra(c)</div>
+                }
+            }
+            <span class="dmz-asa" title="Cambiar tamaño"></span>
+        </div>
+    };
+
+    private RenderFragment VistaMuestra(CampoModulo c) => __builder =>
+    {
+        switch (c.Tipo)
+        {
+            case TipoCampoModulo.Lista: <span>@(c.Opciones.FirstOrDefault() ?? (c.Catalogo is null ? "Seleccione…" : "Catálogo: " + c.Catalogo)) ▾</span> break;
+            case TipoCampoModulo.Fecha: <span>dd/mm/aaaa</span> break;
+            case TipoCampoModulo.Numero: <span>0@(string.IsNullOrWhiteSpace(c.Unidad) ? "" : " " + c.Unidad)</span> break;
+            case TipoCampoModulo.SiNo: <span>○ No</span> break;
+            case TipoCampoModulo.Vinculo: <span class="dmz-azul">🔗 Elegir de @(NombreFuente(c.Fuente) ?? "…")</span> break;
+            case TipoCampoModulo.Chequeo:
+                <div class="dmz-lista-ch">@foreach (var o in c.Opciones.Take(Math.Max(1, c.Alto * 2 - 2))) { <div>☐ @o</div> }@if (c.Opciones.Count == 0) { <div>☐ Ítem 1</div><div>☐ Ítem 2</div> }</div>
+                break;
+            case TipoCampoModulo.Firma: <span>✍ Firma aquí</span> break;
+            case TipoCampoModulo.Foto: <span>📷 Tomar o cargar fotos</span> break;
+            case TipoCampoModulo.Archivos: <span>Arrastre o adjunte archivos</span> break;
+            case TipoCampoModulo.Tabla:
+                <table class="dmz-mini"><tr><th>Columna</th><th>Columna</th><th>Columna</th></tr><tr><td>—</td><td>—</td><td>—</td></tr><tr><td>—</td><td>—</td><td>—</td></tr></table>
+                break;
+            case TipoCampoModulo.Grafico:
+                <svg viewBox="0 0 120 50" class="dmz-graf" preserveAspectRatio="none"><g><rect x="8" y="22" width="14" height="24" /><rect x="30" y="12" width="14" height="34" /><rect x="52" y="28" width="14" height="18" /><rect x="74" y="8" width="14" height="38" /><rect x="96" y="18" width="14" height="28" /></g></svg>
+                break;
+            case TipoCampoModulo.Kpi: <b class="dmz-kpi">00 @(c.Calculo == CalculoCampo.Porcentaje ? "%" : c.Unidad)</b> break;
+            case TipoCampoModulo.Estadistica: <span>n · μ · σ · mín · máx</span> break;
+            case TipoCampoModulo.Mapa: <span>🗺 Mapa</span> break;
+            case TipoCampoModulo.Pdf: <span>📄 Documento vigente</span> break;
+            case TipoCampoModulo.Modelo3D: <span>🧊 Modelo 3D</span> break;
+            case TipoCampoModulo.Carpetas: <span>📁 Carpetas del elemento</span> break;
+            case TipoCampoModulo.LineaTiempo: <span>— eventos en el tiempo —</span> break;
+            default: <span></span> break;
+        }
+    };
+
+    private RenderFragment Esquema => __builder =>
+    {
+        <div class="dmz-arbol">
+            @for (int i = 0; i < ed!.Def.Pasos.Count; i++)
+            {
+                var idx = i; var p = ed.Def.Pasos[i];
+                <div class="dmz-arbol-paso @(idx == paso && selCampo is null ? "on" : "")" @onclick="() => ElegirPaso(idx)">▾ @(idx + 1). @p.Titulo</div>
+                @foreach (var c in p.Campos.OrderBy(x => x.Y).ThenBy(x => x.X))
+                {
+                    var h = CampoModulo.HerramientaDe(c.Tipo);
+                    <div class="dmz-arbol-ctl @(selCampo == c.Clave ? "on" : "")" @onclick="() => SeleccionarDesdeArbol(idx, c.Clave)">
+                        @if (h is not null) { <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)h.Trazos)</svg> }
+                        <span>@(string.IsNullOrWhiteSpace(c.Etiqueta) ? h?.Nombre : c.Etiqueta)</span>
+                    </div>
+                }
+            }
+        </div>
+    };
+
+    private RenderFragment Fila(string etiqueta, RenderFragment control) => __builder =>
+    {
+        <div class="dmz-fila"><span class="dmz-fila-etiqueta" title="@etiqueta">@etiqueta</span><div class="dmz-fila-v">@control</div></div>
+    };
+
+    private RenderFragment Propiedades => __builder =>
+    {
+        if (CampoSel is { } c && PasoDe(c) is { } pasoC)
+        {
+            @PropControl(c, pasoC)
+        }
+        else
+        {
+            @PropPaso
+            @PropModulo
+        }
+    };
+
+    private RenderFragment PropControl(CampoModulo c, PasoModulo pasoC) => __builder =>
+    {
+        <div class="dmz-pg"><h6>Diseño</h6>
+            @Fila("Etiqueta", @<input aria-label="Etiqueta" value="@c.Etiqueta" @onchange="e => Fijar(() => c.Etiqueta = Txt(e))" />)
+            @if (!c.EsDiseno) { @Fila("Ayuda", @<input aria-label="Ayuda" value="@c.Ayuda" placeholder="Texto de apoyo" @onchange="e => Fijar(() => c.Ayuda = TxtONull(e))" />) }
+            @Fila("Ancho × alto", @<span class="dmz-dos"><input aria-label="Ancho" type="number" min="1" max="12" value="@c.Ancho" @onchange="e => Fijar(() => c.Ancho = Entero(e, 1, 12 - (c.X ?? 0)))" /><input aria-label="Alto" type="number" min="1" max="40" value="@c.Alto" @onchange="e => Fijar(() => c.Alto = Entero(e, 1, 40))" /></span>)
+            @Fila("Paso", @<select aria-label="Paso" value="@pasoC.Clave" @onchange="e => MoverAPaso(c, e.Value?.ToString())">@foreach (var p in ed!.Def.Pasos) { <option value="@p.Clave">@p.Titulo</option> }</select>)
+        </div>
+        @if (c.GuardaValor)
+        {
+            <div class="dmz-pg"><h6>Comportamiento</h6>
+                @Fila("Modo", @<span class="dmz-seg">
+                    <button type="button" class="@(c.Modo == ModoCampo.Editable ? "on" : "")" @onclick="() => Fijar(() => c.Modo = ModoCampo.Editable)">Editable</button>
+                    <button type="button" class="@(c.Modo == ModoCampo.SoloVista ? "on" : "")" @onclick="() => Fijar(() => c.Modo = ModoCampo.SoloVista)">Solo vista</button>
+                </span>)
+                @Fila("Obligatorio", @<input aria-label="Obligatorio" type="checkbox" class="form-check-input" checked="@c.Obligatorio" @onchange="e => Fijar(() => c.Obligatorio = e.Value is true)" />)
+                @Fila("En la lista", @<input aria-label="En la lista" type="checkbox" class="form-check-input" checked="@c.EnLista" @onchange="e => Fijar(() => c.EnLista = e.Value is true)" />)
+                @VisibleSi(c)
+            </div>
+        }
+        else if (c.EsHerramientaApp)
+        {
+            <div class="dmz-pg"><h6>Comportamiento</h6>
+                @Fila("Modo", @<span class="dmz-seg">
+                    <button type="button" class="@(c.Modo != ModoCampo.Calculado ? "on" : "")" @onclick="() => Fijar(() => c.Modo = ModoCampo.SoloVista)">Solo vista</button>
+                    <button type="button" class="@(c.Modo == ModoCampo.Calculado ? "on" : "")" @onclick="() => Fijar(() => c.Modo = ModoCampo.Calculado)">Calculado</button>
+                </span>)
+                @VisibleSi(c)
+            </div>
+        }
+        @PropDatos(c)
+        <div class="dmz-pg dmz-acc">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-tip="Duplicar|Ctrl+D" @onclick="() => DuplicarCampo(c)"><Ico Nombre="unificar" /></button>
+            <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-tip="Quitar|Supr@(Publicado(c) is null ? "" : " · los datos guardados se conservan")" @onclick="() => QuitarCampo(c)"><Ico Nombre="eliminar" /></button>
+        </div>
+    };
+
+    private RenderFragment VisibleSi(CampoModulo c) => __builder =>
+    {
+        var candidatos = ed!.Def.Campos.Where(x => x != c && x.Tipo is TipoCampoModulo.Lista or TipoCampoModulo.SiNo).ToList();
+        @Fila("Visible si", @<select aria-label="Visible si" value="@(c.VisibleSiCampo ?? "")" @onchange="e => Fijar(() => { c.VisibleSiCampo = TxtONull(e); c.VisibleSiValor = null; })"><option value="">Siempre</option>@foreach (var x in candidatos) { <option value="@x.Clave">@x.Etiqueta =</option> }</select>)
+        @if (c.VisibleSiCampo is not null && ed.Def.Campo(c.VisibleSiCampo) is { } padre)
+        {
+            var ops = padre.Tipo == TipoCampoModulo.SiNo ? new List<string> { "Sí", "No" } : padre.Opciones;
+            @Fila("… es", @<select aria-label="… es" value="@(c.VisibleSiValor ?? "")" @onchange="e => Fijar(() => c.VisibleSiValor = TxtONull(e))"><option value="">(elija)</option>@foreach (var o in ops) { <option value="@o">@o</option> }</select>)
+        }
+    };
+
+    private RenderFragment PropDatos(CampoModulo c) => __builder =>
+    {
+        switch (c.Tipo)
+        {
+            case TipoCampoModulo.Lista:
+                <div class="dmz-pg"><h6>Datos</h6>
+                    @Fila("Opciones de", @<select aria-label="Opciones de" value="@(c.Catalogo ?? "")" @onchange="e => Fijar(() => c.Catalogo = TxtONull(e))"><option value="">Escritas abajo</option>@foreach (var n in catalogos) { <option value="@n">Catálogo: @n</option> }</select>)
+                    @if (string.IsNullOrWhiteSpace(c.Catalogo)) { @Fila("Opciones", @<textarea aria-label="Opciones" rows="4" placeholder="Una por línea" value="@OpcionesTexto(c)" @onchange="e => FijarOpciones(c, e.Value?.ToString())"></textarea>) }
+                    @Fila("Varios", @<input aria-label="Varios" type="checkbox" class="form-check-input" checked="@c.Multiple" @onchange="e => Fijar(() => c.Multiple = e.Value is true)" />)
+                </div>
+                break;
+            case TipoCampoModulo.Chequeo:
+                <div class="dmz-pg"><h6>Datos</h6>
+                    @Fila("Ítems", @<textarea aria-label="Ítems" rows="5" placeholder="Uno por línea" value="@OpcionesTexto(c)" @onchange="e => FijarOpciones(c, e.Value?.ToString())"></textarea>)
+                </div>
+                break;
+            case TipoCampoModulo.Numero:
+                <div class="dmz-pg"><h6>Datos</h6>
+                    @Fila("Unidad", @<input aria-label="Unidad" value="@c.Unidad" placeholder="MPa, kN·m, %" @onchange="e => Fijar(() => c.Unidad = TxtONull(e))" />)
+                    @Fila("Decimales", @<input aria-label="Decimales" type="number" min="0" max="6" value="@c.Decimales" @onchange="e => Fijar(() => c.Decimales = EnteroONull(e, 0, 6))" />)
+                </div>
+                break;
+            case TipoCampoModulo.Vinculo:
+                <div class="dmz-pg"><h6>⛁ Datos</h6>
+                    @Fila("Fuente", @<select aria-label="Fuente" value="@(c.Fuente ?? "")" @onchange="e => CambiarFuenteAsync(c, e.Value?.ToString())"><option value="">Elija un módulo…</option>@foreach (var f in Vinculos.Fuentes) { <option value="@f.Clave">@f.Nombre</option> }</select>)
+                    @Fila("Varios", @<input aria-label="Varios" type="checkbox" class="form-check-input" checked="@c.Multiple" @onchange="e => Fijar(() => c.Multiple = e.Value is true)" />)
+                    @Columnas(c, "Columnas")
+                    <div class="dmz-nota">El usuario elige registros de esta fuente; tablas, gráficos, mapas y visores del módulo pueden filtrarse por lo que elija aquí.</div>
+                </div>
+                break;
+            default:
+                if (c.EsHerramientaApp)
+                {
+                    var vinculos = ed!.Def.Campos.Where(x => x.Tipo == TipoCampoModulo.Vinculo).ToList();
+                    var cols = c.Fuente is null ? null : columnasFuente.GetValueOrDefault(c.Fuente);
+                    <div class="dmz-pg"><h6>⛁ Datos</h6>
+                        @Fila("Fuente", @<select aria-label="Fuente" value="@(c.Fuente ?? "")" @onchange="e => CambiarFuenteAsync(c, e.Value?.ToString())"><option value="">Elija un módulo…</option>@foreach (var f in Vinculos.Fuentes) { <option value="@f.Clave">@f.Nombre</option> }</select>)
+                        @Fila("Filtrar por", @<select aria-label="Filtrar por" value="@(c.FiltroCampo ?? "")" @onchange="e => Fijar(() => c.FiltroCampo = TxtONull(e))"><option value="">(todos los registros)</option>@foreach (var v in vinculos) { <option value="@v.Clave">@v.Etiqueta</option> }</select>)
+                        @if (c.FiltroCampo is not null && ed.Def.Campo(c.FiltroCampo) is { } vin && vin.Fuente != c.Fuente)
+                        {
+                            @Fila("Columna enlace", @<select aria-label="Columna enlace" value="@(c.ColumnaEnlace ?? "")" @onchange="e => Fijar(() => c.ColumnaEnlace = TxtONull(e))"><option value="">(elija la columna con @vin.Etiqueta)</option>@foreach (var col in cols ?? new()) { <option value="@col.Clave">@col.Nombre</option> }</select>)
+                        }
+                        @if (c.Tipo is TipoCampoModulo.Tabla or TipoCampoModulo.LineaTiempo or TipoCampoModulo.Carpetas) { @Columnas(c, "Columnas") }
+                        @if (c.Tipo is TipoCampoModulo.Grafico or TipoCampoModulo.Kpi)
+                        {
+                            @Fila("Cálculo", @<select aria-label="Cálculo" value="@c.Calculo" @onchange="e => Fijar(() => c.Calculo = Enum.Parse<CalculoCampo>(e.Value!.ToString()!))">@foreach (var k in Enum.GetValues<CalculoCampo>()) { <option value="@k">@CalculoTexto(k)</option> }</select>)
+                        }
+                        @if (c.Tipo is TipoCampoModulo.Grafico or TipoCampoModulo.Kpi or TipoCampoModulo.Estadistica)
+                        {
+                            @Fila(c.Calculo == CalculoCampo.Porcentaje ? "Columna a comparar" : "Columna valor", @<select aria-label="@(c.Calculo == CalculoCampo.Porcentaje ? "Columna a comparar" : "Columna valor")" value="@(c.ColumnaValor ?? "")" @onchange="e => Fijar(() => c.ColumnaValor = TxtONull(e))"><option value="">(elija)</option>@foreach (var col in cols ?? new()) { <option value="@col.Clave">@col.Nombre</option> }</select>)
+                        }
+                        @if (c.Calculo == CalculoCampo.Porcentaje && c.Tipo is TipoCampoModulo.Grafico or TipoCampoModulo.Kpi)
+                        {
+                            @Fila("Valor que cuenta", @<input aria-label="Valor que cuenta" value="@c.ValorObjetivo" placeholder="p. ej. Conforme" @onchange="e => Fijar(() => c.ValorObjetivo = TxtONull(e))" />)
+                        }
+                        @if (c.Tipo == TipoCampoModulo.Grafico)
+                        {
+                            @Fila("Agrupar por", @<select aria-label="Agrupar por" value="@(c.ColumnaAgrupar ?? "")" @onchange="e => Fijar(() => c.ColumnaAgrupar = TxtONull(e))"><option value="">(por mes de la fecha)</option>@foreach (var col in cols ?? new()) { <option value="@col.Clave">@col.Nombre</option> }</select>)
+                            @Fila("Tipo", @<span class="dmz-seg">@foreach (var (k, t) in TiposGrafico) { <button type="button" class="@(c.TipoGrafico == k ? "on" : "")" @onclick="() => Fijar(() => c.TipoGrafico = k)">@t</button> }</span>)
+                        }
+                        @if (c.Tipo is TipoCampoModulo.Grafico or TipoCampoModulo.LineaTiempo)
+                        {
+                            @Fila("Columna fecha", @<select aria-label="Columna fecha" value="@(c.ColumnaFecha ?? "")" @onchange="e => Fijar(() => c.ColumnaFecha = TxtONull(e))"><option value="">(ninguna)</option>@foreach (var col in cols ?? new()) { <option value="@col.Clave">@col.Nombre</option> }</select>)
+                        }
+                        @if (c.Tipo == TipoCampoModulo.Mapa)
+                        {
+                            @Fila("Latitud", @<select aria-label="Latitud" value="@(c.ColumnaLat ?? "")" @onchange="e => Fijar(() => c.ColumnaLat = TxtONull(e))"><option value="">(elija)</option>@foreach (var col in cols ?? new()) { <option value="@col.Clave">@col.Nombre</option> }</select>)
+                            @Fila("Longitud", @<select aria-label="Longitud" value="@(c.ColumnaLon ?? "")" @onchange="e => Fijar(() => c.ColumnaLon = TxtONull(e))"><option value="">(elija)</option>@foreach (var col in cols ?? new()) { <option value="@col.Clave">@col.Nombre</option> }</select>)
+                        }
+                        @if (c.Tipo is TipoCampoModulo.Kpi or TipoCampoModulo.Estadistica)
+                        {
+                            @Fila("Unidad", @<input aria-label="Unidad" value="@c.Unidad" @onchange="e => Fijar(() => c.Unidad = TxtONull(e))" />)
+                            @Fila("Decimales", @<input aria-label="Decimales" type="number" min="0" max="6" value="@c.Decimales" @onchange="e => Fijar(() => c.Decimales = EnteroONull(e, 0, 6))" />)
+                        }
+                        <div class="dmz-nota">@NotaDatos(c)</div>
+                    </div>
+                }
+                break;
+        }
+    };
+
+    private RenderFragment Columnas(CampoModulo c, string etiqueta) => __builder =>
+    {
+        if (c.Fuente is null) return;
+        if (!columnasFuente.TryGetValue(c.Fuente, out var cols)) { @Fila(etiqueta, @<span class="dmz-gris">cargando…</span>) return; }
+        <div class="dmz-fila dmz-fila-alta"><label>@etiqueta</label>
+            <div class="dmz-cols">
+                @foreach (var col in cols)
+                {
+                    <label><input type="checkbox" class="form-check-input" checked="@c.ColumnasFuente.Contains(col.Clave)" @onchange="e => AlternarColumna(c, col.Clave, e.Value is true)" /> @col.Nombre</label>
+                }
+                @if (cols.Count == 0) { <span class="dmz-gris">Sin columnas en este proyecto.</span> }
+            </div>
+        </div>
+    };
+
+    private RenderFragment PropPaso => __builder =>
+    {
+        if (PasoActual is not { } p) return;
+        <div class="dmz-pg"><h6>Paso @(paso + 1)</h6>
+            @Fila("Título", @<input aria-label="Título" value="@p.Titulo" @onchange="e => Fijar(() => p.Titulo = Txt(e))" />)
+            @Fila("Indicación", @<input aria-label="Indicación" value="@p.Descripcion" placeholder="Opcional" @onchange="e => Fijar(() => p.Descripcion = TxtONull(e))" />)
+            @Fila("Permite N/A", @<input aria-label="Permite N/A" type="checkbox" class="form-check-input" checked="@p.PermiteNoAplica" @onchange="e => Fijar(() => p.PermiteNoAplica = e.Value is true)" />)
+            <div class="dmz-acc">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-tip="Mover el paso a la izquierda" disabled="@(paso == 0)" @onclick="() => MoverPaso(-1)"><Ico Nombre="subir" /></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-tip="Mover el paso a la derecha" disabled="@(paso >= ed!.Def.Pasos.Count - 1)" @onclick="() => MoverPaso(1)"><Ico Nombre="bajar" /></button>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-tip="@(borrarPaso == p.Clave ? "Pulse otra vez para quitar el paso y sus controles" : "Quitar paso")" @onclick="() => QuitarPaso(p)"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    };
+
+    private RenderFragment PropModulo => __builder =>
+    {
+        <div class="dmz-pg"><h6>Módulo</h6>
+            @Fila("Nombre", @<input aria-label="Nombre" value="@ed!.Nombre" maxlength="80" @onchange="e => Fijar(() => ed.Nombre = Txt(e))" />)
+            @Fila("Descripción", @<input aria-label="Descripción" value="@ed.Descripcion" maxlength="300" placeholder="Tooltip del menú" @onchange="e => Fijar(() => ed.Descripcion = TxtONull(e))" />)
+            @Fila("Ícono", @<button type="button" class="dmz-ico-btn" data-tip="Elegir ícono" @onclick="() => verIconos = !verIconos"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos(ed.Icono))</svg> @GaleriaIconosModuloNombre(ed.Icono)</button>)
+            @if (verIconos) { <div class="dmz-iconos"><SelectorIconoModulo Valor="@ed.Icono" ValorChanged="ElegirIcono" /></div> }
+            @Fila("Menú", @<select aria-label="Menú" value="@ed.Grupo" @onchange="e => Fijar(() => ed.Grupo = Txt(e))">@foreach (var g in SigWeb.Data.Seguridad.CatalogoModulos.GruposMenu) { <option value="@g">@g</option> }</select>)
+            @Fila("Dónde", @<select aria-label="Dónde" value="@ed.Ambito" @onchange="e => Fijar(() => ed.Ambito = Enum.Parse<AmbitoModulo>(e.Value!.ToString()!))"><option value="@AmbitoModulo.Proyecto">Proyectos</option><option value="@AmbitoModulo.Empresa">Empresa</option><option value="@AmbitoModulo.Ambos">Proyectos y Empresa</option></select>)
+            @Fila("Código", @<span class="dmz-dos"><input aria-label="Prefijo del código" value="@ed.Def.Prefijo" maxlength="12" placeholder="INS" @onchange="e => Fijar(() => ed.Def.Prefijo = Txt(e))" /><input type="number" min="1" max="8" value="@ed.Def.CifrasCodigo" title="Cifras" aria-label="Cifras del código" @onchange="e => Fijar(() => ed.Def.CifrasCodigo = Entero(e, 1, 8))" /></span>)
+            <div class="dmz-nota">Ejemplo: <b>@ed.Def.Codigo(1)</b></div>
+            @Fila("Lo nombra", @<select aria-label="Lo nombra" value="@(ed.Def.CampoTitulo ?? "")" @onchange="e => Fijar(() => ed.Def.CampoTitulo = TxtONull(e))"><option value="">(primer texto)</option>@foreach (var c in ed.Def.CamposConValor.Where(c => !c.EsAdjunto)) { <option value="@c.Clave">@c.Etiqueta</option> }</select>)
+        </div>
+        <div class="dmz-pg"><h6>Estados del registro</h6>
+            @for (int i = 0; i < ed.Def.Estados.Count; i++)
+            {
+                var s = ed.Def.Estados[i]; var idx = i;
+                <div class="dmz-estado">
+                    <input value="@s.Nombre" placeholder="Nombre" aria-label="Nombre del estado" @onchange="e => Fijar(() => s.Nombre = Txt(e))" />
+                    <select value="@s.Color" aria-label="Color" style="@ColorMuestra(s.Color)" @onchange="e => Fijar(() => s.Color = Txt(e))">@foreach (var pc in SigWeb.Data.Tablas.MotorTabla.Paleta) { <option value="@pc.Clave">@pc.Nombre</option> }</select>
+                    <label data-tip="Estado final|Cierra el registro: solo quien puede Aprobar lo cambia"><input type="checkbox" class="form-check-input" checked="@s.Final" @onchange="e => Fijar(() => s.Final = e.Value is true)" /> fin</label>
+                    <button type="button" data-tip="Subir" disabled="@(idx == 0)" @onclick="() => Fijar(() => Mover(ed.Def.Estados, idx, -1))"><Ico Nombre="subir" /></button>
+                    <button type="button" data-tip="Quitar" @onclick="() => Fijar(() => ed.Def.Estados.RemoveAt(idx))"><Ico Nombre="cancelar" /></button>
+                </div>
+            }
+            <div class="dmz-acc"><button type="button" class="btn btn-sm btn-outline-secondary" data-tip="Agregar estado|Ej.: Programada → Ejecutada → Cerrada (fin)" @onclick="AgregarEstado"><Ico Nombre="agregar" /></button></div>
+        </div>
+    };
+}

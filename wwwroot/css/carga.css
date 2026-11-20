@@ -1,0 +1,79 @@
+/* Carga común: los colores heredan también los temas oscuro y cristal. */
+.sig-progreso {
+    position: fixed;
+    inset: 0 0 auto;
+    height: 3px;
+    z-index: 11000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 160ms ease;
+    color: var(--t-acento, var(--sig-rojo, #EC1C24));
+}
+.sig-progreso[data-activo] { opacity: 1; }
+.sig-progreso > span {
+    display: block;
+    height: 100%;
+    background: currentColor;
+    box-shadow: 0 0 8px color-mix(in srgb, currentColor 45%, transparent);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 180ms ease-out;
+}
+.sig-espera {
+    --sig-esqueleto-base: color-mix(in srgb, var(--t-texto-2, #6b7686) 14%, var(--t-superficie-2, #f5f7fa));
+    --sig-esqueleto-brillo: color-mix(in srgb, var(--t-texto, #1f2a3a) 9%, transparent);
+    margin-block: .75rem;
+}
+/* También reutilizable sin el componente; el contenedor aporta la etiqueta accesible. */
+.sig-esqueleto {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    min-height: .8rem;
+    border-radius: 5px;
+    background: var(--sig-esqueleto-base, var(--t-superficie-2, #e9edf2));
+}
+.sig-esqueleto::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 20%, var(--sig-esqueleto-brillo, #ffffff40) 50%, transparent 80%);
+    animation: sig-brillo 1.5s ease-in-out infinite;
+}
+.sig-espera-tabla .sig-espera-contenido {
+    border: 1px solid var(--t-borde, #e3e7ee);
+    border-radius: var(--t-radio, 8px);
+    overflow: hidden;
+    background: var(--t-superficie, #fff);
+}
+.sig-espera-fila {
+    display: grid;
+    grid-template-columns: minmax(45px, .65fr) repeat(2, minmax(0, 1fr)) minmax(35px, .5fr);
+    gap: clamp(12px, 3vw, 36px);
+    padding: 14px 16px;
+}
+.sig-espera-fila + .sig-espera-fila { border-top: 1px solid var(--t-borde, #e3e7ee); }
+.sig-espera-cabecera { background: var(--t-superficie-2, #f5f7fa); }
+.sig-espera-fila:nth-child(2n) .sig-esqueleto:nth-child(2) { width: 75%; }
+.sig-espera-tarjetas .sig-espera-contenido { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 14px; }
+.sig-espera-tarjeta { display: grid; gap: 14px; padding: 20px; border: 1px solid var(--t-borde, #e3e7ee); border-radius: var(--t-radio, 8px); background: var(--t-superficie, #fff); }
+.sig-espera-icono { width: 36px; height: 36px; border-radius: 10px; }
+.sig-espera-titulo { width: 62%; height: 1.1rem; }
+.sig-espera-corto { width: 45%; }
+.sig-espera-texto .sig-espera-contenido { display: grid; gap: 14px; padding-block: 8px; }
+.sig-espera-texto .sig-esqueleto:last-child { width: 65%; }
+@keyframes sig-brillo { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+    .sig-progreso, .sig-progreso > span { transition: none; }
+    .sig-esqueleto::after { animation: none; display: none; }
+}
+@media print {
+    .sig-progreso, .sig-espera { display: none !important; }
+}
+
+/* Cargadores de Bootstrap con el acento del tema (botones, paneles, diálogos). */
+.spinner-border:not(.text-white):not(.text-light) { color: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+.spinner-border { --bs-spinner-border-width: .16em; --bs-spinner-animation-speed: .7s; }
+.btn .spinner-border, .pg-btn .spinner-border { color: currentColor; }
+/* Dentro de un widget del panel de Inicio el esqueleto no lleva márgenes. */
+.ini-panel .sig-espera, .pw-widget .sig-espera { margin: .25rem 0; }

@@ -1,0 +1,207 @@
+@inject SigWeb.Data.Iconos.IconosApp IconosApp
+@inject NavigationManager Nav
+@inject SigWeb.Data.Navegacion.MenuIcono MenuIco
+@inject SigWeb.Data.Seguridad.UsuarioActual UsuarioAdm
+@implements IDisposable
+@{ var modulo = SigWeb.Data.Navegacion.MapaNavegacion.De(Nav.ToBaseRelativePath(Nav.Uri)); }
+@* data-grupo: estilos por grupo del menú ; data-estilo="listados" = tablas de css/listados.css. *@
+<div class="pg-cab" data-grupo="@modulo?.Grupo" data-estilo="@modulo?.Estilo">
+    <div class="pg-titulo">
+        @if (OnAtras.HasDelegate)
+        {
+            <button type="button" class="pg-atras border-0" title="Volver" aria-label="Volver" @onclick="OnAtras">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+        }
+        else
+        {
+            @* Vuelve a la pantalla anterior de la app (js/volver.js); «Atras» solo se usa si no hay ninguna. *@
+            <button type="button" class="pg-atras border-0" title="Volver" aria-label="Volver"
+                    data-accion="volver" data-destino="@(Atras ?? "/")">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+            </button>
+        }
+        @{ var menu = MenuIco.Actual; }
+        <span class="pg-logo-marco">
+        <span class="pg-logo @(menu is not null ? "pg-logo-menu" : "") @(menuAbierto ? "abierto" : "")"
+              role="@(menu is not null ? "button" : null)" tabindex="@(menu is not null ? "0" : null)"
+              title="@(menu is not null ? $"{menu.Titulo}: {menu.Opciones.FirstOrDefault(o => o.Clave == menu.Actual)?.Nombre}" : null)"
+              aria-haspopup="@(menu is not null ? "listbox" : null)" aria-expanded="@(menu is not null ? menuAbierto.ToString().ToLowerInvariant() : null)"
+              aria-hidden="@(menu is null ? "true" : null)"
+              @onclick="AlternarMenu" @onkeydown="TeclaMenu">
+            @if (!string.IsNullOrEmpty(IconoUrl))
+            {
+                <img src="@IconoUrl" alt="" width="24" height="24" style="object-fit:contain;" />
+            }
+            else if (IconosApp.Ruta("cab:" + Icono) is string asignado)
+            {
+                <img src="@asignado" alt="" width="24" height="24" style="object-fit:contain;" />
+            }
+            else
+            {
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">@((MarkupString)Trazos(Icono))</svg>
+            }
+            @if (menu is not null)
+            {
+                <span class="pg-logo-flecha" aria-hidden="true"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+            }
+        </span>
+        @if (menu is not null && menuAbierto)
+        {
+            <span class="pg-menu-fondo" @onclick="() => menuAbierto = false"></span>
+            <div class="pg-menu" role="listbox" aria-label="@menu.Titulo">
+                <div class="pg-menu-tit">@menu.Titulo</div>
+                @foreach (var o in menu.Opciones)
+                {
+                    var op = o;
+                    var elegida = op.Clave == menu.Actual;
+                    <button type="button" class="pg-menu-op @(elegida ? "activo" : "")" role="option" aria-selected="@elegida.ToString().ToLowerInvariant()" @onclick="() => ElegirAsync(op.Clave)">
+                        @if (op.Marca is not null)
+                        {
+                            <SigWeb.Components.Admin.MarcaProyecto EsEmpresa="op.EsEmpresa" Codigo="@op.Marca" Clase="pg-menu-marca" Estilo="@($"--c:{op.Color ?? "#EC1C24"}")" />
+                        }
+                        <span class="pg-menu-txt"><span>@op.Nombre@(op.Destacada ? " ★" : "")</span>@if (op.Detalle is not null) { <small>@op.Detalle</small> }</span>
+                        @if (elegida) { <span class="pg-menu-check" aria-hidden="true">✓</span> }
+                    </button>
+                }
+                @if (menu.EnlaceGestion is not null)
+                {
+                    <a class="pg-menu-pie" href="@menu.EnlaceGestion"><Ico Nombre="formularios" /> @(menu.TituloGestion ?? "Gestionar")</a>
+                }
+            </div>
+        }
+        </span>
+        <div class="pg-textos">
+            @if (modulo is not null)
+            {
+                @* Ruta de navegación: grupo › módulo (el módulo lleva a su pantalla principal). *@
+                <nav class="pg-migas" aria-label="Ruta">
+                    @if (modulo.Grupo != modulo.Nombre)
+                    {
+                        <span>@modulo.Grupo</span>
+                        <span class="pg-migas-sep" aria-hidden="true">›</span>
+                    }
+                    <a href="@modulo.Href" data-modulo>@modulo.Nombre</a>
+                </nav>
+            }
+            <div class="pg-titulo-linea">
+                <h4 class="mb-0">@Titulo</h4>
+                <button type="button" class="pg-fav" title="Agregar a favoritos" aria-label="Favorito">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" /></svg>
+                </button>
+            </div>
+            @if (!string.IsNullOrEmpty(Subtitulo)) { <div class="pg-sub">@Subtitulo</div> }
+        </div>
+    </div>
+    @* Densidad y restablecer columnas (js/tablaPin.js): visible solo si la pantalla muestra una tabla configurable (css en app.css). *@
+    <div class="pg-acciones @(Acciones is null && VistasAdmin.Count < 2 ? "pg-acciones-solo-tabla" : "")">
+        @* Administración agrupada (Data/Navegacion/MenuAdmin): las pantallas del mismo módulo son vistas. *@
+        @if (VistasAdmin.Count > 1)
+        {
+            <span class="pg-vistas">
+                @foreach (var v in VistasAdmin)
+                {
+                    <a class="pg-btn @(v == VistaAdminActual ? "activo" : "")" href="@v.Ruta" title="@v.Texto" aria-label="@v.Texto" aria-current="@(v == VistaAdminActual ? "page" : null)"><Ico Nombre="@v.Icono" /></a>
+                }
+            </span>
+            @if (Acciones is not null) { <span class="pg-sep"></span> }
+        }
+        @Acciones
+        <button type="button" class="pg-btn pg-tabla-cfg" title="Vista de tabla" aria-label="Vista de tabla">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M4 12h10M4 18h10"/><path d="M19 4v16M16.5 6.5 19 4l2.5 2.5M16.5 17.5 19 20l2.5-2.5"/></svg>
+        </button>
+        @* Asistente de ayuda interno (manual de usuario, sin servicios externos). *@
+        <AsistenteAyudaPanel />
+    </div>
+</div>
+
+@code {
+    private bool menuAbierto;
+
+    private List<SigWeb.Data.Navegacion.MenuAdmin.Vista> VistasAdmin = new();
+    private SigWeb.Data.Navegacion.MenuAdmin.Vista? VistaAdminActual;
+
+    protected override void OnInitialized()
+    {
+        MenuIco.Cambio += AlCambiarMenu;
+        var ruta = Nav.ToBaseRelativePath(Nav.Uri);
+        if (SigWeb.Data.Navegacion.MenuAdmin.GrupoDe(ruta) is { } g)
+        {
+            bool admin;
+            try { admin = UsuarioAdm.EsAdministrador; } catch { admin = false; }
+            VistasAdmin = SigWeb.Data.Navegacion.MenuAdmin.Visibles(g, admin).ToList();
+            VistaAdminActual = SigWeb.Data.Navegacion.MenuAdmin.VistaDe(ruta);
+        }
+    }
+    private void AlCambiarMenu() { if (MenuIco.Actual is null) menuAbierto = false; _ = InvokeAsync(StateHasChanged); }
+    public void Dispose() => MenuIco.Cambio -= AlCambiarMenu;
+
+    private void AlternarMenu() { if (MenuIco.Actual is not null) menuAbierto = !menuAbierto; }
+    private void TeclaMenu(KeyboardEventArgs e)
+    {
+        if (MenuIco.Actual is null) return;
+        if (e.Key is "Enter" or " ") menuAbierto = !menuAbierto;
+        else if (e.Key == "Escape") menuAbierto = false;
+    }
+    private async Task ElegirAsync(string clave)
+    {
+        menuAbierto = false;
+        if (MenuIco.Actual is { } m) await m.Elegir(clave);
+    }
+
+    [Parameter] public string Titulo { get; set; } = "";
+    [Parameter] public string? Subtitulo { get; set; }
+    [Parameter] public string Icono { get; set; } = "cubo";
+    [Parameter] public string? IconoUrl { get; set; }
+    // Pantalla a la que vuelve «volver» cuando no hay una anterior en esta pestaña (enlace directo, pestaña nueva).
+    [Parameter] public string? Atras { get; set; }
+    [Parameter] public RenderFragment? Acciones { get; set; }
+    // Si se indica, el botón «volver» ejecuta esto en vez de navegar (cierra la vista interna de la página;
+    // cuando no hay ninguna abierta, la página debe dejarlo en default para volver a la pantalla anterior).
+    [Parameter] public EventCallback OnAtras { get; set; }
+
+    public static string Trazos(string clave) => clave switch
+    {
+        "calendario" => "<rect x=\"3.5\" y=\"5\" width=\"17\" height=\"15.5\" rx=\"2\"/><path d=\"M3.5 9.5h17M8 3v4M16 3v4\"/><path d=\"M7.5 13h2M11 13h2M14.5 13h2M7.5 16.5h2M11 16.5h2\"/>",
+        "favorito" => "<path d=\"m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z\"/>",
+        "inicio" => "<rect x=\"3.5\" y=\"3.5\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"13.5\" y=\"3.5\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"13.5\" y=\"11.5\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3.5\" y=\"15.5\" width=\"7\" height=\"5\" rx=\"1.5\"/>",
+        "indicadores" => "<path d=\"M3 3v18h18\"/><path d=\"m7 15 4-4 3 3 5-6\"/><path d=\"M19 8V5h-3\"/>",
+        "riesgos" => "<path d=\"M10.3 3.9 1.9 18.4A2 2 0 0 0 3.6 21.4h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z\"/><path d=\"M12 9v4.5M12 17.2v.1\"/>",
+        "plan-accion" => "<rect x=\"5\" y=\"3.5\" width=\"14\" height=\"18\" rx=\"2\"/><path d=\"M9 2.5h6v3H9z\"/><path d=\"m8.5 11.5 1.6 1.6 3.2-3.2M8.5 17h7\"/>",
+        "temas" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><circle cx=\"8.5\" cy=\"10\" r=\"1.3\"/><circle cx=\"12\" cy=\"7.5\" r=\"1.3\"/><circle cx=\"15.5\" cy=\"10\" r=\"1.3\"/><path d=\"M12 21a2.5 2.5 0 0 1 0-5h2a3 3 0 0 0 3-3\"/>",
+        "ifc" => "<path d=\"M12 2.5 4 7v9l8 4.5 8-4.5V7z\"/><path d=\"M4 7l8 4.5L20 7M12 11.5v9\"/><path d=\"M15.5 13.5l2.5-1.4M15.5 16l2.5-1.4\"/>",
+        "costos-no-calidad" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M14.6 9c-.5-.9-1.5-1.4-2.6-1.4-1.5 0-2.6.8-2.6 1.9 0 2.6 5.2 1.4 5.2 4 0 1.1-1.1 1.9-2.6 1.9-1.2 0-2.2-.5-2.7-1.4M12 6.2v1.4M12 16.4v1.4\"/><path d=\"M5.6 5.6l12.8 12.8\"/>",
+        "costos" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M15 8.5c-.6-1-1.7-1.5-3-1.5-1.7 0-3 .9-3 2.2 0 3 6 1.6 6 4.6 0 1.3-1.3 2.2-3 2.2-1.4 0-2.6-.6-3.1-1.6M12 5.5V7M12 17v1.5\"/>",
+        "avance-obra" => "<path d=\"M3 21h18\"/><path d=\"M7.5 21 11 3h2l3.5 18\"/><path d=\"M9.2 14h5.6M10.4 8.5h3.2\"/><path d=\"m8.3 21 7.1-7M15.7 21l-7.1-7\"/>",
+        "linea3d" => "<path d=\"M3 20h18M7 20 9 6l2 14M13 20l2-14 2 14\"/><path d=\"M4 9c3 2 6 2 8 0s5-2 8 0\"/>",
+        "matriz" => "<path d=\"M4 4h16v16H4z\"/><path d=\"M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16\"/><path d=\"M11 11.5l1.2 1.2 2.3-2.4\"/>",
+        "trazado" => "<path d=\"M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>",
+        "papelera" => "<path d=\"M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6\"/>",
+        "materiales" => "<path d=\"M3 8l9-5 9 5v8l-9 5-9-5z\"/><path d=\"M3 8l9 5 9-5M12 13v8\"/>",
+        "catalogos" => "<path d=\"M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z\"/><path d=\"M5 17a3 3 0 0 1 3-3h11M9 8h6\"/>",
+        "planos" => "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"/><path d=\"M8 14h8\"/>",
+        "comunicados" => "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><path d=\"m3.5 6.5 8.5 6 8.5-6\"/>",
+        "documentos" => "<path d=\"M6 3h8l4 4v14H6z\"/><path d=\"M14 3v4h4M9 12h6M9 16h6\"/>",
+        "actividades" => "<path d=\"M9 6h11M9 12h11M9 18h11\"/><path d=\"M3.5 6l1.2 1.2L7 5M3.5 12l1.2 1.2L7 11M3.5 18l1.2 1.2L7 17\"/>",
+        "equipos" => "<path d=\"M4 15a8 8 0 0 1 16 0\"/><path d=\"M12 15l4-5M4 19h16\"/><path d=\"M6.3 9.8l1 .8M12 7v1.3M17.7 9.8l-1 .8\"/>",
+        "dossier" => "<path d=\"M3.5 4h17v4h-17z\"/><path d=\"M5 8v12h14V8\"/><path d=\"M10 12h4\"/>",
+        "ensayos" => "<path d=\"M9 3h6M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3\"/><path d=\"M7.5 15h9\"/>",
+        "direccionamiento" => "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"m15.5 8.5-2 5-5 2 2-5z\"/>",
+        "partes-interesadas" => "<circle cx=\"9\" cy=\"8\" r=\"3\"/><path d=\"M3.5 19a5.5 5.5 0 0 1 11 0\"/><circle cx=\"17\" cy=\"9\" r=\"2.3\"/><path d=\"M15.5 14.2A4.5 4.5 0 0 1 21 18.5\"/>",
+        "organigrama" => "<rect x=\"9\" y=\"3\" width=\"6\" height=\"4.5\" rx=\"1\"/><rect x=\"3\" y=\"16.5\" width=\"6\" height=\"4.5\" rx=\"1\"/><rect x=\"15\" y=\"16.5\" width=\"6\" height=\"4.5\" rx=\"1\"/><path d=\"M12 7.5V12M6 16.5V12h12v4.5\"/>",
+        "manuales-funciones" => "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><circle cx=\"8.5\" cy=\"11\" r=\"2\"/><path d=\"M5.5 16a3 3 0 0 1 6 0M14 10h4M14 13.5h4\"/>",
+        "certificaciones" => "<circle cx=\"12\" cy=\"9\" r=\"5.5\"/><path d=\"m10 11 1.5 1.5L15 8\"/><path d=\"M8.5 13.5 7 21l5-2.5 5 2.5-1.5-7.5\"/>",
+        "auditoria-interna" => "<rect x=\"5\" y=\"3.5\" width=\"14\" height=\"18\" rx=\"2\"/><path d=\"M9 2.5h6v3H9z\"/><circle cx=\"11\" cy=\"12.5\" r=\"3\"/><path d=\"m13.2 14.7 2.8 2.8\"/>",
+        "cuenta" => "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21a8 8 0 0 1 16 0\"/>",
+        "escudo" => "<path d=\"M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6z\"/><path d=\"m9 12 2 2 4-4\"/>",
+        "proyectos" => "<path d=\"M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6\"/>",
+        "usuarios" => "<circle cx=\"9\" cy=\"8\" r=\"3\"/><path d=\"M3.5 19a5.5 5.5 0 0 1 11 0\"/><circle cx=\"17\" cy=\"9\" r=\"2.3\"/><path d=\"M15.5 14.2A4.5 4.5 0 0 1 21 18.5\"/>",
+        "correo" => "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><path d=\"m3 7 9 6 9-6\"/>",
+        "roles" => "<path d=\"M4 6h16M4 12h16M4 18h10\"/><path d=\"m17 16 2 2 3-3\"/>",
+        "telegram" => "<path d=\"M21 4 3 11l6 2 2 7 3-4 4 3z\"/><path d=\"m9 13 12-9\"/>",
+        "servidor" => "<rect x=\"4\" y=\"4\" width=\"16\" height=\"7\" rx=\"1.5\"/><rect x=\"4\" y=\"13\" width=\"16\" height=\"7\" rx=\"1.5\"/><path d=\"M8 7.5h.01M8 16.5h.01\"/>",
+        "tablero" => "<rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/>",
+        // Claves de la galería de íconos de módulos (módulos creados por el administrador); si no, el cubo genérico.
+        _ => SigWeb.Data.Iconos.GaleriaIconosModulo.Trazos(clave) ?? "<path d=\"M12 2.5 4 7v9l8 4.5 8-4.5V7z\"/><path d=\"M4 7l8 4.5L20 7M12 11.5v9\"/>",
+    };
+}

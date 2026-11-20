@@ -1,0 +1,495 @@
+@page "/admin/proyectos"
+@rendermode InteractiveServer
+@using System.Diagnostics
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+
+<PageTitle>Proyectos · Administración</PageTitle>
+
+<div class="ad">
+<EncabezadoPagina Titulo="Proyectos y módulos" Subtitulo="Cada proyecto tiene su propia base de datos" Icono="proyectos" Atras="/admin">
+    <Acciones>
+        <button type="button" class="pg-btn" title="Nuevo proyecto" @onclick="Nuevo"><Ico Nombre="agregar" /></button>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (Mensaje is not null)
+{
+    <div class="alert @(MensajeError ? "alert-danger" : "alert-success")" role="alert">@Mensaje</div>
+}
+
+<div class="ad-dos">
+    <aside class="ad-tarjeta ad-lateral">
+        @foreach (var p in lista.Where(p => p.Estado != EstadoProyecto.Eliminado))
+        {
+            <button type="button" class="ad-item @(ed?.Id == p.Id ? "activo" : "")" @onclick="() => Abrir(p.Id)">
+                <MarcaProyecto EsEmpresa="@p.EsEmpresa" Codigo="@p.Codigo" Estilo="@($"--c:{p.Color ?? "#EC1C24"};width:2.1rem;height:2.1rem;font-size:.66rem")" />
+                <span class="ad-item-txt"><span>@p.Nombre</span><small>@(p.EsEmpresa ? "Empresa" : p.EsPiloto ? "Piloto · " + p.BaseDatos : p.BaseDatos)</small></span>
+                @if (p.Estado != EstadoProyecto.Activo) { <span class="ad-chip alerta">@p.Estado</span> }
+            </button>
+        }
+        @if (lista.Any(p => p.Estado == EstadoProyecto.Eliminado))
+        {
+            <h5 class="ad-tit mt-3">Eliminados</h5>
+            @foreach (var p in lista.Where(p => p.Estado == EstadoProyecto.Eliminado))
+            {
+                <div class="d-flex align-items-center justify-content-between gap-2 py-2">
+                    <span>@p.Nombre <small class="text-muted">@p.Codigo</small></span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Restaurar @p.Nombre" disabled="@Ocupado"
+                            @onclick="() => Restaurar(p.Id)"><Ico Nombre="restaurar" /></button>
+                </div>
+            }
+        }
+    </aside>
+
+    @if (ed is not null)
+    {
+        <div class="d-grid gap-3">
+            <section class="ad-tarjeta">
+                <h5 class="ad-tit">@(ed.Id == 0 ? "Proyecto nuevo" : ed.Nombre)
+                    @if (ed.EsEmpresa) { <span class="ad-chip acento">Empresa</span> }
+                    @if (ed.EsPiloto) { <span class="ad-chip">Piloto</span> }
+                </h5>
+                <div class="ad-form">
+                    <div class="mb-3"><label for="pr-cod">Código</label><input id="pr-cod" class="form-control" @bind="ed.Codigo" @bind:after="SugerirBase" maxlength="30" disabled="@ed.EsEmpresa" required /></div>
+                    <div class="mb-3 ad-ancho"><label for="pr-nom">Nombre</label><input id="pr-nom" class="form-control" @bind="ed.Nombre" maxlength="200" required /></div>
+                    <div class="mb-3"><label for="pr-cli">Cliente</label><input id="pr-cli" class="form-control" @bind="ed.Cliente" maxlength="200" /></div>
+                    <div class="mb-3"><label for="pr-ubi">Ubicación</label><input id="pr-ubi" class="form-control" @bind="ed.Ubicacion" maxlength="200" /></div>
+                    <div class="mb-3"><label for="pr-ini">Inicio</label><input id="pr-ini" type="date" class="form-control" @bind="ed.FechaInicio" /></div>
+                    <div class="mb-3"><label for="pr-fin">Fin</label><input id="pr-fin" type="date" class="form-control" @bind="ed.FechaFin" /></div>
+                    <div class="mb-3">
+                        <label for="pr-est">Estado</label>
+                        <select id="pr-est" class="form-select" @bind="ed.Estado" disabled="@ed.EsEmpresa">
+                            <option value="@EstadoProyecto.Activo">Activo</option>
+                            <option value="@EstadoProyecto.Suspendido">Suspendido (solo el administrador entra)</option>
+                            <option value="@EstadoProyecto.Archivado">Archivado</option>
+                        </select>
+                    </div>
+                    <div class="mb-3"><label for="pr-col">Color</label><input id="pr-col" type="color" class="form-control form-control-color w-100" @bind="ed.Color" /></div>
+                    <div class="mb-3"><label for="pr-bd">Base de datos (PostgreSQL)</label><input id="pr-bd" class="form-control ad-mono" @bind="ed.BaseDatos" maxlength="63" disabled="@(ed.Id != 0)" /></div>
+                    <div class="mb-3 ad-ancho"><label for="pr-des">Descripción</label><textarea id="pr-des" class="form-control" rows="2" @bind="ed.Descripcion" maxlength="1000"></textarea></div>
+                </div>
+                @if (ed.Id != 0)
+                {
+                    <div class="d-flex align-items-center gap-3 flex-wrap small">
+                        <span class="ad-salud @(estadoBase is null ? "" : estadoBase.Value.Conecta ? (estadoBase.Value.Pendientes == 0 ? "ok" : "alerta") : "mal")">
+                            @if (estadoBase is null) { <span>Base sin revisar</span> }
+                            else if (!estadoBase.Value.Conecta) { <span>Base no disponible: @estadoBase.Value.Error</span> }
+                            else if (estadoBase.Value.Pendientes > 0) { <span>Base con @estadoBase.Value.Pendientes migraciones pendientes</span> }
+                            else { <span>Base al día</span> }
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Revisar la base" @onclick="RevisarBase" disabled="@Ocupado"><Ico Nombre="restaurar" /></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Crear o preparar la base (migraciones y catálogos de fábrica)" @onclick="PrepararBase" disabled="@Ocupado"><Ico Nombre="aceptar" /></button>
+                    </div>
+                }
+            </section>
+
+            <section class="ad-tarjeta">
+                <h5 class="ad-tit">Módulos del proyecto
+                    <span class="ms-auto d-flex gap-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Habilitar todos" @onclick="() => Todos(true)"><Ico Nombre="seleccionar-todo" /></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Valores por defecto" @onclick="PorDefecto"><Ico Nombre="restaurar" /></button>
+                    </span>
+                </h5>
+                <div class="ad-matriz-marco" style="max-height:none">
+                    <table class="ad-matriz">
+                        <thead><tr><th>Módulo</th><th>Habilitado</th><th>Datos</th></tr></thead>
+                        <tbody>
+                        @foreach (var g in ed.Modulos.GroupBy(m => m.Def.Grupo))
+                        {
+                            <tr class="ad-grupo"><td colspan="3">@g.Key</td></tr>
+                            @foreach (var m in g)
+                            {
+                                <tr>
+                                    <td>@m.Def.Nombre @if (m.Def.Sensible) { <span class="ad-sens" title="Información sensible: los roles de consulta no la ven por defecto">sensible</span> }</td>
+                                    <td><input type="checkbox" @bind="m.Habilitado" aria-label="Habilitar @m.Def.Nombre" /></td>
+                                    <td>
+                                        @if (!ed.EsEmpresa && m.Def.CompartidoDesdeEmpresa)
+                                        {
+                                            <select class="form-select form-select-sm" @bind="m.Fuente" disabled="@(!m.Habilitado)" data-sin-flotante>
+                                                <option value="@FuenteModulo.Empresa">De la empresa (solo lectura)</option>
+                                                <option value="@FuenteModulo.Propio">Propios del proyecto</option>
+                                            </select>
+                                        }
+                                        else { <span class="text-muted small">Propios</span> }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div class="frm-pie">
+                <span class="frm-pie-msg"></span>
+                @if (ed.Id != 0)
+                {
+                    <button type="button" class="btn btn-outline-danger" title="Eliminar proyecto" @onclick="AbrirEliminacion"
+                            disabled="@Ocupado"><Ico Nombre="eliminar" /></button>
+                }
+                <button type="button" class="btn btn-outline-secondary" title="Cancelar" @onclick="() => Abrir(ed.Id)"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary" title="Guardar" @onclick="Guardar" disabled="@Ocupado"><Ico Nombre="guardar" /></button>
+            </div>
+        </div>
+    }
+</div>
+</div>
+
+@if (baja is { } b)
+{
+    <div class="modal-backdrop-custom">
+        <div class="modal-box-custom ad-proyecto-baja" role="dialog" aria-modal="true" aria-label="Eliminar proyecto">
+            <FormularioSig Titulo="Eliminar proyecto" Icono="eliminar" OnCerrar="CerrarEliminacion">
+                <ChildContent>
+                    <p><strong>@b.Proyecto.Nombre (@b.Proyecto.Codigo)</strong></p>
+                    <p>El proyecto saldrá del selector y se bloquearán sus accesos, invitaciones y avisos.
+                        La base <strong>@b.Proyecto.BaseDatos</strong> y los archivos se conservarán. Podrá restaurar el proyecto desde Eliminados.</p>
+                    @if (b.Impacto is { } i)
+                    {
+                        <dl class="ad-proyecto-impacto small">
+                            <dt>Membresías</dt><dd>@i.Membresias</dd>
+                            <dt>Usuarios con acceso</dt><dd>@i.UsuariosConAcceso</dd>
+                            <dt>Invitaciones vigentes / totales</dt><dd>@i.InvitacionesVigentes / @i.Invitaciones</dd>
+                            <dt>Reglas de avisos activas / totales</dt><dd>@i.ReglasActivas / @i.ReglasAvisos</dd>
+                            @foreach (var (nombre, total) in i.Registros)
+                            {
+                                <dt>@nombre</dt><dd>@(total?.ToString("N0") ?? "No disponible")</dd>
+                            }
+                            <dt>Tamaño de la base</dt><dd>@(i.Bytes is long bytes ? $"{bytes / 1048576d:N1} MiB" : "No disponible")</dd>
+                        </dl>
+                    }
+                    <div class="mb-3">
+                        <label for="pr-baja-codigo">Escriba el código exacto <strong>@b.Proyecto.Codigo</strong></label>
+                        <input id="pr-baja-codigo" class="form-control" @bind="b.Codigo" @bind:event="oninput" maxlength="30" autocomplete="off" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="pr-baja-clave">Contraseña de administrador</label>
+                        <input id="pr-baja-clave" type="password" class="form-control" @bind="b.Clave" @bind:event="oninput" autocomplete="current-password" />
+                    </div>
+                    <label class="d-flex align-items-start gap-2">
+                        <input id="pr-baja-entendido" type="checkbox" @bind="b.Entendido" />
+                        <span>Entiendo que los usuarios perderán el acceso a este proyecto hasta que se restaure.</span>
+                    </label>
+                    @if (MensajeError) { <div class="alert alert-danger mt-3" role="alert">@Mensaje</div> }
+                </ChildContent>
+                <Acciones>
+                    <span class="frm-pie-msg" aria-live="polite">@(b.Impacto is null ? "Consultando el impacto…" : b.Segundos > 0 ? $"Espere {b.Segundos} s" : "")</span>
+                    <button type="button" class="btn btn-outline-secondary" title="Cancelar" @onclick="CerrarEliminacion" disabled="@Ocupado"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="btn btn-danger" title="Confirmar eliminación" @onclick="Eliminar" disabled="@(!b.Lista || Ocupado)"><Ico Nombre="eliminar" /></button>
+                </Acciones>
+            </FormularioSig>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")] private int? IdQ { get; set; }
+    [SupplyParameterFromQuery(Name = "nuevo")] private int? NuevoQ { get; set; }
+
+    private sealed class ModEd { public required CatalogoModulos.Def Def { get; init; } public bool Habilitado { get; set; } public FuenteModulo Fuente { get; set; } }
+    private sealed class Edicion
+    {
+        public int Id; public bool EsEmpresa, EsPiloto;
+        public string Codigo { get; set; } = ""; public string Nombre { get; set; } = "";
+        public string? Cliente { get; set; } public string? Ubicacion { get; set; } public string? Descripcion { get; set; }
+        public string BaseDatos { get; set; } = ""; public string Color { get; set; } = "#EC1C24";
+        public EstadoProyecto Estado { get; set; } public DateTime? FechaInicio { get; set; } public DateTime? FechaFin { get; set; }
+        public List<ModEd> Modulos { get; set; } = new();
+    }
+
+    private List<Proyecto> lista = new();
+    private Edicion? ed;
+    private ConfirmacionBaja? baja;
+
+    private sealed class ConfirmacionBaja(Proyecto proyecto)
+    {
+        public Proyecto Proyecto { get; } = proyecto;
+        public ServicioProyectos.ImpactoProyecto? Impacto { get; set; }
+        public Stopwatch Espera { get; } = new();
+        public int Segundos => Math.Max(0, (int)Math.Ceiling(10 - Espera.Elapsed.TotalSeconds));
+        public string Codigo { get; set; } = "";
+        public string Clave { get; set; } = "";
+        public bool Entendido { get; set; }
+        public bool Lista => Impacto is not null && Segundos == 0 && Entendido && Codigo == Proyecto.Codigo && Clave.Length > 0;
+    }
+    private (bool Conecta, int Pendientes, string? Error)? estadoBase;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Autorizado) return;
+        await Cargar();
+        if (NuevoQ == 1) Nuevo();
+        else if (IdQ is int id) await Abrir(id);
+        else if (lista.FirstOrDefault(p => p.Id == Actual.Proyecto?.Id) is { } a) await Abrir(a.Id);
+    }
+
+    private async Task Cargar() =>
+        lista = await ConDb((db, _) => db.Proyectos.IgnoreQueryFilters().AsNoTracking().Include(p => p.Modulos)
+            .OrderByDescending(p => p.EsEmpresa).ThenBy(p => p.Estado).ThenBy(p => p.Nombre).ToListAsync());
+
+    private static IEnumerable<CatalogoModulos.Def> Aplicables(bool empresa) => CatalogoModulos.Lista.Where(m => empresa ? m.EnEmpresa || m.Ambito != AmbitoModulo.Proyecto : true);
+
+    private async Task Abrir(int id)
+    {
+        if (id == 0) { ed = null; return; }
+        Mensaje = null; estadoBase = null;
+        var p = lista.FirstOrDefault(x => x.Id == id && x.Estado != EstadoProyecto.Eliminado);
+        if (p is null) return;
+        ed = new Edicion
+        {
+            Id = p.Id, EsEmpresa = p.EsEmpresa, EsPiloto = p.EsPiloto, Codigo = p.Codigo, Nombre = p.Nombre, Cliente = p.Cliente, Ubicacion = p.Ubicacion,
+            Descripcion = p.Descripcion, BaseDatos = p.BaseDatos, Color = p.Color ?? "#EC1C24", Estado = p.Estado, FechaInicio = p.FechaInicio, FechaFin = p.FechaFin,
+            Modulos = Aplicables(p.EsEmpresa).Select(d => { var m = Proyectos.Modulo(p.Id, d.Clave); return new ModEd { Def = d, Habilitado = m.Habilitado, Fuente = m.Fuente }; }).ToList(),
+        };
+        await RevisarBase();
+    }
+
+    private void Nuevo()
+    {
+        Mensaje = null; estadoBase = null;
+        ed = new Edicion { Estado = EstadoProyecto.Activo, Color = "#2563EB" };
+        PorDefecto();
+    }
+
+    private void SugerirBase()
+    {
+        if (ed is null || ed.Id != 0) return;
+        ed.Codigo = (ed.Codigo ?? "").Trim().ToUpperInvariant();
+        var limpio = new string(ed.Codigo.ToLowerInvariant().Select(c => char.IsAsciiLetterOrDigit(c) ? c : '_').ToArray()).Trim('_');
+        ed.BaseDatos = limpio.Length == 0 ? "" : $"{Proyectos.BasePiloto}_{limpio}";
+    }
+
+    private void Todos(bool v) { if (ed is not null) foreach (var m in ed.Modulos) m.Habilitado = v; }
+
+    private void PorDefecto()
+    {
+        if (ed is null) return;
+        var hayEmpresa = lista.Any(p => p.EsEmpresa);
+        ed.Modulos = Aplicables(ed.EsEmpresa).Select(d => new ModEd
+        {
+            Def = d, Habilitado = ed.EsEmpresa ? d.EnEmpresa : d.EnProyecto,
+            Fuente = !ed.EsEmpresa && d.CompartidoDesdeEmpresa && hayEmpresa ? FuenteModulo.Empresa : FuenteModulo.Propio,
+        }).ToList();
+    }
+
+    private async Task RevisarBase()
+    {
+        if (ed is null || ed.Id == 0 || Proyectos.Activo(ed.Id) is not { } pa) return;
+        estadoBase = await Proyectos.EstadoBaseAsync(pa);
+    }
+
+    private async Task PrepararBase()
+    {
+        if (ed is null || ed.Id == 0) return;
+        var id = ed.Id;
+        await Cambiar(async () =>
+        {
+            var error = await Proyectos.PrepararAsync(id);
+            if (error is not null) throw new OperacionAdminException(error);
+            Registrar("Base de proyecto preparada", Proyectos.Proyecto(id)?.Codigo);
+        }, "Base del proyecto lista.");
+        await RevisarBase();
+    }
+
+    private async Task Guardar()
+    {
+        if (ed is null) return;
+        var e = ed;
+        var nuevo = e.Id == 0;
+        var ok = await Cambiar(async () =>
+        {
+            e.Codigo = (e.Codigo ?? "").Trim().ToUpperInvariant();
+            e.Nombre = (e.Nombre ?? "").Trim();
+            if (!ServicioProyectos.CodigoValido(e.Codigo)) throw new OperacionAdminException("Código no válido: 2 a 30 caracteres, mayúsculas, números, guion o guion bajo.");
+            if (e.Nombre.Length == 0) throw new OperacionAdminException("Escriba el nombre del proyecto.");
+            if (e.Id == 0 && !ServicioProyectos.NombreBaseValido(e.BaseDatos)) throw new OperacionAdminException("Nombre de base no válido: minúsculas, números y guion bajo; empieza por letra.");
+            if (e.FechaInicio is { } fi && e.FechaFin is { } ff && ff < fi) throw new OperacionAdminException("La fecha de fin es anterior a la de inicio.");
+
+            await ConDb(async (db, _) =>
+            {
+                await using var tx = await ServicioProyectos.BloquearCambiosAsync(db);
+                var existentes = db.Proyectos.IgnoreQueryFilters();
+                if (await existentes.AnyAsync(x => x.Id != e.Id && (x.Codigo == e.Codigo || x.CodigoConexion == e.Codigo)))
+                    throw new OperacionAdminException("Ese código ya está asignado o reservado por otro proyecto.");
+                if (e.Estado is not (EstadoProyecto.Activo or EstadoProyecto.Suspendido or EstadoProyecto.Archivado))
+                    throw new OperacionAdminException("Estado no válido.");
+                Proyecto p;
+                string? anterior = null;
+                if (e.Id == 0)
+                {
+                    if (await existentes.AnyAsync(x => x.BaseDatos == e.BaseDatos)) throw new OperacionAdminException("Esa base de datos ya la usa otro proyecto.");
+                    p = new Proyecto { Codigo = e.Codigo, BaseDatos = e.BaseDatos };
+                    db.Proyectos.Add(p);
+                }
+                else
+                {
+                    p = await db.Proyectos.Include(x => x.Modulos).FirstOrDefaultAsync(x => x.Id == e.Id)
+                        ?? throw new OperacionAdminException("El proyecto ya no está disponible.");
+                    if (e.Codigo != p.Codigo)
+                    {
+                        if (p.EsEmpresa) throw new OperacionAdminException("El código de Empresa está protegido.");
+                        anterior = p.Codigo;
+                        p.CodigoConexion ??= p.Codigo;
+                        p.Codigo = e.Codigo;
+                    }
+                }
+                p.Nombre = e.Nombre; p.Cliente = Limpio(e.Cliente); p.Ubicacion = Limpio(e.Ubicacion); p.Descripcion = Limpio(e.Descripcion);
+                p.Color = e.Color; p.FechaInicio = e.FechaInicio; p.FechaFin = e.FechaFin;
+                p.Estado = p.EsEmpresa ? EstadoProyecto.Activo : e.Estado;
+                foreach (var m in e.Modulos)
+                {
+                    var fila = p.Modulos.FirstOrDefault(x => x.Modulo == m.Def.Clave);
+                    if (fila is null) { fila = new ModuloProyecto { Modulo = m.Def.Clave }; p.Modulos.Add(fila); }
+                    fila.Habilitado = m.Habilitado;
+                    fila.Fuente = p.EsEmpresa || !m.Def.CompartidoDesdeEmpresa ? FuenteModulo.Propio : m.Fuente;
+                }
+                await db.SaveChangesAsync();
+                e.Id = p.Id;
+                RegistrarProyecto(db, p, nuevo ? "Proyecto creado" : "Proyecto modificado",
+                    $"{(anterior is null ? p.Codigo : $"{anterior} → {p.Codigo}")} · {p.Estado} · módulos apagados: {string.Join(", ", e.Modulos.Where(m => !m.Habilitado).Select(m => m.Def.Clave))}");
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            });
+            InvalidarProyectos();
+        }, "Proyecto guardado.");
+        if (!ok) return;
+        await Cargar();
+        await Abrir(e.Id);
+        if (nuevo)
+        {
+            // Base nueva: se crea al guardar (migraciones + catálogos de fábrica).
+            await PrepararBase();
+            if (!MensajeError) Exito("Proyecto creado y base preparada. Asígnele usuarios en Usuarios y permisos.");
+        }
+        else Exito("Proyecto guardado.");
+    }
+
+    private async Task AbrirEliminacion()
+    {
+        if (ed is null || !PuedeModificar || Ocupado || baja is not null) return;
+        Mensaje = null;
+        var id = ed.Id;
+        var b = await ConDb(async (db, _) =>
+        {
+            var p = await db.Proyectos.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+            if (p is null) { Error("El proyecto ya no está disponible."); return null; }
+            var impedimento = await ServicioProyectos.ImpedimentoEliminacionAsync(db, p, Actual.Proyecto?.Id);
+            if (impedimento is not null) { Error(impedimento); return null; }
+            return new ConfirmacionBaja(p);
+        });
+        if (b is null || baja is not null || ed?.Id != id) return;
+        baja = b;
+        try
+        {
+            b.Impacto = await ConDb((db, _) => Proyectos.ImpactoAsync(db, b.Proyecto));
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Error al consultar impacto del proyecto {Id}", id);
+            if (baja == b) { CerrarEliminacion(); Error("No se pudo consultar el impacto del proyecto."); }
+            return;
+        }
+        if (baja != b) return;
+        b.Espera.Start();
+        while (baja == b && b.Segundos > 0)
+        {
+            StateHasChanged();
+            await Task.Delay(1000);
+        }
+    }
+
+    private void CerrarEliminacion()
+    {
+        if (Ocupado) return;
+        if (baja is { } b) b.Clave = "";
+        baja = null;
+        Mensaje = null;
+    }
+
+    private async Task Eliminar()
+    {
+        if (baja is not { Lista: true } b) return;
+        var clave = b.Clave;
+        var codigo = b.Codigo;
+        b.Clave = "";
+        if (!await Cambiar(async () =>
+        {
+            await ConDb(async (db, sp) =>
+            {
+                var usuarios = Usuarios(sp);
+                var admin = Actual.Id is { } uid ? await usuarios.FindByIdAsync(uid) : null;
+                if (admin is null || !admin.Activo || !await usuarios.IsInRoleAsync(admin, RolesFabrica.AdministradorGlobal))
+                    throw new OperacionAdminException("La cuenta administradora ya no está habilitada.");
+                if (!await usuarios.HasPasswordAsync(admin))
+                    throw new OperacionAdminException("Configure una contraseña en Mi cuenta para confirmar esta operación.");
+                if (usuarios.SupportsUserLockout && await usuarios.IsLockedOutAsync(admin))
+                    throw new OperacionAdminException("La cuenta administradora está bloqueada.");
+                if (!await usuarios.CheckPasswordAsync(admin, clave))
+                {
+                    if (usuarios.SupportsUserLockout) await usuarios.AccessFailedAsync(admin);
+                    Auditoria.Registrar("Confirmación de baja rechazada", false, b.Proyecto.Codigo, Actual.Sesion, proyectoId: b.Proyecto.Id);
+                    throw new OperacionAdminException("La contraseña no pudo verificarse.");
+                }
+                if (usuarios.SupportsUserLockout) await usuarios.ResetAccessFailedCountAsync(admin);
+
+                await using var tx = await ServicioProyectos.BloquearCambiosAsync(db);
+                var p = await db.Proyectos.FirstOrDefaultAsync(x => x.Id == b.Proyecto.Id)
+                    ?? throw new OperacionAdminException("El proyecto ya no está disponible.");
+                var impedimento = await ServicioProyectos.ImpedimentoEliminacionAsync(db, p, Actual.Proyecto?.Id);
+                if (impedimento is not null) throw new OperacionAdminException(impedimento);
+                if (p.Codigo != codigo || p.Estado != b.Proyecto.Estado || p.Nombre != b.Proyecto.Nombre)
+                    throw new OperacionAdminException("El proyecto cambió. Cierre la ventana y vuelva a revisar el impacto.");
+                var anterior = p.Estado;
+                p.EstadoAntesEliminacion = anterior;
+                p.Estado = EstadoProyecto.Eliminado;
+                RegistrarProyecto(db, p, "Proyecto eliminado", $"{p.Codigo} · {anterior} → Eliminado · base: {p.BaseDatos}");
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            });
+            InvalidarProyectos();
+        }, "Proyecto eliminado. Puede restaurarlo en Eliminados.")) return;
+        baja = null;
+        ed = null;
+        await Cargar();
+    }
+
+    private async Task Restaurar(int id)
+    {
+        if (!await Cambiar(async () =>
+        {
+            await ConDb(async (db, _) =>
+            {
+                await using var tx = await ServicioProyectos.BloquearCambiosAsync(db);
+                var p = await db.Proyectos.IgnoreQueryFilters()
+                    .FirstOrDefaultAsync(x => x.Id == id && x.Estado == EstadoProyecto.Eliminado)
+                    ?? throw new OperacionAdminException("El proyecto ya no está eliminado.");
+                p.Estado = p.EstadoAntesEliminacion ?? EstadoProyecto.Activo;
+                p.EstadoAntesEliminacion = null;
+                RegistrarProyecto(db, p, "Proyecto restaurado", $"{p.Codigo} · Eliminado → {p.Estado}");
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+            });
+            InvalidarProyectos();
+        }, "Proyecto restaurado.")) return;
+        await Cargar();
+    }
+
+    private void InvalidarProyectos()
+    {
+        Proyectos.Invalidar();
+        Permisos.Invalidar();
+    }
+
+    private void RegistrarProyecto(SeguridadDbContext db, Proyecto p, string evento, string detalle)
+    {
+        var sesion = Actual.Sesion;
+        db.Auditoria.Add(new RegistroAuditoria
+        {
+            Fecha = DateTime.UtcNow, Evento = evento, Exito = true, ProyectoId = p.Id,
+            UsuarioId = sesion?.UsuarioId, Email = sesion?.Email, Ip = sesion?.Ip,
+            Detalle = detalle.Length <= 1000 ? detalle : detalle[..1000],
+        });
+    }
+
+    private static string? Limpio(string? s) { s = s?.Trim(); return string.IsNullOrEmpty(s) ? null : s; }
+}

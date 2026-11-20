@@ -1,0 +1,71 @@
+.cat-maestros .cat-fila { cursor:pointer; }
+.cat-maestros .cat-abrir { display:flex; align-items:center; gap:12px; padding:4px 0; background:none; border:0; color:inherit; text-align:left; font-weight:600; }
+.cat-maestros .cat-abrir img { width:26px; height:26px; object-fit:contain; flex:none; }
+.cat-maestros .cat-fila-acciones { width:114px; }
+.cat-galeria-barra { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:24px; }
+.cat-galeria-barra input { flex:1 1 220px; max-width:400px; }
+.cat-galeria-barra select { flex:0 1 210px; width:auto; }
+.cat-galeria { display:grid; grid-template-columns:repeat(auto-fill,minmax(186px,1fr)); gap:22px; }
+.cat-imagen { display:flex; flex-direction:column; align-items:stretch; gap:10px; min-width:0; padding:18px 14px 10px; border:1px solid var(--t-borde,#dde2ea); border-radius:14px; background:var(--t-superficie,#fff); color:var(--t-texto,#181d27); transition:border-color .15s,box-shadow .15s; }
+.cat-imagen:hover, .cat-imagen:focus-within { border-color:color-mix(in srgb,var(--t-acento,#ec1c24) 35%,var(--t-borde,#dde2ea)); box-shadow:0 5px 18px #0000000a; }
+.cat-miniatura { display:flex; align-items:center; justify-content:center; height:102px; border-radius:10px; background:#f4f6f9; }
+.cat-miniatura img { width:66px; height:66px; object-fit:contain; }
+.cat-imagen-nombre { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.88rem; font-weight:600; text-align:center; }
+.cat-chip { align-self:center; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.69rem; border-radius:20px; padding:3px 9px; background:var(--t-superficie-2,#f5f7fa); color:var(--t-texto-2,#6b7686); }
+.cat-acciones { display:flex; justify-content:center; gap:3px; margin-top:auto; padding-top:9px; border-top:1px solid var(--t-borde,#dde2ea); }
+.cat-accion { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:2px; min-width:30px; height:32px; padding:5px; border:0; border-radius:7px; background:transparent; color:var(--t-texto-2,#6b7686); cursor:pointer; }
+.cat-accion :is(.ico-svg,.ico-img) { width:17px; height:17px; }
+.cat-accion:hover:not(:disabled), .cat-accion:focus-visible { color:var(--t-acento,#ec1c24); background:var(--t-superficie-2,#f5f7fa); }
+.cat-accion-peligro:hover:not(:disabled) { color:#dc3545; background:#dc354516; }
+.cat-accion:disabled { opacity:.4; cursor:default; }
+.cat-accion.cat-es-logo { color:var(--t-acento,#ec1c24); opacity:1; }
+.cat-inactiva .cat-miniatura img { opacity:.35; }
+.cat-imagen-nueva { justify-content:center; align-items:center; min-height:240px; border-style:dashed; background:var(--t-superficie-2,#f5f7fa); font:inherit; cursor:pointer; }
+.cat-imagen-nueva small { color:var(--t-texto-2,#6b7686); font-size:.75rem; }
+.cat-mas { display:flex; align-items:center; justify-content:center; width:52px; height:52px; margin-bottom:9px; border-radius:50%; background:var(--t-superficie,#fff); }
+.cat-mas :is(.ico-svg,.ico-img) { width:24px; height:24px; }
+.cat-sin-resultados { align-self:center; }
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .cat-svg { background:var(--t-superficie-2,#232b36); }
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .cat-svg img { filter:invert(.88) hue-rotate(180deg) saturate(1.15); }
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .cat-raster img { filter:none; }
+@media(max-width:600px) {
+ .cat-galeria { grid-template-columns:repeat(auto-fit,minmax(min(100%,164px),1fr)); gap:12px; }
+ .cat-imagen { padding:12px 8px 8px; gap:8px; }
+ .cat-miniatura { height:86px; }
+ .cat-miniatura img { width:54px; height:54px; }
+ .cat-acciones { gap:1px; }
+ .cat-accion { min-width:27px; width:27px; padding:4px; }
+ .cat-galeria-barra input { flex-basis:100%; max-width:none; }
+ .cat-galeria-barra select { flex:1 1 160px; }
+ .cat-maestros table { min-width:620px; }
+}
+
+.cat-maestros .cat-fila-acciones .btn { border:0; background:transparent; color:var(--t-texto-2); }
+.cat-maestros .cat-fila-acciones .btn:hover { color:var(--t-acento); background:var(--t-superficie-2); }
+
+/* ---------- Catálogos por módulo: panel izquierdo con el menú (2026-11-15) ---------- */
+.cm-marco { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 860px) { .cm-marco { grid-template-columns: 1fr; } }
+.cm-lista { min-width: 0; }
+.cm-mods { position: sticky; top: 8px; max-height: calc(100vh - 140px); overflow: auto; padding: 8px; border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 12px; background: var(--frm-sup, var(--bs-body-bg)); }
+.cm-grupo { font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--frm-ac, #EC1C24); margin: 12px 6px 4px; }
+.cm-mod { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; background: none; padding: 5px 8px; border-radius: 8px; font-size: .82rem; color: var(--frm-texto, var(--bs-body-color)); }
+.cm-mod > span:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-mod:hover { background: var(--frm-sup-2, var(--bs-tertiary-bg)); }
+.cm-mod.activo { background: color-mix(in srgb, var(--frm-ac, #EC1C24) 12%, transparent); font-weight: 700; }
+.cm-mod.cm-vacio { color: var(--frm-texto-2, var(--bs-secondary-color)); }
+.cm-n { font-size: .68rem; font-weight: 700; min-width: 20px; text-align: center; padding: 0 6px; border-radius: 999px; background: var(--frm-sup-2, var(--bs-tertiary-bg)); color: var(--frm-texto-2, var(--bs-secondary-color)); }
+.cm-mod.activo .cm-n { background: var(--frm-ac, #EC1C24); color: #fff; }
+.cm-uso { display: inline-block; margin: 1px 4px 1px 0; padding: 0 7px; border-radius: 999px; font-size: .7rem; background: var(--frm-sup-2, var(--bs-tertiary-bg)); border: 1px solid var(--frm-borde, var(--bs-border-color)); white-space: nowrap; }
+/* Vista en vivo de las opciones mientras se edita el formato de una (Catálogos › ítem › Formato). */
+.cm-vista { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 10px; border: 1px dashed var(--frm-borde, var(--bs-border-color)); border-radius: 10px; }
+.cm-vista-tit { font-size: .75rem; color: var(--frm-texto-2, var(--bs-secondary-color)); margin-right: 4px; }
+.cm-vista-sin { font-size: .82rem; padding: 0 4px; }
+.cm-vista-edita { outline: 2px solid var(--frm-ac, #EC1C24); outline-offset: 2px; border-radius: 6px; }
+/* Catálogos › Vistas */
+.gv-lista { display: flex; flex-direction: column; gap: 6px; }
+.gv-fila { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 12px; background: var(--frm-sup, var(--bs-body-bg)); }
+.gv-ico { flex: 0 0 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--frm-sup-2, var(--bs-tertiary-bg)); }
+.gv-nom { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.gv-nom small { color: var(--frm-texto-2, var(--bs-secondary-color)); font-size: .75rem; }
+.gv-acc { display: inline-flex; gap: 4px; flex-wrap: wrap; }

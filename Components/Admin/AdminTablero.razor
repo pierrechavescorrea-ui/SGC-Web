@@ -1,0 +1,133 @@
+@page "/admin"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+
+<PageTitle>Administración · SGC Web</PageTitle>
+
+<div class="ad">
+<EncabezadoPagina Titulo="Proyectos" Subtitulo="Tablero de proyectos: usuarios y seguridad" Icono="tablero" Atras="/">
+    <Acciones>
+        <a class="pg-btn" href="admin/invitaciones" title="Invitar usuario"><Ico Nombre="agregar" /></a>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (cargando)
+{
+    <Esqueleto Tipo="tarjetas" Filas="3" />
+}
+else
+{
+    <div class="ad-kpis">
+        <a class="ad-kpi" href="admin/proyectos"><b>@proyectosActivos</b><span>Proyectos activos</span></a>
+        <a class="ad-kpi" href="admin/usuarios"><b>@usuariosActivos</b><span>Usuarios activos</span></a>
+        <a class="ad-kpi @(invitaciones > 0 ? "alerta" : "")" href="admin/invitaciones"><b>@invitaciones</b><span>Invitaciones pendientes</span></a>
+        <a class="ad-kpi @(solicitudes > 0 ? "alerta" : "")" href="admin/invitaciones?vista=solicitudes"><b>@solicitudes</b><span>Solicitudes de acceso</span></a>
+        <a class="ad-kpi @(fallidos24 > 20 ? "mal" : fallidos24 > 0 ? "alerta" : "")" href="admin/auditoria?resultado=fallo"><b>@fallidos24</b><span>Ingresos fallidos (24 h)</span></a>
+        <a class="ad-kpi @(bloqueados > 0 ? "mal" : "")" href="admin/usuarios?estado=bloqueado"><b>@bloqueados</b><span>Cuentas bloqueadas</span></a>
+        <a class="ad-kpi @(adminsSinMfa > 0 ? "alerta" : "")" href="admin/usuarios?estado=sinmfa"><b>@adminsSinMfa</b><span>Administradores sin 2 pasos</span></a>
+    </div>
+
+    <h6 class="text-muted mb-2">Proyectos</h6>
+    <div class="ad-rejilla mb-4">
+        @foreach (var p in proyectos)
+        {
+            <div class="ad-tarjeta ad-proy @(p.P.Estado == EstadoProyecto.Archivado ? "archivado" : "")" style="--c:@(p.P.Color ?? "#EC1C24")">
+                <div class="ad-proy-cab">
+                    <MarcaProyecto EsEmpresa="@p.P.EsEmpresa" Codigo="@p.P.Codigo" />
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="ad-proy-nom">@p.P.Nombre</div>
+                        <div class="ad-proy-sub">@(p.P.EsEmpresa ? "Espacio de la empresa · módulos compartidos" : p.P.Cliente ?? p.P.Ubicacion ?? p.P.Codigo)</div>
+                    </div>
+                    @if (p.P.Estado != EstadoProyecto.Activo) { <span class="ad-chip alerta">@p.P.Estado</span> }
+                    @if (p.P.Id == Actual.Proyecto?.Id) { <span class="ad-chip acento">Abierto</span> }
+                </div>
+                <div class="ad-proy-datos">
+                    <div><b>@p.Miembros</b>usuarios</div>
+                    <div><b>@p.Modulos</b>módulos</div>
+                    <div><span class="ad-salud @(Proyectos.Preparado(p.P.Id) ? "ok" : "")">@(Proyectos.Preparado(p.P.Id) ? "Base lista" : "Sin abrir")</span></div>
+                </div>
+                <div class="ad-proy-acc">
+                    @* Entrar = abrir el proyecto con la interfaz de siempre (el administrador ve todos sus módulos). *@
+                    <form method="post" action="cuenta/proyecto">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="id" value="@p.P.Id" />
+                        <button type="submit" class="btn btn-sm btn-primary" title="Entrar al proyecto"><Ico Nombre="aceptar" /></button>
+                    </form>
+                    <a class="btn btn-sm btn-outline-secondary" href="@($"admin/proyectos?id={p.P.Id}")" title="Datos y módulos del proyecto"><Ico Nombre="editar" /></a>
+                    <a class="btn btn-sm btn-outline-secondary" href="@($"admin/usuarios?proyecto={p.P.Id}")" title="Usuarios del proyecto"><Ico Nombre="personal" /></a>
+                </div>
+            </div>
+        }
+        <a class="ad-tarjeta ad-vacio py-4" href="admin/proyectos?nuevo=1" title="Nuevo proyecto" style="text-decoration:none">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </a>
+    </div>
+
+    <div class="ad-rejilla ad-rejilla-2">
+        <section class="ad-tarjeta">
+            <h5 class="ad-tit">Eventos de seguridad recientes <a class="ms-auto small" href="admin/auditoria">Ver todo</a></h5>
+            @if (eventos.Count == 0) { <p class="text-muted small mb-0">Sin eventos fallidos en los últimos 7 días.</p> }
+            else
+            {
+                <table class="ad-tabla">
+                    @foreach (var e in eventos)
+                    {
+                        <tr class="@(e.Exito ? "" : "ad-mal")"><td class="text-nowrap small">@Fecha(e.Fecha)</td><td>@e.Evento<div class="small text-muted">@e.Email @e.Detalle</div></td><td class="ad-mono">@e.Ip</td></tr>
+                    }
+                </table>
+            }
+        </section>
+        <section class="ad-tarjeta">
+            <h5 class="ad-tit">IP con más ingresos fallidos (7 días)</h5>
+            @if (ips.Count == 0) { <p class="text-muted small mb-0">Ninguna.</p> }
+            else
+            {
+                <table class="ad-tabla">
+                    @foreach (var (ip, n) in ips) { <tr><td class="ad-mono">@ip</td><td class="text-end">@n</td></tr> }
+                </table>
+            }
+        </section>
+    </div>
+}
+</div>
+
+@code {
+    private sealed record Fila(Proyecto P, int Miembros, int Modulos);
+    private bool cargando = true;
+    private List<Fila> proyectos = new();
+    private int proyectosActivos, usuariosActivos, invitaciones, solicitudes, fallidos24, bloqueados, adminsSinMfa;
+    private List<RegistroAuditoria> eventos = new();
+    private List<(string, int)> ips = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Autorizado) return;
+        await ConDb(async (db, sp) =>
+        {
+            var hace24 = DateTime.UtcNow.AddHours(-24);
+            var hace7 = DateTime.UtcNow.AddDays(-7);
+            var ahora = DateTimeOffset.UtcNow;
+            var lista = await db.Proyectos.AsNoTracking().OrderByDescending(p => p.EsEmpresa).ThenBy(p => p.Estado).ThenBy(p => p.Nombre).ToListAsync();
+            var miembros = await db.Miembros.AsNoTracking().Where(m => m.Activo).GroupBy(m => m.ProyectoId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+            var apagados = await db.ModulosProyecto.AsNoTracking().Where(m => !m.Habilitado).GroupBy(m => m.ProyectoId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+            proyectos = lista.Select(p =>
+            {
+                var total = CatalogoModulos.Lista.Count(m => p.EsEmpresa ? m.EnEmpresa : m.EnProyecto);
+                return new Fila(p, miembros.GetValueOrDefault(p.Id), total - apagados.GetValueOrDefault(p.Id));
+            }).ToList();
+            proyectosActivos = lista.Count(p => p.Estado == EstadoProyecto.Activo && !p.EsEmpresa);
+            usuariosActivos = await db.Users.CountAsync(u => u.Activo && !u.Anonimizado && u.Email != ArranqueSeguridad.EmailDesarrollo);
+            bloqueados = await db.Users.CountAsync(u => u.LockoutEnd != null && u.LockoutEnd > ahora);
+            invitaciones = await db.Invitaciones.CountAsync(i => i.Estado == EstadoInvitacion.Pendiente && i.Vence > DateTime.UtcNow);
+            solicitudes = await db.SolicitudesAcceso.CountAsync(s => s.Estado == EstadoSolicitud.Pendiente);
+            fallidos24 = await db.Auditoria.CountAsync(a => !a.Exito && a.Fecha > hace24 && a.Evento.StartsWith("Ingreso"));
+            var admins = await Usuarios(sp).GetUsersInRoleAsync(RolesFabrica.AdministradorGlobal);
+            adminsSinMfa = admins.Count(a => a.Activo && !a.TwoFactorEnabled && a.Email != ArranqueSeguridad.EmailDesarrollo);
+            eventos = await db.Auditoria.AsNoTracking().Where(a => !a.Exito && a.Fecha > hace7).OrderByDescending(a => a.Id).Take(10).ToListAsync();
+            ips = (await db.Auditoria.AsNoTracking().Where(a => !a.Exito && a.Fecha > hace7 && a.Ip != null && a.Evento.StartsWith("Ingreso"))
+                .GroupBy(a => a.Ip!).Select(g => new { g.Key, N = g.Count() }).OrderByDescending(x => x.N).Take(8).ToListAsync())
+                .Select(x => (x.Key, x.N)).ToList();
+        });
+        cargando = false;
+    }
+}

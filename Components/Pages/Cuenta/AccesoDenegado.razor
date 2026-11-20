@@ -1,0 +1,29 @@
+@page "/acceso-denegado"
+@using SigWeb.Data.Seguridad
+@inject UsuarioActual Usuario
+
+<PageTitle>Sin acceso · SGC Web</PageTitle>
+
+<EncabezadoPagina Titulo="Sin acceso" Icono="escudo" Atras="/" />
+
+<div class="ad-vacio">
+    <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/><path d="M12 14.5v2.5"/></svg>
+    <h5>No tiene acceso a @(Def?.Nombre ?? "esta pantalla")</h5>
+    <p class="text-muted">
+        @if (Def is not null && Usuario.Proyecto is { } p)
+        {
+            <span>En el proyecto <b>@p.Nombre</b> su rol (@(Usuario.Permisos.Rol ?? "sin rol")) no incluye este permiso, o el módulo no está habilitado en el proyecto.</span>
+        }
+        else
+        {
+            <span>Su usuario no tiene el permiso necesario.</span>
+        }
+        Si lo necesita, pídalo al administrador del SGC.
+    </p>
+    <a class="btn btn-outline-secondary" href="" title="Ir al inicio"><Ico Nombre="atras" /></a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "modulo")] private string? Modulo { get; set; }
+    private CatalogoModulos.Def? Def => CatalogoModulos.De(Modulo);
+}

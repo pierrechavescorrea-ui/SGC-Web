@@ -1,0 +1,337 @@
+@page "/admin/notificaciones"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+@using SigWeb.Data.Notificaciones
+
+<PageTitle>Avisos por correo · Administración</PageTitle>
+
+<div class="ad">
+<EncabezadoPagina Titulo="Avisos por correo" Subtitulo="Reglas automáticas por proyecto y bitácora de envíos" Icono="correo" Atras="/admin" />
+
+@if (Mensaje is not null)
+{
+    <div class="alert @(MensajeError ? "alert-danger" : "alert-success")" role="alert">@Mensaje</div>
+}
+
+<div class="ad-rejilla ad-rejilla-2 mb-3">
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Estado</h5>
+        <dl class="ad-dl">
+            <dt>Correo</dt><dd><span class="ad-salud @(Correo.Configurado ? "ok" : "mal")">@(Correo.Configurado ? $"Modo {Correo.Modo}" : "Sin servidor SMTP (Correo:Smtp:Servidor)")</span></dd>
+            <dt>Remitente</dt><dd>@Correo.Remitente</dd>
+            <dt>Revisión automática</dt><dd><span class="ad-salud @(Cfg.GetValue("Notificaciones:Activas", true) ? "ok" : "alerta")">@(Cfg.GetValue("Notificaciones:Activas", true) ? "Cada 5 minutos" : "Apagada (Notificaciones:Activas = false)")</span></dd>
+            <dt>Hora local</dt><dd>@Svc.AhoraLocal.ToString("dd/MM/yyyy HH:mm") · @Svc.Zona.Id</dd>
+            <dt>Enlaces</dt><dd>@(Svc.UrlBase.Length > 0 ? Svc.UrlBase : "Sin Aplicacion:UrlPublica: los correos van sin botón «Abrir»")</dd>
+            <dt>En cola</dt><dd>@pendientes pendiente(s) · @fallidos fallido(s)</dd>
+        </dl>
+    </section>
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Proyecto</h5>
+        <div class="ad-form">
+            <div class="mb-3"><label for="n-pro">Proyecto</label>
+                <select id="n-pro" class="form-select" value="@proyectoId" @onchange="e => CambiarProyectoAsync(int.Parse(e.Value!.ToString()!))">
+                    @foreach (var p in Proyectos.Todos().Where(p => p.Estado == EstadoProyecto.Activo)) { <option value="@p.Id">@p.Nombre</option> }
+                </select></div>
+        </div>
+        <p class="small text-muted mb-0">Cada aviso revisa el proyecto a la hora elegida y envía <b>un solo correo por persona</b> con todos sus elementos.
+            «Responsables» busca el nombre escrito en el registro entre los miembros del proyecto (sin tildes ni mayúsculas; si dos personas se llaman igual no se adivina).
+            Nadie recibe lo que no puede ver, y cada persona puede apagar un aviso en Mi cuenta.</p>
+    </section>
+</div>
+
+<div class="ad-tarjeta ad-tabla-marco p-0 mb-3">
+    <table class="ad-tabla">
+        <thead><tr><th>Activo</th><th>Aviso</th><th>Cuándo</th><th>A quién</th><th>Última vez</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var r in reglas)
+        {
+            var t = CatalogoNotificaciones.De(r.Tipo)!;
+            var habil = Proyectos.Modulo(proyectoId, t.Modulo).Habilitado;
+            <tr class="@(habil ? "" : "text-muted")">
+                <td><input type="checkbox" checked="@r.Activa" disabled="@(!habil || !PuedeModificar)" @onchange="e => ActivarAsync(r, (bool)e.Value!)" aria-label="Activo" /></td>
+                <td>@t.Nombre<div class="small text-muted">@t.Descripcion@(habil ? "" : " (módulo apagado en el proyecto)")</div></td>
+                <td class="small text-nowrap">@Cuando(r)</td>
+                <td class="small">@Destinos(r)</td>
+                <td class="small text-nowrap">@Fecha(r.UltimaEjecucion)</td>
+                <td class="ad-acc text-nowrap">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Configurar" @onclick="() => Editar(r)" disabled="@(!habil)"><Ico Nombre="editar" /></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Vista previa: qué se enviaría ahora y a quién" @onclick="() => PrevisualizarAsync(r)" disabled="@(!habil || Ocupado)"><Ico Nombre="listado" /></button>
+                </td>
+            </tr>
+            @if (edicion is not null && edicion.Tipo == r.Tipo)
+            {
+                <tr><td colspan="6" class="ad-nt-edicion">
+                    <div class="ad-form ad-rejilla ad-rejilla-3">
+                        <div><label for="n-fr">Frecuencia</label>
+                            <select id="n-fr" class="form-select" @bind="edicion.Frecuencia">
+                                <option value="@FrecuenciaNotificacion.Diaria">Diaria</option>
+                                <option value="@FrecuenciaNotificacion.Semanal">Semanal</option>
+                                <option value="@FrecuenciaNotificacion.Mensual">Mensual</option>
+                            </select></div>
+                        @if (edicion.Frecuencia == FrecuenciaNotificacion.Semanal)
+                        {
+                            <div><label for="n-ds">Día</label>
+                                <select id="n-ds" class="form-select" @bind="edicion.DiaSemana">
+                                    @for (var d = 1; d <= 7; d++) { var dd = d % 7; <option value="@dd">@Dias[dd]</option> }
+                                </select></div>
+                        }
+                        else if (edicion.Frecuencia == FrecuenciaNotificacion.Mensual)
+                        {
+                            <div><label for="n-dm">Día del mes</label><input id="n-dm" type="number" min="1" max="28" class="form-control" @bind="edicion.DiaMes" /></div>
+                        }
+                        else { <div></div> }
+                        <div><label for="n-h">Hora</label>
+                            <select id="n-h" class="form-select" @bind="edicion.Hora">
+                                @for (var h = 0; h < 24; h++) { <option value="@h">@($"{h:00}:00")</option> }
+                            </select></div>
+                    </div>
+                    <div class="ad-nt-destinos">
+                        @foreach (var (flag, texto, ayuda) in OpcionesDestino)
+                        {
+                            <label class="ad-nt-chip" title="@ayuda"><input type="checkbox" checked="@edicion.Destino.HasFlag(flag)" @onchange="e => Marcar(flag, (bool)e.Value!)" /> @texto</label>
+                        }
+                        <label class="ad-nt-chip" title="No repetir a una persona lo que ya se le avisó (últimos 90 días)"><input type="checkbox" @bind="edicion.SoloNuevos" /> Solo lo nuevo</label>
+                    </div>
+                    @if (edicion.Destino.HasFlag(DestinoNotificacion.Rol))
+                    {
+                        <div class="ad-form mb-2"><label for="n-rol">Rol</label>
+                            <select id="n-rol" class="form-select" value="@(edicion.RolSigId?.ToString() ?? "")" @onchange="e => edicion.RolSigId = int.TryParse(e.Value?.ToString(), out var x) ? x : null">
+                                <option value="">—</option>
+                                @foreach (var (id, nombre) in roles) { <option value="@id">@nombre</option> }
+                            </select></div>
+                    }
+                    @if (edicion.Destino.HasFlag(DestinoNotificacion.Usuarios))
+                    {
+                        <div class="ad-nt-usuarios">
+                            @foreach (var m in miembros)
+                            {
+                                <label class="ad-nt-chip @(m.PuedeVer ? "" : "text-muted")" title="@(m.PuedeVer ? m.Email : "No puede ver el módulo: no lo recibirá")">
+                                    <input type="checkbox" checked="@usuariosElegidos.Contains(m.UsuarioId)" disabled="@(!m.PuedeVer)" @onchange="e => ElegirUsuario(m.UsuarioId, (bool)e.Value!)" /> @m.Nombre
+                                </label>
+                            }
+                        </div>
+                    }
+                    @if (edicion.Destino.HasFlag(DestinoNotificacion.Correos))
+                    {
+                        <div class="ad-form mb-2"><label for="n-co">Correos de personas sin cuenta (separados por ;)</label>
+                            <textarea id="n-co" class="form-control" rows="2" maxlength="2000" @bind="edicion.Correos"></textarea></div>
+                    }
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary" title="Enviar ahora (no cambia la próxima ejecución)" @onclick="EnviarAhoraAsync" disabled="@(Ocupado || !PuedeModificar)"><Ico Nombre="correo" /></button>
+                        <button type="button" class="btn btn-outline-secondary" title="Cancelar" @onclick="() => edicion = null"><Ico Nombre="cancelar" /></button>
+                        <button type="button" class="btn btn-primary" title="Guardar" @onclick="GuardarAsync" disabled="@(Ocupado || !PuedeModificar)"><Ico Nombre="guardar" /></button>
+                    </div>
+                </td></tr>
+            }
+        }
+        </tbody>
+    </table>
+</div>
+
+@if (vista is not null)
+{
+    <section class="ad-tarjeta mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <h5 class="ad-tit mb-0 flex-grow-1">Vista previa · @vista.Tipo.Nombre</h5>
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Cerrar" @onclick="() => vista = null"><Ico Nombre="cancelar" /></button>
+        </div>
+        <p class="small text-muted">@vista.Elementos elemento(s) en el proyecto · @vista.Destinatarios.Count correo(s)</p>
+        @if (vista.SinDestinatario.Count > 0)
+        {
+            <div class="alert alert-warning small py-2">Sin usuario que coincida (no se les envía): @string.Join(", ", vista.SinDestinatario.Take(30))@(vista.SinDestinatario.Count > 30 ? "…" : "")</div>
+        }
+        <table class="ad-tabla">
+            <thead><tr><th>Para</th><th>Por qué</th><th>Elementos</th></tr></thead>
+            <tbody>
+            @foreach (var d in vista.Destinatarios)
+            {
+                <tr><td>@d.Nombre<div class="small text-muted">@d.Email</div></td><td class="small">@d.Motivo</td>
+                    <td class="small">@string.Join(" · ", d.Avisos.Take(6).Select(a => a.Titulo))@(d.Avisos.Count > 6 ? $" … (+{d.Avisos.Count - 6})" : "")</td></tr>
+            }
+            </tbody>
+        </table>
+    </section>
+}
+
+<h5 class="ad-tit mt-4">Bitácora de envíos</h5>
+<div class="ad-filtros">
+    <input class="form-control" placeholder="Buscar correo o asunto" @bind="texto" @bind:event="oninput" data-sin-flotante aria-label="Buscar" />
+    <select class="form-select" @bind="filtroEstado" data-sin-flotante aria-label="Estado">
+        <option value="">Todos los estados</option>
+        @foreach (var e in Enum.GetValues<EstadoEnvio>()) { <option value="@e">@e</option> }
+    </select>
+    <button type="button" class="btn btn-outline-secondary" title="Reintentar ahora los pendientes y fallidos" @onclick="ReintentarAsync" disabled="@(Ocupado || !PuedeModificar)"><Ico Nombre="restaurar" /></button>
+</div>
+<div class="ad-tarjeta ad-tabla-marco p-0">
+    <table class="ad-tabla">
+        <thead><tr><th>Fecha</th><th>Aviso</th><th>Para</th><th>Asunto</th><th>Elementos</th><th>Estado</th></tr></thead>
+        <tbody>
+        @foreach (var n in Bitacora())
+        {
+            <tr>
+                <td class="small text-nowrap">@Fecha(n.Creado)</td>
+                <td class="small">@(CatalogoNotificaciones.De(n.Tipo)?.Nombre ?? (n.Tipo == CatalogoNotificaciones.Manual ? "Manual" : n.Tipo))</td>
+                <td class="small">@n.Email</td>
+                <td class="small">@n.Asunto</td>
+                <td class="small">@n.Elementos</td>
+                <td class="small"><span class="ad-salud @(n.Estado switch { EstadoEnvio.Enviado => "ok", EstadoEnvio.Fallido => "mal", _ => "alerta" })">@n.Estado</span>
+                    @if (n.Error is not null) { <div class="text-muted">@n.Error</div> }</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+<p class="small text-muted mt-2">Se muestran los últimos 300 envíos del proyecto. Los fallidos se reintentan solos (5, 20, 60 y 180 minutos; máximo 5 intentos).</p>
+</div>
+
+@code {
+    [Inject] private ServicioNotificaciones Svc { get; set; } = default!;
+    [Inject] private EnviadorCorreo Correo { get; set; } = default!;
+    [Inject] private IConfiguration Cfg { get; set; } = default!;
+
+    private static readonly string[] Dias = { "Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado" };
+    private static readonly (DestinoNotificacion, string, string)[] OpcionesDestino =
+    {
+        (DestinoNotificacion.Responsables, "Responsables", "La persona escrita como responsable de cada elemento: solo recibe los suyos"),
+        (DestinoNotificacion.QuienesEditan, "Quienes editan el módulo", "Todos los miembros que pueden editar el módulo: reciben la lista completa"),
+        (DestinoNotificacion.Rol, "Un rol", "Miembros del proyecto con el rol elegido"),
+        (DestinoNotificacion.Usuarios, "Usuarios elegidos", "Personas concretas del proyecto"),
+        (DestinoNotificacion.Correos, "Correos sin cuenta", "Correos escritos a mano (p. ej. interventoría)"),
+    };
+
+    private int proyectoId;
+    private List<ReglaNotificacion> reglas = new();
+    private ReglaNotificacion? edicion;
+    private HashSet<string> usuariosElegidos = new();
+    private List<ServicioNotificaciones.Miembro> miembros = new();
+    private List<(int, string)> roles = new();
+    private ServicioNotificaciones.Vista? vista;
+    private List<NotificacionEnviada> envios = new();
+    private int pendientes, fallidos;
+    private string texto = "", filtroEstado = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Autorizado) return;
+        proyectoId = Actual.Proyecto?.Id ?? Proyectos.Piloto()?.Id ?? 0;
+        await CargarAsync();
+    }
+
+    private async Task CambiarProyectoAsync(int id) { proyectoId = id; edicion = null; vista = null; await CargarAsync(); }
+
+    private async Task CargarAsync()
+    {
+        if (proyectoId == 0) return;
+        reglas = await Svc.ReglasAsync(proyectoId);
+        await ConDb(async (db, _) =>
+        {
+            roles = (await db.RolesSig.AsNoTracking().OrderBy(r => r.Nombre).Select(r => new { r.Id, r.Nombre }).ToListAsync()).Select(r => (r.Id, r.Nombre)).ToList();
+            envios = await db.NotificacionesEnviadas.AsNoTracking().Where(n => n.ProyectoId == proyectoId)
+                .OrderByDescending(n => n.Id).Take(300).Select(n => new NotificacionEnviada
+                {
+                    Id = n.Id, Tipo = n.Tipo, Email = n.Email, Asunto = n.Asunto, Elementos = n.Elementos, Estado = n.Estado, Error = n.Error, Creado = n.Creado,
+                }).ToListAsync();
+            pendientes = await db.NotificacionesEnviadas.CountAsync(n => n.Estado == EstadoEnvio.Pendiente);
+            fallidos = await db.NotificacionesEnviadas.CountAsync(n => n.Estado == EstadoEnvio.Fallido && n.Intentos < 5);
+        });
+    }
+
+    private IEnumerable<NotificacionEnviada> Bitacora()
+    {
+        IEnumerable<NotificacionEnviada> q = envios;
+        if (Enum.TryParse<EstadoEnvio>(filtroEstado, out var e)) q = q.Where(n => n.Estado == e);
+        if (!string.IsNullOrWhiteSpace(texto))
+        {
+            var t = texto.Trim();
+            q = q.Where(n => (n.Email ?? "").Contains(t, StringComparison.OrdinalIgnoreCase) || n.Asunto.Contains(t, StringComparison.OrdinalIgnoreCase));
+        }
+        return q;
+    }
+
+    private string Cuando(ReglaNotificacion r) => r.Frecuencia switch
+    {
+        FrecuenciaNotificacion.Semanal => $"{Dias[Math.Clamp(r.DiaSemana, 0, 6)]} {r.Hora:00}:00",
+        FrecuenciaNotificacion.Mensual => $"Día {r.DiaMes} · {r.Hora:00}:00",
+        _ => $"Diario {r.Hora:00}:00",
+    };
+
+    private string Destinos(ReglaNotificacion r)
+    {
+        var l = OpcionesDestino.Where(o => r.Destino.HasFlag(o.Item1)).Select(o => o.Item2).ToList();
+        if (r.SoloNuevos) l.Add("solo lo nuevo");
+        return l.Count == 0 ? "—" : string.Join(" · ", l);
+    }
+
+    private async Task Editar(ReglaNotificacion r)
+    {
+        vista = null;
+        var t = CatalogoNotificaciones.De(r.Tipo)!;
+        edicion = new ReglaNotificacion
+        {
+            ProyectoId = r.ProyectoId, Tipo = r.Tipo, Activa = r.Activa, Frecuencia = r.Frecuencia, DiaSemana = r.DiaSemana, DiaMes = r.DiaMes,
+            Hora = r.Hora, Destino = r.Destino, RolSigId = r.RolSigId, UsuariosIds = r.UsuariosIds, Correos = r.Correos, SoloNuevos = r.SoloNuevos,
+        };
+        usuariosElegidos = (r.UsuariosIds ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+        miembros = await Svc.MiembrosAsync(proyectoId, t.Modulo);
+    }
+
+    private void Marcar(DestinoNotificacion f, bool si) { if (edicion is null) return; edicion.Destino = si ? edicion.Destino | f : edicion.Destino & ~f; }
+    private void ElegirUsuario(string id, bool si) { if (si) usuariosElegidos.Add(id); else usuariosElegidos.Remove(id); }
+
+    private async Task ActivarAsync(ReglaNotificacion r, bool activa)
+    {
+        r.Activa = activa;
+        if (await Cambiar(() => Svc.GuardarReglaAsync(r, Actual.Id!), activa ? "Aviso activado." : "Aviso desactivado."))
+            Registrar("Avisos: " + (activa ? "activar" : "desactivar"), $"{r.Tipo} · proyecto {proyectoId}");
+        await CargarAsync();
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (edicion is null) return;
+        edicion.UsuariosIds = usuariosElegidos.Count == 0 ? null : string.Join(';', usuariosElegidos);
+        if (edicion.Destino == DestinoNotificacion.Ninguno) { Error("Elija al menos a quién se envía."); return; }
+        if (edicion.Destino.HasFlag(DestinoNotificacion.Rol) && edicion.RolSigId is null) { Error("Elija el rol."); return; }
+        var r = edicion;
+        if (await Cambiar(async () =>
+        {
+            try { await Svc.GuardarReglaAsync(r, Actual.Id!); }
+            catch (InvalidOperationException ex) { throw new OperacionAdminException(ex.Message); }
+        }, "Aviso guardado."))
+        {
+            Registrar("Avisos: configurar", $"{r.Tipo} · proyecto {proyectoId}");
+            edicion = null;
+        }
+        await CargarAsync();
+    }
+
+    private async Task PrevisualizarAsync(ReglaNotificacion r)
+    {
+        if (Ocupado) return;
+        Ocupado = true;
+        try { vista = await Svc.PrevisualizarAsync(proyectoId, edicion?.Tipo == r.Tipo ? Con(edicion) : r); }
+        catch (Exception ex) { Error("No se pudo armar la vista previa: " + ex.Message); }
+        finally { Ocupado = false; }
+    }
+
+    private ReglaNotificacion Con(ReglaNotificacion e) { e.UsuariosIds = usuariosElegidos.Count == 0 ? null : string.Join(';', usuariosElegidos); return e; }
+
+    private async Task EnviarAhoraAsync()
+    {
+        if (edicion is null) return;
+        var r = Con(edicion);
+        var n = 0;
+        if (await Cambiar(async () => n = await Svc.EjecutarAsync(proyectoId, r, Actual.Id), null))
+        {
+            Exito(n == 0 ? "No hay nada que avisar (o nadie a quien enviarlo)." : $"{n} correo(s) en camino.");
+            Registrar("Avisos: enviar ahora", $"{r.Tipo} · proyecto {proyectoId} · {n} correo(s)");
+        }
+        await CargarAsync();
+    }
+
+    private async Task ReintentarAsync()
+    {
+        await Cambiar(() => Svc.ProcesarColaAsync(), "Cola procesada.");
+        await CargarAsync();
+    }
+}

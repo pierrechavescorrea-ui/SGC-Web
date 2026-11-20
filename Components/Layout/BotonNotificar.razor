@@ -1,0 +1,90 @@
+@using SigWeb.Data.Notificaciones
+@using SigWeb.Data.Seguridad
+@inject ServicioNotificaciones Svc
+@inject UsuarioActual Actual
+@* Aviso por correo desde un registro (plan, auditoría, equipo, indicador…): elige personas del proyecto que pueden ver el módulo,
+   escribe el mensaje y se envía con el enlace al registro. Va en el encabezado de la pantalla, junto a las acciones del registro. *@
+
+@if (Actual.Proyecto is not null && Actual.Puede(Modulo, Accion.Ver))
+{
+    <button type="button" class="@Clase" title="Avisar por correo" @onclick="AbrirAsync" disabled="@Deshabilitado"><Ico Nombre="correo" /></button>
+}
+
+@if (abierto)
+{
+    <div class="modal-backdrop-custom">
+    <div class="modal-box-custom bn-caja" role="dialog" aria-label="Avisar por correo">
+        <FormularioSig Titulo="Avisar por correo" Icono="correo" OnCerrar="Cerrar">
+            <ChildContent>
+                <div class="mb-3"><label for="bn-asunto">Asunto</label><input id="bn-asunto" class="form-control" @bind="asunto" maxlength="200" /></div>
+                <div class="mb-3"><label for="bn-msg">Mensaje</label><textarea id="bn-msg" class="form-control" rows="4" @bind="mensaje" maxlength="4000"></textarea></div>
+                <div class="bn-buscar"><input class="form-control" placeholder="Buscar persona" @bind="filtro" @bind:event="oninput" data-sin-flotante aria-label="Buscar persona" /></div>
+                <div class="bn-personas">
+                    @foreach (var m in miembros.Where(Coincide))
+                    {
+                        <label class="bn-persona @(m.PuedeVer ? "" : "text-muted")" title="@(m.PuedeVer ? m.Email : "No puede ver este módulo")">
+                            <input type="checkbox" checked="@elegidos.Contains(m.UsuarioId)" disabled="@(!m.PuedeVer)" @onchange="e => Elegir(m.UsuarioId, (bool)e.Value!)" />
+                            <span>@m.Nombre<small>@(m.Cargo ?? m.Rol)</small></span>
+                        </label>
+                    }
+                    @if (miembros.Count == 0) { <div class="small text-muted p-2">No hay otros miembros con correo en el proyecto.</div> }
+                </div>
+                @if (Actual.Puede(Modulo, Accion.Editar))
+                {
+                    <div class="mt-3"><label for="bn-extra">Correos de personas sin cuenta (separados por ;)</label><input id="bn-extra" class="form-control" @bind="extra" maxlength="1000" /></div>
+                }
+                @if (error is not null) { <div class="alert alert-danger small mt-3 mb-0">@error</div> }
+                @if (ok is not null) { <div class="alert alert-success small mt-3 mb-0">@ok</div> }
+            </ChildContent>
+            <Acciones>
+                <span class="frm-pie-msg small text-muted">@elegidos.Count persona(s)</span>
+                <button type="button" class="btn btn-outline-secondary" title="Cancelar" @onclick="Cerrar"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary" title="Enviar" @onclick="EnviarAsync" disabled="@enviando"><Ico Nombre="correo" /></button>
+            </Acciones>
+        </FormularioSig>
+    </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Modulo { get; set; } = "";
+    [Parameter] public string? Asunto { get; set; }
+    [Parameter] public string? Mensaje { get; set; }
+    [Parameter] public string? Enlace { get; set; }          // ruta relativa del registro, p. ej. "planes-accion/12"
+    [Parameter] public string Clase { get; set; } = "pg-btn";
+    [Parameter] public bool Deshabilitado { get; set; }
+
+    private bool abierto, enviando;
+    private string asunto = "", mensaje = "", filtro = "", extra = "";
+    private string? error, ok;
+    private List<ServicioNotificaciones.Miembro> miembros = new();
+    private HashSet<string> elegidos = new();
+
+    private async Task AbrirAsync()
+    {
+        asunto = Asunto ?? ""; mensaje = Mensaje ?? ""; extra = ""; filtro = ""; error = ok = null; elegidos.Clear();
+        abierto = true;
+        miembros = (await Svc.MiembrosAsync(Actual.Proyecto!.Id, Modulo)).Where(m => m.UsuarioId != Actual.Id).ToList();
+    }
+
+    private void Cerrar() => abierto = false;
+    private void Elegir(string id, bool si) { if (si) elegidos.Add(id); else elegidos.Remove(id); }
+
+    private bool Coincide(ServicioNotificaciones.Miembro m) => string.IsNullOrWhiteSpace(filtro)
+        || ServicioNotificaciones.Normalizar($"{m.Nombre} {m.Email} {m.Cargo} {m.Rol}").Contains(ServicioNotificaciones.Normalizar(filtro));
+
+    private async Task EnviarAsync()
+    {
+        if (enviando || Actual.Id is null || Actual.Proyecto is null) return;
+        if (Actual.VeComoOtro) { error = "Viendo como otro usuario no se envían avisos."; return; }
+        enviando = true; error = ok = null;
+        try
+        {
+            var (n, err) = await Svc.EnviarManualAsync(Actual.Proyecto.Id, Modulo, asunto, mensaje, Enlace, elegidos, extra, Actual.Id, Actual.Nombre);
+            if (err is not null) error = err;
+            else { ok = $"Aviso enviado a {n} persona(s)."; elegidos.Clear(); }
+        }
+        catch (Exception ex) { error = "No se pudo enviar: " + ex.Message; }
+        finally { enviando = false; }
+    }
+}

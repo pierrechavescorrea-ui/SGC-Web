@@ -1,0 +1,200 @@
+@* Vistas configurables de los registros (Configuración › Catálogos › Vistas). Izquierda: módulos con vistas; centro: la
+   clásica (siempre disponible, no se borra) y las guardadas, con Diseñar (abre el módulo en modo diseño con datos reales),
+   Duplicar, Renombrar, Predeterminada (la que abre si el navegador no eligió otra) y Eliminar (Papelera). *@
+@namespace SigWeb.Components.Catalogos
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Vistas
+@using SigWeb.Models
+@inject IServiceScopeFactory Scopes
+@inject NavigationManager Nav
+
+<div class="df">
+    <aside class="df-mods">
+        <div class="df-grupo">Módulos</div>
+        @foreach (var m in VistasModelo.Modulos)
+        {
+            var mod = m;
+            <button type="button" class="df-form @(actual?.Modulo == mod.Modulo ? "activo" : "")" @onclick="() => Elegir(mod)">
+                <span>@mod.Nombre · @mod.Vista</span>
+            </button>
+        }
+            </aside>
+
+    <section class="df-centro" style="grid-column: span 2;">
+        @if (actual is null)
+        {
+            <div class="df-vacio"><Ico Nombre="tablero" /> Elija un módulo a la izquierda.</div>
+        }
+        else
+        {
+            <div class="df-barra">
+                <div class="df-tit"><span>@actual.Nombre · @actual.Vista</span><small>Vistas como un tablero: widgets que se arrastran y se estiran</small></div>
+                <div class="df-acciones">
+                    <button type="button" class="btn btn-sm btn-primary" title="Crear una vista nueva (parte de la clásica)" @onclick="Nueva"><Ico Nombre="agregar" /></button>
+                </div>
+            </div>
+            @if (mensaje != "") { <div class="alert @(error ? "alert-warning" : "alert-success") py-1 small">@mensaje</div> }
+
+            @* Listado de vistas (2026-11-16): tabla como las demás listas; acciones por fila a la derecha. *@
+            <div class="gv-marco">
+                <table class="table table-sm table-hover align-middle mb-0 gv-tabla">
+                    <thead>
+                        <tr><th>Vista</th><th class="text-end">Widgets</th><th>Modificada</th><th>Estado</th><th class="text-end">Acciones</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr class="gv-clasica">
+                            <td><span class="gv-nom"><span class="gv-ico"><Ico Nombre="@IconoClasica" /></span><span><b>@VistasModelo.NombreClasica</b><small>La de siempre: no se modifica ni se borra.</small></span></span></td>
+                            <td class="text-end text-muted">—</td>
+                            <td class="text-muted">—</td>
+                            <td>@if (!vistas.Any(v => v.Predeterminada)) { <span class="gv-chip">Predeterminada</span> }</td>
+                            <td class="text-end"><span class="gv-acc">
+                                <a class="btn btn-sm gv-btn" href="@actual.Ruta" title="Ver en el módulo"><Ico Nombre="listado" /></a>
+                                <button type="button" class="btn btn-sm gv-btn" title="Duplicar para editarla" @onclick="() => Duplicar(null)"><Ico Nombre="nueva-version" /></button>
+                                <button type="button" class="btn btn-sm gv-btn" title="Usar como predeterminada" disabled="@(!vistas.Any(v => v.Predeterminada))" @onclick="() => Predeterminada(VistasModelo.IdClasica)"><Ico Nombre="aceptar" /></button>
+                            </span></td>
+                        </tr>
+                        @foreach (var v0 in vistas)
+                        {
+                            var v = v0;
+                            var n = VistasModelo.Leer(v.Json).Count;
+                            <tr>
+                                <td>
+                                    @if (renombrando == v.Id)
+                                    {
+                                        <span class="gv-nom frm-linea">
+                                            <input class="form-control form-control-sm" data-sin-flotante @bind="nombreEdicion" @bind:event="oninput" @onkeydown="@(async e => { if (e.Key == "Enter") await Renombrar(v); })" />
+                                            <button type="button" class="ens-mini" title="Cancelar" @onclick="() => renombrando = null"><Ico Nombre="cancelar" /></button>
+                                            <button type="button" class="ens-mini" title="Guardar" @onclick="() => Renombrar(v)"><Ico Nombre="guardar" /></button>
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="gv-nom"><span class="gv-ico"><Ico Nombre="tablero" /></span><b class="gv-link" title="Diseñar" @onclick="() => Disenar(v.Id)">@v.Nombre</b></span>
+                                    }
+                                </td>
+                                <td class="text-end">@n</td>
+                                <td class="text-nowrap">@v.FechaModificacion.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@if (v.Predeterminada) { <span class="gv-chip">Predeterminada</span> }</td>
+                                <td class="text-end"><span class="gv-acc">
+                                    <button type="button" class="btn btn-sm gv-btn" title="Diseñar (abre el módulo con un registro real)" @onclick="() => Disenar(v.Id)"><Ico Nombre="editar" /></button>
+                                    <button type="button" class="btn btn-sm gv-btn" title="Renombrar" @onclick="() => { renombrando = v.Id; nombreEdicion = v.Nombre; }"><Ico Nombre="corregir" /></button>
+                                    <button type="button" class="btn btn-sm gv-btn" title="Duplicar" @onclick="() => Duplicar(v)"><Ico Nombre="nueva-version" /></button>
+                                    <button type="button" class="btn btn-sm gv-btn" title="Usar como predeterminada" disabled="@v.Predeterminada" @onclick="() => Predeterminada(v.Id)"><Ico Nombre="aceptar" /></button>
+                                    <button type="button" class="btn btn-sm gv-btn gv-btn-peligro" title="Eliminar (va a la Papelera)" @onclick="() => PedirEliminar(v)"><Ico Nombre="eliminar" /></button>
+                                </span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (vistas.Count == 0) { <div class="text-muted small p-3">Aún no hay vistas propias: cree una con «Nueva vista» o duplique la clásica.</div> }
+            </div>
+            <p class="small text-muted mt-2 mb-0">En el módulo, cada quien elige la vista en el encabezado (junto a los botones de vista) y su navegador la recuerda.</p>
+        }
+    </section>
+</div>
+
+@if (vistas.FirstOrDefault(x => x.Id == confirmarBorrar) is { } vb)
+{
+    <div class="modal-backdrop-custom" @onclick="() => confirmarBorrar = null">
+        <div class="modal-box-custom" style="max-width: 520px;" @onclick:stopPropagation="true">
+            <h5 class="d-flex align-items-center gap-2"><Ico Nombre="eliminar" /> Eliminar vista</h5>
+            <SigWeb.Components.Pages.PanelImpacto Informe="InformeBorrar(vb)" />
+            <div class="frm-pie frm-pie-plano">
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => confirmarBorrar = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" data-texto="Eliminar" class="btn btn-danger btn-sm" title="Eliminar (va a la Papelera)" @onclick="() => Eliminar(vb)"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private VistasModelo.ModuloVista? actual;
+    private List<VistaRegistro> vistas = new();
+    private string mensaje = "";
+    private bool error;
+    private int? renombrando, confirmarBorrar;
+    private string nombreEdicion = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (VistasModelo.Modulos.Count == 1) await Elegir(VistasModelo.Modulos[0]);
+    }
+
+    private async Task Elegir(VistasModelo.ModuloVista m)
+    {
+        actual = m; mensaje = "";
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        using var scope = Scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        vistas = await VistasModelo.ListarAsync(db, actual!.Modulo);
+    }
+
+    private string IconoClasica => actual?.Modulo == "planes-accion" ? "plan-accion" : "tablero";
+
+    private void Nueva() => Nav.NavigateTo($"{actual!.Ruta}?disenarVista=nueva");
+    private void Disenar(int id) => Nav.NavigateTo($"{actual!.Ruta}?disenarVista={id}");
+
+    private async Task Duplicar(VistaRegistro? v)
+    {
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var widgets = v is null ? VistasModelo.InicialDe(actual!.Modulo) : VistasModelo.Leer(v.Json);
+            foreach (var w in widgets) w.Id = Guid.NewGuid().ToString("N")[..8];
+            var nombre = $"{(v?.Nombre ?? "Clásica")} (copia)";
+            await VistasModelo.GuardarAsync(db, actual!.Modulo, 0, nombre, widgets);
+            await Cargar();
+            mensaje = $"«{nombre}» creada: pulse Diseñar para editarla."; error = false;
+        }
+        catch (Exception ex) { mensaje = "No se pudo duplicar: " + ex.Message; error = true; }
+    }
+
+    private async Task Renombrar(VistaRegistro v)
+    {
+        var nombre = nombreEdicion.Trim();
+        if (nombre.Length == 0) return;
+        using var scope = Scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        if (await db.VistasRegistro.FirstOrDefaultAsync(x => x.Id == v.Id) is { } e) { e.Nombre = nombre; e.FechaModificacion = DateTime.Now; await db.SaveChangesAsync(); }
+        renombrando = null;
+        await Cargar();
+    }
+
+    private async Task Predeterminada(int id)
+    {
+        using var scope = Scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await VistasModelo.MarcarPredeterminadaAsync(db, actual!.Modulo, id);
+        await Cargar();
+        mensaje = id == VistasModelo.IdClasica ? "La clásica vuelve a ser la predeterminada." : "Vista predeterminada actualizada."; error = false;
+    }
+
+    private void PedirEliminar(VistaRegistro v) => confirmarBorrar = v.Id;
+
+    private SigWeb.Data.Impacto.InformeImpacto? informeBorrar;
+    private SigWeb.Data.Impacto.InformeImpacto InformeBorrar(VistaRegistro v)
+    {
+        if (informeBorrar?.Elemento.EndsWith($"«{v.Nombre}»") == true) return informeBorrar;
+        var inf = new SigWeb.Data.Impacto.InformeImpacto { Elemento = $"Vista «{v.Nombre}»", Nivel = v.Predeterminada ? SigWeb.Data.Impacto.NivelImpacto.Medio : SigWeb.Data.Impacto.NivelImpacto.Bajo };
+        if (v.Predeterminada) inf.Dependencias.Add(new() { Menu = actual?.Nombre ?? "Módulo", Detalle = "es la predeterminada: se abrirá la clásica", Cantidad = 1, Peso = 2 });
+        inf.Recomendacion = "Va a la Papelera y se puede restaurar. Quien la tenía elegida verá la predeterminada.";
+        return informeBorrar = inf;
+    }
+
+    private async Task Eliminar(VistaRegistro v)
+    {
+        confirmarBorrar = null;
+        using var scope = Scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        if (await db.VistasRegistro.FirstOrDefaultAsync(x => x.Id == v.Id) is { } e)
+        { e.Eliminado = true; e.FechaEliminacion = DateTime.Now; e.Predeterminada = false; await db.SaveChangesAsync(); }
+        await Cargar();
+        mensaje = $"«{v.Nombre}» está en la Papelera."; error = false;
+    }
+}

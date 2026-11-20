@@ -1,0 +1,220 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Metas (hoja Meta produccion), siempre digitadas: por periodo, meta de facturación y meta de
+   producción por cuadrilla × ítem × día (cantidades; el $ sale del formulario de precios). Cada
+   cambio guardado es una versión nueva del periodo con su motivo; la anterior queda de historial. *@
+
+<div class="cp-filtros">
+    @if (periodos.Count > 0)
+    {
+        <select class="form-select form-select-sm" style="max-width:300px" value="@verId" @onchange="CambiarVersion" disabled="@Editando">
+            @foreach (var g in S.Metas.GroupBy(m => m.Desde.Date).OrderByDescending(g => g.Key))
+            {
+                <optgroup label="@($"{FormatoCostos.Fecha(g.Key)} – {FormatoCostos.Fecha(g.First().Hasta)}")">
+                    @foreach (var m in g.OrderByDescending(m => m.Version))
+                    {
+                        <option value="@m.Id">v@(m.Version)@(m.Vigente ? " · vigente" : "") · @m.Motivo</option>
+                    }
+                </optgroup>
+            }
+        </select>
+    }
+    <select class="form-select form-select-sm" style="max-width:180px" @bind="cuadrilla">
+        <option value="">Todas las cuadrillas</option>
+        @foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }
+    </select>
+    <span class="cp-sub ms-auto">@if (ed is not null) { <text>Meta de producción @FormatoCostos.Dinero(TotalMeta())</text> }</span>
+</div>
+
+@if (ed is null)
+{
+    <div class="cp-sub p-3">Sin metas. Use Agregar para crear la del periodo.</div>
+}
+else
+{
+    <div class="panel-formulario cp-panel">
+        <div class="cp-form cp-form-meta">
+            <label>Desde</label><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(ed.Desde)" @onchange="e => { ed.Desde = Fec(e.Value) ?? ed.Desde; Dias(); }" disabled="@(!Editando)" />
+            <label>Hasta</label><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(ed.Hasta)" @onchange="e => { ed.Hasta = Fec(e.Value) ?? ed.Hasta; Dias(); }" disabled="@(!Editando)" />
+            <label title="Primer día de la semana 1 del seguimiento">Inicio semana 1</label><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(ed.InicioSemana1)" @onchange="e => ed.InicioSemana1 = Fec(e.Value) ?? ed.InicioSemana1" disabled="@(!Editando)" />
+            <label>Meta de facturación</label><input class="form-control form-control-sm cp-in-num" @bind="ed.MetaFacturacion" disabled="@(!Editando)" />
+            <label title="Solo si no hay detalle por ítem y día">Meta de producción total</label><input class="form-control form-control-sm cp-in-num" @bind="ed.MetaProduccionTotal" disabled="@(!Editando)" />
+            @if (Editando)
+            {
+                <label>Motivo del cambio</label><input class="form-control form-control-sm" @bind="ed.Motivo" />
+            }
+        </div>
+    </div>
+
+    <div class="tabla-scroll tabla-auto cp-marco">
+        <table class="table table-sm cp-tabla cp-metas">
+            <thead class="tabla-pin">
+                <tr>
+                    <th class="cp-fija">Cuadrilla · ítem</th><th class="cp-num">Cantidad</th><th class="cp-num">Meta $</th>
+                    @foreach (var d in dias) { <th class="cp-num cp-dia @(d.DayOfWeek == DayOfWeek.Sunday ? "cp-domingo" : "")">@d.ToString("dd/MM")</th> }
+                    @if (Editando) { <th></th> }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in filas.Where(f => cuadrilla == "" || f.Cuadrilla == cuadrilla))
+                {
+                    var it = S.ItemPorId.GetValueOrDefault(f.ItemId);
+                    <tr>
+                        <td class="cp-fija" title="@it?.Descripcion">
+                            @if (Editando && f.Nueva)
+                            {
+                                <div class="d-flex gap-1">
+                                    <select class="form-select form-select-sm" @bind="f.Cuadrilla">
+                                        @foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }
+                                    </select>
+                                    <select class="form-select form-select-sm" @bind="f.ItemId">
+                                        <option value="0">— ítem —</option>
+                                        @foreach (var i in items) { <option value="@i.Id">@i.Codigo</option> }
+                                    </select>
+                                </div>
+                            }
+                            else { <span>@f.Cuadrilla · <b>@it?.Codigo</b> <span class="cp-sub">@it?.Unidad</span></span> }
+                        </td>
+                        <td class="cp-num">@FormatoCostos.Num(f.Cant.Values.Sum(), 2)</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(Valor(f))</td>
+                        @foreach (var d in dias)
+                        {
+                            <td class="cp-num cp-dia">
+                                @if (Editando)
+                                {
+                                    <input class="cp-celda" value="@(f.Cant.TryGetValue(d, out var q) ? FormatoCostos.Num(q, 2) : "")" @onchange="e => Poner(f, d, e.Value)" />
+                                }
+                                else if (f.Cant.TryGetValue(d, out var q2)) { @FormatoCostos.Num(q2, 2) }
+                            </td>
+                        }
+                        @if (Editando)
+                        {
+                            <td><button type="button" class="btn btn-sm btn-link p-0" title="Quitar fila" @onclick="() => filas.Remove(f)"><Ico Nombre="cancelar" /></button></td>
+                        }
+                    </tr>
+                }
+                @if (Editando)
+                {
+                    <tr><td class="cp-fija" colspan="3"><button type="button" class="btn btn-sm btn-outline-secondary" title="Agregar fila (cuadrilla · ítem)" @onclick='() => filas.Add(new Fila { Cuadrilla = cuadrilla != "" ? cuadrilla : S.Cuadrillas.FirstOrDefault() ?? "", Nueva = true })'><Ico Nombre="agregar" /></button></td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<MetaPeriodo> periodos = new();
+    private int verId;
+    private MetaPeriodo? ed;
+    private List<Fila> filas = new();
+    private List<DateTime> dias = new();
+    private List<ItemPago> items = new();
+    private string cuadrilla = "";
+
+    public override bool PuedeEditar => ed is not null;
+    public override string? SelectorExportar => "table.cp-metas";
+
+    private sealed class Fila { public string Cuadrilla = ""; public int ItemId; public bool Nueva; public Dictionary<DateTime, decimal> Cant = new(); }
+
+    protected override void OnParametersSet()
+    {
+        if (!DatosNuevos()) return;
+        items = S.Items.Where(i => !i.EsCapitulo).OrderBy(i => i.Orden).ToList();
+        periodos = S.PeriodosMeta();
+        if (Editando) return;
+        if (!S.Metas.Any(m => m.Id == verId))
+            verId = (S.MetaDe(Corte) ?? periodos.FirstOrDefault())?.Id ?? 0;
+        Cargar();
+    }
+
+    private void CambiarVersion(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) { verId = id; Cargar(); }
+    }
+
+    private void Cargar()
+    {
+        var m = S.Metas.FirstOrDefault(x => x.Id == verId);
+        if (m is null) { ed = null; filas = new(); return; }
+        ed = Copia(m);
+        filas = S.MetasDia.Where(x => x.MetaPeriodoId == m.Id).GroupBy(x => (InstantaneaCostos.Norm(x.Cuadrilla), x.ItemPagoId))
+            .Select(g => new Fila { Cuadrilla = g.Key.Item1, ItemId = g.Key.ItemPagoId, Cant = g.GroupBy(x => x.Fecha.Date).ToDictionary(h => h.Key, h => h.Sum(x => x.Cantidad)) })
+            .OrderBy(f => f.Cuadrilla).ThenBy(f => S.ItemPorId.GetValueOrDefault(f.ItemId)?.Orden).ToList();
+        Dias();
+    }
+
+    private static MetaPeriodo Copia(MetaPeriodo m) => new()
+    {
+        Id = m.Id, Desde = m.Desde, Hasta = m.Hasta, InicioSemana1 = m.InicioSemana1, MetaFacturacion = m.MetaFacturacion,
+        MetaProduccionTotal = m.MetaProduccionTotal, Version = m.Version, Motivo = m.Motivo, Vigente = m.Vigente
+    };
+
+    private void Dias()
+    {
+        dias.Clear();
+        if (ed is null) return;
+        for (var d = ed.Desde.Date; d <= ed.Hasta.Date && dias.Count < 120; d = d.AddDays(1)) dias.Add(d);
+    }
+
+    private void Poner(Fila f, DateTime d, object? v)
+    {
+        if (Dec(v) is decimal q && q != 0) f.Cant[d] = q; else f.Cant.Remove(d);
+    }
+
+    private decimal Valor(Fila f) =>
+        S.ItemPorId.TryGetValue(f.ItemId, out var it) ? f.Cant.Sum(kv => kv.Value * S.PrecioConAiu(it, S.AnioValor(kv.Key, Corte))) : 0m;
+
+    private decimal TotalMeta() => filas.Count > 0 ? filas.Sum(Valor) : ed?.MetaProduccionTotal ?? 0m;
+
+    public override Task EditarAsync()
+    {
+        if (ed is not null) ed.Motivo = null;
+        return base.EditarAsync();
+    }
+
+    public override async Task AgregarAsync()
+    {
+        var ultimo = periodos.FirstOrDefault();
+        var desde = ultimo is null ? new DateTime(Corte.Year, Corte.Month, 1) : ultimo.Hasta.Date.AddDays(1);
+        var hasta = new DateTime(desde.Year, desde.Month, 1).AddMonths(1).AddDays(-1);
+        ed = new MetaPeriodo { Id = 0, Desde = desde, Hasta = hasta, InicioSemana1 = desde, Version = 1, Vigente = true, Motivo = "Meta inicial" };
+        // Arranca con las mismas filas (cuadrilla · ítem) del periodo anterior, sin cantidades.
+        filas = filas.Select(f => new Fila { Cuadrilla = f.Cuadrilla, ItemId = f.ItemId }).ToList();
+        Dias();
+        Editando = true;
+        await Avisar();
+    }
+
+    public override void Cancelar() { base.Cancelar(); Cargar(); }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        if (ed is null) return;
+        if (ed.Hasta < ed.Desde) throw new InvalidOperationException("La fecha final es anterior a la inicial.");
+        if (filas.Any(f => f.ItemId <= 0 && f.Cant.Count > 0)) throw new InvalidOperationException("Hay filas con cantidades y sin ítem.");
+        var esNueva = ed.Id == 0;
+        if (!esNueva && string.IsNullOrWhiteSpace(ed.Motivo)) throw new InvalidOperationException("Escriba el motivo del cambio de la meta.");
+
+        // Versión nueva; las demás versiones del mismo periodo dejan de ser vigentes.
+        var desdeOriginal = esNueva ? ed.Desde.Date : S.Metas.First(m => m.Id == ed.Id).Desde.Date;
+        var previas = await Db.MetasPeriodo.Where(m => m.Desde == desdeOriginal || m.Desde == ed.Desde.Date).ToListAsync();
+        foreach (var p in previas) p.Vigente = false;
+        var nueva = new MetaPeriodo
+        {
+            Desde = ed.Desde.Date, Hasta = ed.Hasta.Date, InicioSemana1 = ed.InicioSemana1.Date, MetaFacturacion = ed.MetaFacturacion,
+            MetaProduccionTotal = ed.MetaProduccionTotal, Version = previas.Count == 0 ? 1 : previas.Max(p => p.Version) + 1,
+            Motivo = string.IsNullOrWhiteSpace(ed.Motivo) ? "Meta inicial" : ed.Motivo.Trim(), Vigente = true
+        };
+        Db.MetasPeriodo.Add(nueva);
+        await Db.SaveChangesAsync();
+        foreach (var f in filas.Where(f => f.ItemId > 0))
+            foreach (var (d, q) in f.Cant.Where(kv => kv.Key >= nueva.Desde && kv.Key <= nueva.Hasta))
+                Db.MetasProduccionDia.Add(new MetaProduccionDia { MetaPeriodoId = nueva.Id, Cuadrilla = f.Cuadrilla, ItemPagoId = f.ItemId, Fecha = d, Cantidad = q });
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        verId = nueva.Id;
+    }
+}

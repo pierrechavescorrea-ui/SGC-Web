@@ -1,0 +1,28 @@
+/* Menú del ícono del encabezado (EncabezadoPagina + Data/Navegacion/MenuIcono): vistas del módulo o lista de proyectos.
+   El ícono se vuelve botón con una flecha pequeña; la lista se despliega debajo, alineada al ícono. */
+.pg-logo-marco { position: relative; display: inline-flex; flex: none; }
+.pg-logo-menu { position: relative; cursor: pointer; transition: box-shadow .15s ease, background-color .15s ease; }
+.pg-logo-menu:hover, .pg-logo-menu:focus-visible, .pg-logo-menu.abierto { box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 55%, transparent); outline: none; }
+.pg-logo-flecha { position: absolute; right: -3px; bottom: -3px; width: 15px; height: 15px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--t-superficie, #fff); color: var(--t-texto, #1f2a3a); box-shadow: 0 1px 3px rgba(0, 0, 0, .35); }
+
+.pg-menu-fondo { position: fixed; inset: 0; z-index: 1090; }
+.pg-cab .pg-menu { display: flex; flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
+.pg-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 1091; width: 300px; max-width: min(360px, 90vw); max-height: min(70vh, 520px); white-space: normal; overflow-x: hidden;
+    overflow: auto; padding: 6px; border-radius: 12px; border: 1px solid var(--t-borde, rgba(0, 0, 0, .12));
+    background: var(--t-superficie, #fff); color: var(--t-texto, #1f2a3a); box-shadow: 0 12px 32px -8px rgba(16, 24, 40, .35); }
+.pg-menu-tit { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--t-texto-2, #6b7686); padding: 4px 8px 6px; }
+.pg-menu-op { flex: none; display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent;
+    color: inherit; text-align: left; font-size: .86rem; }
+.pg-menu-op:hover, .pg-menu-op:focus-visible { background: var(--t-superficie-2, #f3f5f8); outline: none; }
+.pg-menu-op.activo { background: color-mix(in srgb, var(--t-acento, #EC1C24) 10%, transparent); font-weight: 600; }
+.pg-menu-txt { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.pg-menu-txt > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-menu-txt small { font-size: .72rem; font-weight: 400; color: var(--t-texto-2, #6b7686); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-menu-check { color: var(--t-acento, #EC1C24); font-weight: 700; }
+.pg-menu-marca { flex: none; width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: .62rem; font-weight: 800; color: #fff; background: var(--c, #EC1C24); overflow: hidden; }
+.pg-menu-marca img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.pg-menu-pie { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 8px; border-top: 1px solid var(--t-borde, rgba(0, 0, 0, .1));
+    font-size: .8rem; color: var(--t-texto-2, #6b7686); text-decoration: none; border-radius: 0 0 8px 8px; }
+.pg-menu-pie:hover { color: var(--t-texto, #1f2a3a); background: var(--t-superficie-2, #f3f5f8); }

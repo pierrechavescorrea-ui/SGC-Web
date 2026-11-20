@@ -1,0 +1,110 @@
+@* Envoltorio que hace diseñable un formulario (Configuración › Catálogos › Formularios).
+   Comparte un ContextoFormulario con sus SeccionFormulario / BloqueFormulario / CampoFormulario: ellos se registran
+   (el diseñador conoce así pasos y campos) y preguntan dónde y cómo pintarse. Sin diseño guardado, el formulario se
+   pinta exactamente como siempre. Uso: <FormularioSig Formulario="clave" Fila="id"> o, en un componente
+   reutilizable, <DisenoFormulario Clave="clave" Fila="id">…</DisenoFormulario>. Clave = RegistroFormularios. *@
+@using SigWeb.Data.Formularios
+@implements IDisposable
+@inject ServicioFormularios Servicio
+@inject ValoresFormulario Valores
+
+@if (ctx is null)
+{
+    @ChildContent
+}
+else
+{
+    <CascadingValue Value="ctx" IsFixed="false">
+        <div class="frm-diseno @(ctx.ConDiseno ? "frm-diseno-activo" : "")" data-formulario="@Clave" style="@ctx.EstiloRejilla()">
+            @ChildContent
+            @foreach (var p in ctx.PasosNuevos())
+            {
+                <SeccionFormulario @key="p.Clave" Titulo="@(p.Titulo ?? "Paso nuevo")" Clave="@p.Clave" Nueva="true" />
+            }
+        </div>
+    </CascadingValue>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Clave { get; set; } = "";
+    // Id del registro que se edita (0 = nuevo: sus campos nuevos se guardan con el Id que le dé la base al guardarlo).
+    [Parameter] public int Fila { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private ContextoFormulario? ctx;
+    private ValoresFormulario.Sesion? sesion;
+    private bool cargado;
+    private int recolectados = -1;
+
+    protected override void OnInitialized()
+    {
+        var info = RegistroFormularios.De(Clave);
+        if (info is null) return;
+        ctx = new ContextoFormulario { Info = info };
+        Servicio.Cambio += AlCambiarDiseno;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ctx is null) return;
+        await CargarDisenoAsync();
+        try
+        {
+            sesion = await Valores.AbrirAsync(ctx.Info, Fila);
+            ctx.Sesion = sesion;
+            sesion.Cambio += AlCambiarValor;
+        }
+        catch (Exception ex) { Console.Error.WriteLine("Formulario " + Clave + ": " + ex.Message); }
+        cargado = true;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (sesion is not null && sesion.FilaId != Fila && Fila > 0) await Valores.CambiarFilaAsync(sesion, Fila);
+    }
+
+    private async Task CargarDisenoAsync()
+    {
+        if (ctx is null) return;
+        var d = await Servicio.DisenoAsync(Clave);
+        var conocida = await Servicio.EstructuraAsync(Clave);
+        ctx.Preparar(d, conocida);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (ctx is null || !cargado || !ctx.Recolectado) return;
+        var e = ctx.Estructura();
+        var n = e.Secciones.Count * 1000 + e.Campos.Count;
+        if (n == recolectados) return;
+        recolectados = n;
+        // Con lo recién declarado: disposición final (un repintado) y estructura para el diseñador.
+        ctx.Recalcular();
+        if (sesion is not null) sesion.Obligatorios = ctx.Obligatorios().ToHashSet();
+        await Servicio.RegistrarEstructuraAsync(Clave, e);
+        if (ctx.ConDiseno) StateHasChanged();
+    }
+
+    // Otro usuario/pestaña guardó un diseño nuevo de este formulario: se repinta con él.
+    private void AlCambiarDiseno(string clave)
+    {
+        if (!string.Equals(clave, Clave, StringComparison.OrdinalIgnoreCase)) return;
+        _ = InvokeAsync(async () =>
+        {
+            await CargarDisenoAsync();
+            if (sesion is not null) { await Valores.CargarAsync(sesion); sesion.Obligatorios = ctx!.Obligatorios().ToHashSet(); }
+            recolectados = -1;
+            StateHasChanged();
+        });
+    }
+
+    // Un valor cambió y algún campo depende de él (campo según la opción): se repinta el formulario.
+    private void AlCambiarValor() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        if (sesion is not null) sesion.Cambio -= AlCambiarValor;
+        Servicio.Cambio -= AlCambiarDiseno;
+        if (sesion is not null) Valores.Cerrar(sesion);
+    }
+}

@@ -1,0 +1,34 @@
+@inherits Microsoft.AspNetCore.Components.ComponentBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Seguridad
+@inject LogoApp Logo
+
+<span class="@Clase @(EsEmpresa && logo is not null ? "proyecto-marca-logo" : "")" style="@Estilo">
+    @if (EsEmpresa && logo is not null)
+    {
+        <img src="@logo" alt="Logo de la empresa" />
+    }
+    else
+    {
+        @(Codigo.Length > MaxCodigo ? Codigo[..MaxCodigo] : Codigo)
+    }
+</span>
+
+@code {
+    [Parameter] public bool EsEmpresa { get; set; }
+    [Parameter] public string Codigo { get; set; } = "";
+    [Parameter] public string Clase { get; set; } = "ad-proy-marca";
+    [Parameter] public string? Estilo { get; set; }
+    [Parameter] public int MaxCodigo { get; set; } = 4;
+    private string? logo;
+    private bool leido;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!EsEmpresa || leido) return;
+        leido = true;
+        // Logo único de la app (LogoApp: base Empresa con respaldo en la piloto, en caché). Fuera del hilo del render.
+        logo = await Task.Run(() => Logo.Url);
+    }
+}

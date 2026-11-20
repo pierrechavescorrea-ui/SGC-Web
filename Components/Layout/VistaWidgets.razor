@@ -1,0 +1,86 @@
+@* Vista configurable de la pantalla principal de un módulo (Costos de no calidad, Riesgos, Indicadores): la «Clásica» es la
+   pantalla de siempre (ChildContent); las demás son tableros de widgets guardados en VistasRegistro (Configuración › Editor ›
+   Vistas) y se diseñan aquí con datos reales (?disenarVista=id|nueva). El contenido de cada widget lo pinta la página
+   (Contenido); este componente pone la rejilla (sigVistaReg de js/disenoFormulario.js), el selector, la paleta y el guardado.
+   Lógica en VistaWidgets.razor.cs; estilos vr-* de css/vistas.css (los mismos de Planes de acción). *@
+@using SigWeb.Data.Vistas
+
+@* El selector de vista vive en el ícono del encabezado (MenuIcono): clic en el ícono junto al título. *@
+
+@if (Disenando)
+{
+    <div class="vr-barra">
+        <span class="vr-dis-tit"><Ico Nombre="formularios" /> Diseñando vista</span>
+        <input class="form-control form-control-sm vr-nombre" data-sin-flotante @bind="nombre" placeholder="Nombre de la vista" title="Nombre de la vista" />
+        <span class="text-muted small d-none d-xl-inline">Arrastre y estire los widgets; elija uno para sus opciones.</span>
+        <span class="ms-auto d-inline-flex gap-1">
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Volver a la disposición inicial" @onclick="Restablecer"><Ico Nombre="restaurar" /></button>
+            <button type="button" class="btn btn-sm btn-secondary" title="Cancelar" @onclick="Cancelar"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-sm btn-primary" title="Guardar la vista" @onclick="Guardar"><Ico Nombre="guardar" /></button>
+        </span>
+        @if (mensaje is not null) { <span class="small text-danger">@mensaje</span> }
+    </div>
+}
+
+@if (!Personalizada)
+{
+    @ChildContent
+}
+else
+{
+    var lista = Actuales();
+    <div class="vr-cuerpo vw-cuerpo @(Disenando ? "vr-disenando" : "")">
+        <div class="pw-panel vr-panel @(Disenando ? "pw-editando" : "")" @ref="refPanel">
+            @foreach (var wd in lista)
+            {
+                var w = wd;
+                var tw = VistasModelo.TipoDe(Modulo, w.Tipo);
+                <div @key="w.Id" class="pw-w vr-w @(sel == w.Id ? "vr-sel-w" : "")" data-w="@w.Id" data-ancho="@w.W" data-alto="@w.H"
+                     data-minw="@(tw?.MinW ?? 2)" data-minh="@(tw?.MinH ?? 2)" @onclick="() => { if (Disenando) sel = w.Id; }">
+                    <div class="vr-tarjeta vr-t-@w.Tipo vw-t-@Modulo">
+                        @if (w.Tipo != "kpi" && w.Tipo != "filtros") { <div class="vr-tit">@Titulo(w)</div> }
+                        <div class="vr-contenido">@Contenido(w)</div>
+                    </div>
+                    @if (Disenando)
+                    {
+                        <button type="button" class="pw-quitar" title="Quitar" @onclick:stopPropagation="true" @onclick="() => Quitar(w.Id)">×</button>
+                        <span class="pw-tirador" title="Tamaño"></span>
+                    }
+                </div>
+            }
+        </div>
+        @if (Disenando)
+        {
+            <aside class="vr-paleta">
+                @if (sel is not null && widgets.FirstOrDefault(x => x.Id == sel) is { } sw)
+                {
+                    var opciones = VistasModelo.OpcionesDe(Modulo, sw.Tipo);
+                    <h6>@(VistasModelo.TipoDe(Modulo, sw.Tipo)?.Nombre ?? sw.Tipo)</h6>
+                    <div class="vr-props">
+                        <CampoFormulario Etiqueta="Título" Ancho=""><input class="form-control" value="@sw.Titulo" placeholder="@TituloBase(sw)" @onchange="e => sw.Titulo = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString()" /></CampoFormulario>
+                        @if (opciones.Count > 0)
+                        {
+                            <CampoFormulario Etiqueta="Muestra" Ancho="">
+                                <select class="form-select" value="@sw.Kpi" @onchange="e => { sw.Kpi = e.Value?.ToString(); AlCambiar(); }">
+                                    @foreach (var o in opciones) { <option value="@o.Clave">@o.Nombre</option> }
+                                </select>
+                            </CampoFormulario>
+                        }
+                        <button type="button" class="btn btn-sm btn-outline-danger mt-1" title="Quitar el widget" @onclick="() => Quitar(sw.Id)"><Ico Nombre="eliminar" /></button>
+                    </div>
+                }
+                <h6 class="mt-2">Agregar widget</h6>
+                <div class="vr-lista-widgets">
+                    @foreach (var t in VistasModelo.TiposDe(Modulo))
+                    {
+                        var tipo = t;
+                        <button type="button" class="vr-item" title="@tipo.Descripcion" @onclick="() => Agregar(tipo)">
+                            <span class="vr-item-ico"><Ico Nombre="@tipo.Icono" /></span>
+                            <span class="vr-item-txt"><span>@tipo.Nombre</span><small>@tipo.Descripcion</small></span>
+                        </button>
+                    }
+                </div>
+            </aside>
+        }
+    </div>
+}

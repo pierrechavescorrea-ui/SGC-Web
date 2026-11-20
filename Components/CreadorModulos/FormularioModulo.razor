@@ -1,0 +1,399 @@
+@* Formulario de un registro de un módulo creado, por pasos (SeccionFormulario numeradas + CampoFormulario: mismo aspecto
+   que todos los formularios de la app, con etiquetas flotantes). Cada paso se dibuja en la rejilla de 12 columnas del diseñador
+   (posición y alto de cada control; en teléfono, una columna en ese orden). Lo usan la página del módulo (/mod/{clave}) y la vista
+   previa del Creador de módulos (VistaPrevia: sin subir archivos ni abrir vínculos). Los valores viven en Edicion; quien
+   lo usa guarda con ServicioRegistrosModulo.GuardarAsync. *@
+@using Microsoft.AspNetCore.Components.Forms
+@using SigWeb.Data.CreadorModulos
+@using SigWeb.Data.Tablas
+@inject IServiceScopeFactory Scopes
+@inject ServicioRegistrosModulo Registros
+@inject SigWeb.Data.Seguridad.UsuarioActual Usuario
+@inject IJSRuntime JS
+
+<div class="mf" data-sin-aviso>
+    @foreach (var paso in Definicion.Pasos)
+    {
+        var na = paso.PermiteNoAplica && Edicion.PasosNoAplica.Contains(paso.Clave);
+        <SeccionFormulario Titulo="@(string.IsNullOrWhiteSpace(paso.Titulo) ? "(Paso sin título)" : paso.Titulo)" Clase="@(na ? "frm-sec-na" : null)">
+            <Extra>
+                @if (na) { <span class="frm-na-chip">No aplica</span> }
+                @if (paso.PermiteNoAplica && !SoloLectura)
+                {
+                    <button type="button" class="frm-na-btn @(na ? "activo" : "")" aria-pressed="@(na ? "true" : "false")"
+                            title="@(na ? "Quitar N/A: este paso sí aplica" : "Marcar N/A: este paso no aplica a este registro")" @onclick="() => AlternarNa(paso)">N/A</button>
+                }
+            </Extra>
+            <ChildContent>
+                @if (!string.IsNullOrWhiteSpace(paso.Descripcion))
+                {
+                    <div class="col-12 mf-desc">@paso.Descripcion</div>
+                }
+                @if (!na)
+                {
+                    <div class="col-12">
+                        <div class="mf-rej">
+                            @foreach (var c in paso.Campos.OrderBy(c => c.Y).ThenBy(c => c.X))
+                            {
+                                if (!ServicioRegistrosModulo.EsVisible(Definicion, c, Edicion)) continue;
+                                <div class="mf-celda t-@c.Tipo.ToString().ToLowerInvariant()" style="@Posicion(c)">@Campo(c)</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </ChildContent>
+        </SeccionFormulario>
+    }
+    @if (Definicion.Pasos.Count == 0)
+    {
+        <div class="mf-vacio">El módulo aún no tiene pasos.</div>
+    }
+    @if (error is not null)
+    {
+        <div class="alert alert-danger mt-2" role="alert">@error</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DefinicionModulo Definicion { get; set; } = default!;
+    [Parameter, EditorRequired] public ServicioRegistrosModulo.Edicion Edicion { get; set; } = default!;
+    // null en la vista previa del diseñador.
+    [Parameter] public RegistroModulosCreados.Publicado? Modulo { get; set; }
+    [Parameter] public bool SoloLectura { get; set; }
+    [Parameter] public bool VistaPrevia { get; set; }
+    [Parameter] public EventCallback OnCambio { get; set; }
+
+    private string? error;
+    private readonly Dictionary<string, List<string>> opcionesCatalogo = new(StringComparer.OrdinalIgnoreCase);
+    private string firmaCatalogos = "";
+    private readonly HashSet<string> subiendo = new();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Definicion.Acomodar();
+        // Opciones de los catálogos que usa el diseño (una consulta, en su propio scope; nunca desde el render).
+        var tipos = Definicion.Campos.Where(c => c.Tipo == TipoCampoModulo.Lista && !string.IsNullOrWhiteSpace(c.Catalogo))
+            .Select(c => c.Catalogo!).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(t => t).ToList();
+        var firma = string.Join("|", tipos);
+        if (firma == firmaCatalogos) return;
+        firmaCatalogos = firma;
+        opcionesCatalogo.Clear();
+        if (tipos.Count == 0) return;
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<SigWeb.Data.AppDbContext>();
+            var items = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                db.Catalogos.Where(i => tipos.Contains(i.Tipo) && i.Activo).OrderBy(i => i.Nombre).Select(i => new { i.Tipo, i.Nombre }));
+            foreach (var g in items.GroupBy(i => i.Tipo, StringComparer.OrdinalIgnoreCase)) opcionesCatalogo[g.Key] = g.Select(i => i.Nombre).ToList();
+        }
+        catch { /* catálogo ausente: la lista queda como texto libre */ }
+    }
+
+    private static string Posicion(CampoModulo c) =>
+        $"grid-column:{(c.X ?? 0) + 1} / span {Math.Clamp(c.Ancho, 1, 12)};grid-row:{(c.Y ?? 0) + 1} / span {Math.Max(1, c.Alto)};" +
+        $"--mf-alto:{Math.Max(1, c.Alto) * 40}px;--mf-orden:{(c.Y ?? 0) * 12 + (c.X ?? 0)}";
+
+    private bool SoloLecturaDe(CampoModulo c) => SoloLectura || c.Modo != ModoCampo.Editable;
+
+    private static string Columnas(int ancho) => ancho switch
+    {
+        <= 3 => "col-md-3", 4 => "col-md-4", <= 6 => "col-md-6", <= 8 => "col-md-8", _ => "col-12",
+    };
+
+    private List<string> Opciones(CampoModulo c) =>
+        !string.IsNullOrWhiteSpace(c.Catalogo)
+            ? opcionesCatalogo.GetValueOrDefault(c.Catalogo!) ?? new List<string>()
+            : c.Opciones.Where(o => !string.IsNullOrWhiteSpace(o)).Select(o => o.Trim()).ToList();
+
+    private async Task Cambiar(string campo, string? valor)
+    {
+        Edicion.Valores[campo] = valor;
+        error = null;
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task AlternarNa(PasoModulo p)
+    {
+        if (!Edicion.PasosNoAplica.Remove(p.Clave)) Edicion.PasosNoAplica.Add(p.Clave);
+        await OnCambio.InvokeAsync();
+    }
+
+    private RenderFragment Campo(CampoModulo c) => __builder =>
+    {
+        if (c.Tipo == TipoCampoModulo.Titulo)
+        {
+            <div class="mf-subtitulo">
+                <span>@c.Etiqueta</span>
+                @if (!string.IsNullOrWhiteSpace(c.Ayuda)) { <small>@c.Ayuda</small> }
+            </div>
+            return;
+        }
+        if (c.Tipo == TipoCampoModulo.Separador) { <hr class="mf-sep" /> return; }
+        if (c.Tipo == TipoCampoModulo.Grupo) { <fieldset class="mf-grupo"><legend>@c.Etiqueta</legend></fieldset> return; }
+        if (c.EsHerramientaApp)
+        {
+            <div class="mf-app">
+                <div class="mf-app-et">@c.Etiqueta</div>
+                <HerramientaApp Campo="c" Filtro="@FiltroDe(c)" VistaPrevia="VistaPrevia" AltoPx="@(Math.Max(1, c.Alto) * 40 - 30)" />
+            </div>
+            return;
+        }
+        var valor = Edicion.Valor(c.Clave);
+        var soloLectura = SoloLecturaDe(c);
+        <CampoFormulario Etiqueta="@c.Etiqueta" Ancho="mf-w" Obligatorio="c.Obligatorio && !soloLectura">
+            @switch (c.Tipo)
+            {
+                case TipoCampoModulo.Parrafo:
+                    <textarea class="form-control" rows="3" value="@valor" disabled="@soloLectura" aria-label="@c.Etiqueta" aria-required="@(c.Obligatorio && !soloLectura ? "true" : null)" title="@c.Ayuda"
+                              @onchange="e => Cambiar(c.Clave, e.Value?.ToString())"></textarea>
+                    break;
+                case TipoCampoModulo.Numero:
+                    <div class="input-group">
+                        <input type="text" inputmode="decimal" class="form-control" value="@valor" disabled="@soloLectura" aria-label="@c.Etiqueta" aria-required="@(c.Obligatorio && !soloLectura ? "true" : null)" title="@c.Ayuda"
+                               @onchange="e => Cambiar(c.Clave, e.Value?.ToString())" />
+                        @if (!string.IsNullOrWhiteSpace(c.Unidad)) { <span class="input-group-text">@c.Unidad</span> }
+                    </div>
+                    break;
+                case TipoCampoModulo.Fecha:
+                    <input type="date" class="form-control" value="@valor" disabled="@soloLectura" aria-label="@c.Etiqueta" aria-required="@(c.Obligatorio && !soloLectura ? "true" : null)" title="@c.Ayuda"
+                           @onchange="e => Cambiar(c.Clave, e.Value?.ToString())" />
+                    break;
+                case TipoCampoModulo.Lista:
+                    var ops = Opciones(c);
+                    if (c.Multiple)
+                    {
+                        var elegidos = MotorTabla.Partes(valor);
+                        if (soloLectura)
+                        {
+                            <div class="mf-fichas">@foreach (var v in elegidos) { <span class="mf-ficha">@v</span> }</div>
+                        }
+                        else
+                        {
+                            <SelectorMultiple Valores="elegidos" Opciones="ops" OnCambio="() => Cambiar(c.Clave, MotorTabla.UnirVarios(elegidos))" />
+                        }
+                    }
+                    else
+                    {
+                        <select class="form-select" value="@(valor ?? "")" disabled="@soloLectura" aria-label="@c.Etiqueta" aria-required="@(c.Obligatorio && !soloLectura ? "true" : null)" title="@c.Ayuda"
+                                @onchange="e => Cambiar(c.Clave, e.Value?.ToString())">
+                            <option value="">Seleccione…</option>
+                            @foreach (var o in ops) { <option value="@o">@o</option> }
+                            @if (!string.IsNullOrEmpty(valor) && !ops.Contains(valor)) { <option value="@valor">@valor</option> }
+                        </select>
+                    }
+                    break;
+                case TipoCampoModulo.SiNo:
+                    <div class="form-check form-switch mf-sino">
+                        <input class="form-check-input" type="checkbox" role="switch" aria-label="@c.Etiqueta" checked="@(valor == "Sí")" disabled="@soloLectura"
+                               @onchange="e => Cambiar(c.Clave, SiNo(e.Value))" />
+                        <span>@(valor == "Sí" ? "Sí" : "No")</span>
+                    </div>
+                    break;
+                case TipoCampoModulo.Archivos:
+                case TipoCampoModulo.Foto:
+                    @Archivos(c, soloLectura)
+                    break;
+                case TipoCampoModulo.Firma:
+                    @Firma(c, soloLectura)
+                    break;
+                case TipoCampoModulo.Chequeo:
+                    var marcados = MotorTabla.Partes(valor);
+                    <div class="mf-chequeo" role="group" aria-label="@c.Etiqueta">
+                        @foreach (var o in c.Opciones.Where(o => !string.IsNullOrWhiteSpace(o)))
+                        {
+                            var esta = marcados.Contains(o);
+                            <label class="mf-ch @(esta ? "on" : "")"><input type="checkbox" class="form-check-input" checked="@esta" disabled="@soloLectura"
+                                   @onchange="e => MarcarChequeo(c, o, e.Value is true)" /> <span>@o</span></label>
+                        }
+                    </div>
+                    break;
+                case TipoCampoModulo.Vinculo:
+                    if (string.IsNullOrWhiteSpace(c.Fuente))
+                    {
+                        <div class="mf-aviso">Vínculo sin módulo de destino.</div>
+                    }
+                    else if (VistaPrevia)
+                    {
+                        <div class="mf-aviso"><Ico Nombre="enlace" /> Elegir de @(c.Fuente)…</div>
+                    }
+                    else
+                    {
+                        <SelectorVinculo Fuente="@c.Fuente" Multiple="c.Multiple" Seleccion="Edicion.VinculosDe(c.Clave)" Columnas="@(c.ColumnasFuente.Count == 0 ? null : c.ColumnasFuente)"
+                                         SoloLectura="soloLectura" Titulo="@c.Etiqueta" SeleccionChanged="l => CambiarVinculos(c.Clave, l)" />
+                    }
+                    break;
+                default:
+                    <input type="text" class="form-control" value="@valor" disabled="@soloLectura" aria-label="@c.Etiqueta" aria-required="@(c.Obligatorio && !soloLectura ? "true" : null)" title="@c.Ayuda"
+                           @onchange="e => Cambiar(c.Clave, e.Value?.ToString())" />
+                    break;
+            }
+            @if (!string.IsNullOrWhiteSpace(c.Ayuda) && c.Tipo is TipoCampoModulo.Archivos or TipoCampoModulo.Vinculo or TipoCampoModulo.SiNo or TipoCampoModulo.Foto or TipoCampoModulo.Firma or TipoCampoModulo.Chequeo)
+            {
+                <div class="mf-ayuda">@c.Ayuda</div>
+            }
+        </CampoFormulario>
+    };
+
+    private static string SiNo(object? v) => v is true ? "Sí" : "No";
+
+    private IReadOnlyList<VinculoElegido>? FiltroDe(CampoModulo c) =>
+        c.FiltroCampo is null ? null : Edicion.VinculosDe(c.FiltroCampo);
+
+    private static bool EsImagen(string nombre) =>
+        Path.GetExtension(nombre).ToLowerInvariant() is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif" or ".bmp";
+
+    private async Task MarcarChequeo(CampoModulo c, string opcion, bool marcar)
+    {
+        var l = MotorTabla.Partes(Edicion.Valor(c.Clave));
+        if (marcar) { if (!l.Contains(opcion)) l.Add(opcion); } else l.Remove(opcion);
+        // Mismo orden que los ítems del diseño.
+        var ordenados = c.Opciones.Where(l.Contains).ToList();
+        await Cambiar(c.Clave, ordenados.Count == 0 ? null : MotorTabla.UnirVarios(ordenados));
+    }
+
+    // ---------- Firma ----------
+    private readonly Dictionary<string, ElementReference> lienzosFirma = new();
+    private readonly HashSet<string> firmando = new();
+
+    private RenderFragment Firma(CampoModulo c, bool soloLectura) => __builder =>
+    {
+        var actual = Edicion.ArchivosDe(c.Clave).LastOrDefault(a => a.Id == 0 || !Edicion.ArchivosQuitados.Contains(a.Id));
+        <div class="mf-firma">
+            @if (actual is not null && !firmando.Contains(c.Clave))
+            {
+                <img class="mf-firma-img" src="@("/" + actual.Ruta)" alt="Firma" />
+                @if (!soloLectura && !VistaPrevia)
+                {
+                    <button type="button" class="mf-firma-btn" title="Firmar de nuevo" @onclick="() => firmando.Add(c.Clave)"><Ico Nombre="editar" /></button>
+                }
+            }
+            else if (soloLectura || VistaPrevia || Modulo is null)
+            {
+                <div class="mf-firma-vacia">@(VistaPrevia ? "✍ Aquí se firma" : "Sin firma")</div>
+            }
+            else
+            {
+                <canvas class="mf-firma-lienzo" @ref="RefFirma(c.Clave).Valor"></canvas>
+                <div class="mf-firma-acc">
+                    <button type="button" class="mf-firma-btn" title="Borrar el trazo" @onclick="() => LimpiarFirmaAsync(c.Clave)"><Ico Nombre="restaurar" /></button>
+                    <button type="button" class="mf-firma-btn" title="Usar esta firma" @onclick="() => UsarFirmaAsync(c)"><Ico Nombre="aceptar" /></button>
+                </div>
+            }
+        </div>
+    };
+
+    private sealed class RefLienzo { public ElementReference Valor; }
+    private readonly Dictionary<string, RefLienzo> refsFirma = new();
+    private RefLienzo RefFirma(string clave) => refsFirma.TryGetValue(clave, out var r) ? r : refsFirma[clave] = new RefLienzo();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        foreach (var (clave, r) in refsFirma)
+            if (r.Valor.Context is not null)
+                try { await JS.InvokeVoidAsync("sigFirma.iniciar", r.Valor); } catch { }
+    }
+
+    private async Task LimpiarFirmaAsync(string clave)
+    {
+        if (refsFirma.TryGetValue(clave, out var r)) try { await JS.InvokeVoidAsync("sigFirma.limpiar", r.Valor); } catch { }
+    }
+
+    private async Task UsarFirmaAsync(CampoModulo c)
+    {
+        if (Modulo is null || !refsFirma.TryGetValue(c.Clave, out var r)) return;
+        try
+        {
+            var datos = await JS.InvokeAsync<string>("sigFirma.datos", r.Valor);
+            if (string.IsNullOrEmpty(datos)) { error = "Dibuje la firma antes de usarla."; return; }
+            var archivo = await Registros.GuardarFirmaAsync(Modulo, datos, Usuario.Nombre);
+            // La firma anterior (guardada) va a la Papelera al guardar; la nueva sin guardar se descarta.
+            foreach (var a in Edicion.ArchivosDe(c.Clave).ToList())
+            {
+                if (a.Id == 0) { Edicion.ArchivosDe(c.Clave).Remove(a); Registros.DescartarSubidos(new[] { a }); }
+                else Edicion.ArchivosQuitados.Add(a.Id);
+            }
+            Edicion.ArchivosDe(c.Clave).Add(archivo);
+            firmando.Remove(c.Clave);
+            refsFirma.Remove(c.Clave);
+            error = null;
+            await OnCambio.InvokeAsync();
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task CambiarVinculos(string campo, List<VinculoElegido> lista)
+    {
+        Edicion.Vinculos[campo] = lista;
+        await OnCambio.InvokeAsync();
+    }
+
+    private RenderFragment Archivos(CampoModulo c, bool SoloLectura) => __builder =>
+    {
+        var lista = Edicion.ArchivosDe(c.Clave).Where(a => a.Id == 0 || !Edicion.ArchivosQuitados.Contains(a.Id)).ToList();
+        var foto = c.Tipo == TipoCampoModulo.Foto;
+        <div class="mf-archivos @(foto ? "mf-fotos" : "")">
+            @foreach (var a in lista)
+            {
+                <span class="mf-archivo">
+                    @if (foto && !VistaPrevia && EsImagen(a.Nombre))
+                    {
+                        <img class="mf-miniatura" src="@("/" + a.Ruta)" alt="" width="36" height="36" loading="lazy" decoding="async" />
+                    }
+                    @if (a.Id == 0 || VistaPrevia)
+                    {
+                        <span title="@a.Nombre">@a.Nombre</span>
+                    }
+                    else
+                    {
+                        <a href="@("/" + a.Ruta)" target="_blank" rel="noopener" title="Abrir @a.Nombre">@a.Nombre</a>
+                    }
+                    @if (!SoloLectura)
+                    {
+                        <button type="button" class="mf-quitar" title="Quitar" aria-label="Quitar @a.Nombre" @onclick="() => QuitarArchivo(c.Clave, a)"><Ico Nombre="cancelar" /></button>
+                    }
+                </span>
+            }
+            @if (lista.Count == 0 && SoloLectura) { <span class="mf-aviso">Sin archivos</span> }
+            @if (!SoloLectura && !VistaPrevia && Modulo is not null)
+            {
+                <label class="mf-adjuntar" title="Adjuntar archivos">
+                    @if (subiendo.Contains(c.Clave)) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
+                    else { <Ico Nombre="adjuntar" /> }
+                    @if (foto) { <InputFile multiple accept="image/*" capture="environment" OnChange="e => SubirAsync(c.Clave, e)" class="mf-adjuntar-input" aria-label="@($"Adjuntar archivos a {c.Etiqueta}")" /> }
+                    else { <InputFile multiple OnChange="e => SubirAsync(c.Clave, e)" class="mf-adjuntar-input" aria-label="@($"Adjuntar archivos a {c.Etiqueta}")" /> }
+                </label>
+            }
+            else if (VistaPrevia)
+            {
+                <span class="mf-adjuntar" title="Adjuntar archivos"><Ico Nombre="adjuntar" /></span>
+            }
+        </div>
+    };
+
+    private async Task SubirAsync(string campo, InputFileChangeEventArgs e)
+    {
+        if (Modulo is null) return;
+        subiendo.Add(campo);
+        var fallos = new List<string>();
+        foreach (var f in e.GetMultipleFiles(30))
+        {
+            try { Edicion.ArchivosDe(campo).Add(await Registros.SubirAsync(Modulo, f, Usuario.Nombre)); }
+            catch (Exception ex) { fallos.Add(ex.Message); }
+        }
+        subiendo.Remove(campo);
+        error = fallos.Count == 0 ? null : string.Join(" ", fallos);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task QuitarArchivo(string campo, ArchivoRegistroModulo a)
+    {
+        if (a.Id == 0)
+        {
+            Edicion.ArchivosDe(campo).Remove(a);
+            Registros.DescartarSubidos(new[] { a });
+        }
+        else Edicion.ArchivosQuitados.Add(a.Id);
+        await OnCambio.InvokeAsync();
+    }
+}

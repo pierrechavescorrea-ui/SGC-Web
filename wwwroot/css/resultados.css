@@ -1,0 +1,78 @@
+/* Resultados de los seguimientos (Components/Layout/VistaResultados.razor). Reutiliza el armazón
+   ind-* de Indicadores (app.css) y agrega los colores de resultado res-*. */
+:root { --res-ok: #2e9e5b; --res-medio: #e0a100; --res-mal: #d64545; --res-gris: #9aa3b0; }
+
+.ind-tira-m.res-ok { background: var(--res-ok) !important; }
+.ind-tira-m.res-medio { background: var(--res-medio) !important; }
+.ind-tira-m.res-mal { background: var(--res-mal) !important; }
+.ind-tira-m.res-gris { background: var(--res-gris) !important; }
+
+.res-ico { font-weight: 700; color: var(--t-texto-2, #6b7686); }
+.res-cod { width: auto; min-width: 26px; padding: 0 5px; font-size: .68rem; font-weight: 700; white-space: nowrap; }
+.res .ind-rail-cab { grid-template-columns: auto minmax(0, 1fr) auto; }
+.res-apagado { opacity: .55; }
+
+.res-val { display: inline-block; padding: 1px 8px; border-radius: 7px; font-size: .74rem; font-weight: 700; white-space: nowrap; background: var(--t-superficie-2, #eef1f5); color: var(--t-texto, #1f2a3a); }
+.res-val.res-ok, .res-ley.res-ok { background: color-mix(in srgb, var(--res-ok) 16%, transparent); color: #1d6b3d; }
+.res-val.res-medio, .res-ley.res-medio { background: color-mix(in srgb, var(--res-medio) 20%, transparent); color: #8a5a00; }
+.res-val.res-mal, .res-ley.res-mal { background: color-mix(in srgb, var(--res-mal) 16%, transparent); color: #a12a2a; }
+.res-val.res-gris, .res-ley.res-gris { background: color-mix(in srgb, var(--res-gris) 18%, transparent); color: var(--t-texto-2, #5d6675); }
+.res-ley { border: 0; font-weight: 600; }
+.res-chip i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); margin-right: 5px; }
+
+.res-anio { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.res-anio .ind-nav { width: 28px; height: 28px; font-size: 1.1rem; }
+.res-abrir svg { width: 15px; height: 15px; }
+
+.res-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1200px) { .res-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ind-kpi-grande.res-ok { background: linear-gradient(135deg, rgba(46, 158, 91, .14), rgba(46, 158, 91, .04)); border-color: rgba(46, 158, 91, .35); }
+.ind-kpi-grande.res-medio { background: linear-gradient(135deg, rgba(224, 161, 0, .16), rgba(224, 161, 0, .04)); border-color: rgba(224, 161, 0, .4); }
+.ind-kpi-grande.res-mal { background: linear-gradient(135deg, rgba(214, 69, 69, .14), rgba(214, 69, 69, .04)); border-color: rgba(214, 69, 69, .35); }
+.res-kpis .ind-kpi-grande .ind-kpi-val { font-size: 1.7rem; overflow-wrap: break-word; }
+
+.res-dist { display: flex; gap: 2px; height: 26px; border-radius: 10px; overflow: hidden; font-size: .72rem; font-weight: 700; }
+.res-dist-seg { display: flex; align-items: center; justify-content: center; min-width: 54px; color: #fff; white-space: nowrap; overflow: hidden; }
+.res-dist-seg.res-ok { background: var(--res-ok); }
+.res-dist-seg.res-medio { background: var(--res-medio); }
+.res-dist-seg.res-mal { background: var(--res-mal); }
+.res-dist-seg.res-gris { background: var(--res-gris); }
+
+.res-mapa-marco { max-height: calc(100vh - 360px); }
+.res-mapa th { font-size: .72rem; text-transform: capitalize; }
+.res-mapa th.res-hoy { color: var(--sig-rojo, #EC1C24); }
+.res-mapa-nom { min-width: 220px; max-width: 340px; font-size: .78rem; }
+.res-celda { min-width: 54px; text-align: center; font-size: .7rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
+.res-celda.res-ok { background: color-mix(in srgb, var(--res-ok) 22%, transparent) !important; }
+.res-celda.res-medio { background: color-mix(in srgb, var(--res-medio) 26%, transparent) !important; }
+.res-celda.res-mal { background: color-mix(in srgb, var(--res-mal) 22%, transparent) !important; }
+.res-celda.res-gris { background: color-mix(in srgb, var(--res-gris) 20%, transparent) !important; }
+.res-celda.ind-no { background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--res-gris) 18%, transparent) 4px 6px) !important; }
+
+.res-mes.res-ok { border-color: color-mix(in srgb, var(--res-ok) 55%, transparent); background: color-mix(in srgb, var(--res-ok) 10%, var(--t-superficie, #fff)); }
+.res-mes.res-medio { border-color: color-mix(in srgb, var(--res-medio) 60%, transparent); background: color-mix(in srgb, var(--res-medio) 12%, var(--t-superficie, #fff)); }
+.res-mes.res-mal { border-color: color-mix(in srgb, var(--res-mal) 55%, transparent); background: color-mix(in srgb, var(--res-mal) 10%, var(--t-superficie, #fff)); }
+.res-mes.res-gris { background: color-mix(in srgb, var(--res-gris) 10%, var(--t-superficie, #fff)); }
+.res-mes .ind-mes-v { font-size: .78rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; }
+
+.res-segs { border: 1px solid var(--t-borde, #e1e5ec); border-radius: 14px; background: var(--t-superficie, #fff); padding: 10px 12px; max-height: 420px; overflow-y: auto; }
+.res-segs-cab { display: flex; justify-content: space-between; font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--t-texto-2, #6b7686); margin-bottom: 6px; }
+.res-seg { display: grid; grid-template-columns: 86px auto minmax(0, 1fr); gap: 4px 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--t-borde, #eef1f5); font-size: .8rem; }
+.res-seg-fecha { font-variant-numeric: tabular-nums; color: var(--t-texto-2, #6b7686); }
+.res-seg-resp { color: var(--t-texto-2, #6b7686); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.res-seg-det, .res-seg-obs { grid-column: 2 / -1; white-space: pre-line; }
+.res-seg-obs { color: var(--t-texto-2, #5d6675); }
+.res-pre { white-space: pre-line; }
+.res .ind-det-pos { white-space: nowrap; }
+
+/* Resultados: la tabla de seguimiento manda; indicadores compactos, sin barra de distribución;
+   el nombre del riesgo pasa de línea; tabla y lista lateral llenan la pantalla con su propio scroll (js/tablaAlto.js). */
+.res-kpis { gap: 8px; }
+.res-kpis .ind-kpi-grande { padding: 8px 12px; min-height: 0; }
+.res-kpis .ind-kpi-grande .ind-kpi-val { font-size: 1.25rem; line-height: 1.15; }
+.res-kpis .ind-kpi-grande :is(.ind-kpi-tit, .ind-kpi-et) { font-size: .62rem; }
+.res-kpis .ind-kpi-grande :is(.ind-kpi-sub, small) { font-size: .68rem; }
+.res-mapa-marco { max-height: none; }
+.res-mapa td.res-mapa-nom { white-space: normal !important; overflow-wrap: anywhere; min-width: 260px; max-width: 460px; line-height: 1.25; }
+.res .ind-rail[data-alto-auto] { overflow-y: auto; scrollbar-width: thin; }
+.rg-filtro-nivel { width: auto; min-width: 165px; max-width: 200px; white-space: nowrap; }

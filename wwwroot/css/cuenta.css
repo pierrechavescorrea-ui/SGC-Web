@@ -1,0 +1,186 @@
+/* Páginas de cuenta (ingresar, invitación, restablecer, privacidad): una sola lámina oscura.
+   La escena (img/login/escena.svg): vista desde adentro de una torre a la izquierda y su planta como rosetón detrás del
+   formulario, que es vidrio sobre la misma escena. Acento: rojo institucional. Etiquetas flotantes dentro de la caja. */
+:root {
+    color-scheme: dark;
+    --cu-rojo: #EC1C24;
+    --cu-fondo: #0e0f12;
+    --cu-papel: rgba(255, 255, 255, .035);
+    --cu-tinta: #f5f5f4;
+    --cu-gris: #c4c0bb;
+    --cu-suave: #8a8580;
+    --cu-linea: rgba(255, 255, 255, .09);
+    --cu-caja: rgba(20, 21, 25, .58);
+    --cu-campo: rgba(10, 11, 13, .55);
+    --cu-borde: rgba(255, 255, 255, .14);
+    --cu-boton: #f1efed;
+    --cu-boton-h: #ffffff;
+    --cu-sombra: 0 40px 120px -30px rgba(0, 0, 0, .85), 0 0 0 1px rgba(255, 255, 255, .04) inset;
+}
+
+/* Acento que recorre todos los matices despacio (150 s), al mismo ritmo que las torres de la escena (escena.svg, .l):
+   todo lo que usa --cu-rojo (filo de la caja, foco de los campos, casilla, enlaces, línea bajo «SGC») cambia con él. */
+@property --cu-rojo { syntax: '<color>'; inherits: true; initial-value: #EC1C24; }
+@keyframes cu-acento {
+    0% { --cu-rojo: #EC1C24; } 14% { --cu-rojo: #F2891C; } 28% { --cu-rojo: #E8D21F; } 42% { --cu-rojo: #2FD36A; }
+    57% { --cu-rojo: #1FC8E8; } 71% { --cu-rojo: #3A6BF0; } 85% { --cu-rojo: #B43CEC; } 100% { --cu-rojo: #EC1C24; }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+.cu-body {
+    background: var(--cu-fondo);
+    color: var(--cu-tinta);
+    font: 400 15px/1.5 Inter, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+.cu {
+    position: relative; min-height: 100vh; overflow: hidden; isolation: isolate;
+    animation: cu-acento 150s linear infinite;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 460px) minmax(24px, 7vw);
+    grid-template-rows: auto 1fr auto;
+}
+
+/* ---------- Escena ---------- */
+.cu-escena {
+    position: absolute; inset: 0; width: 100%; height: 100%; z-index: -2;
+    object-fit: cover; object-position: left bottom; user-select: none; pointer-events: none;
+    animation: cu-aparece 1.4s ease-out both;
+}
+/* Viñeta: oscurece los bordes y deja una zona tranquila arriba a la izquierda para la marca. */
+.cu-vineta {
+    position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background:
+        radial-gradient(ellipse 55% 45% at 12% 8%, rgba(11, 12, 14, .85), transparent 70%),
+        radial-gradient(ellipse 120% 90% at 60% 55%, transparent 55%, rgba(5, 5, 7, .7) 100%);
+}
+
+.cu-marca { grid-column: 1; grid-row: 1; padding: clamp(28px, 7vh, 72px) 0 0 clamp(28px, 6vw, 96px); max-width: 560px; animation: cu-sube .9s .2s ease-out both; }
+.cu-sobre { font-size: 11px; letter-spacing: .3em; text-transform: uppercase; color: var(--cu-gris); }
+.cu-nombre { margin-top: 10px; font-size: clamp(46px, 5.6vw, 82px); font-weight: 200; letter-spacing: -.04em; line-height: .95; }
+.cu-nombre span { font-weight: 650; margin-left: .06em; }
+.cu-regla { width: 64px; height: 2px; background: var(--cu-rojo); margin: 24px 0 16px; box-shadow: 0 0 18px color-mix(in srgb, var(--cu-rojo) 70%, transparent); }
+.cu-lema { font-size: 14px; color: var(--cu-gris); letter-spacing: .03em; }
+
+/* ---------- Formulario (vidrio sobre la escena) ---------- */
+.cu-panel { grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; padding: 40px 0 24px; }
+.cu-caja {
+    position: relative; width: 100%; background: var(--cu-caja); border: 1px solid var(--cu-linea);
+    border-radius: 22px; padding: 40px 38px 34px; box-shadow: var(--cu-sombra);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25); backdrop-filter: blur(18px) saturate(1.25);
+    animation: cu-sube .8s .1s ease-out both;
+}
+/* Filo de luz en el borde superior: la luz del horizonte rojo llega al vidrio. */
+.cu-caja::before {
+    content: ""; position: absolute; left: 22px; right: 22px; top: -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--cu-rojo) 75%, transparent), rgba(255, 255, 255, .5), transparent);
+}
+.cu-pie {
+    grid-column: 1 / -1; grid-row: 3; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    padding: 16px clamp(24px, 7vw, 120px) 18px clamp(28px, 6vw, 96px); font-size: 12px; color: var(--cu-suave);
+}
+.cu-pie a { color: inherit; }
+/* Logo de la empresa en marco de vidrio (mismo vidrio que .cu-caja). */
+.cu-logo {
+    display: inline-flex; align-items: center; justify-content: center; height: 54px; min-width: 54px; padding: 8px 14px;
+    background: var(--cu-caja); border: 1px solid var(--cu-linea); border-radius: 14px; box-shadow: var(--cu-sombra);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25); backdrop-filter: blur(18px) saturate(1.25); position: relative;
+}
+.cu-logo::before {
+    content: ""; position: absolute; left: 12px; right: 12px; top: -1px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent);
+}
+.cu-logo img { max-height: 38px; max-width: 170px; object-fit: contain; display: block; }
+.cu-logo-txt { font-size: 12px; letter-spacing: .08em; color: var(--cu-gris); }
+/* Firma «By πr»: sutil, delgada, a mano alzada; se dibuja una vez al abrir. */
+.cu-firma { margin-left: auto; display: inline-flex; align-items: flex-end; gap: 3px; color: #f5f5f4; opacity: .4; user-select: none; }
+.cu-firma-by { font: italic 300 11px/1 Georgia, "Times New Roman", serif; letter-spacing: .06em; margin-bottom: 9px; }
+.cu-firma svg { display: block; }
+.cu-trazo { stroke-dasharray: 1 1; stroke-dashoffset: 1; animation: cu-firma 1.6s 1.4s cubic-bezier(.45, .1, .2, 1) forwards; }
+@keyframes cu-firma { to { stroke-dashoffset: 0; } }
+.cu-presion { stroke-dasharray: .4 .6; stroke-dashoffset: -.3; opacity: 0; animation: cu-presion .9s 3.3s ease-out forwards; }
+.cu-presion-m { stroke-dasharray: .7 .3; stroke-dashoffset: -.15; }
+@keyframes cu-presion { to { opacity: 1; } }
+.cu-rotulo {
+    margin-left: auto; font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+    border: 1px solid var(--cu-linea); padding: 6px 10px; background: rgba(14, 15, 18, .6);
+}
+
+.cu-titulo { margin: 0 0 6px; font-size: 24px; font-weight: 600; letter-spacing: -.01em; }
+.cu-sub { margin: 0 0 26px; color: var(--cu-gris); font-size: 14px; }
+.cu-aviso { border-radius: 12px; padding: 12px 14px; font-size: 13.5px; margin-bottom: 18px; border: 1px solid var(--cu-linea); background: var(--cu-papel); }
+.cu-aviso.error { border-color: color-mix(in srgb, var(--cu-rojo) 45%, transparent); background: color-mix(in srgb, var(--cu-rojo) 7%, var(--cu-caja)); }
+.cu-aviso.ok { border-color: rgba(134, 239, 172, .5); background: color-mix(in srgb, #22c55e 8%, var(--cu-caja)); }
+.cu-aviso ul { margin: 6px 0 0; padding-left: 18px; }
+.cu-dev { border-style: dashed; }
+
+/* Etiqueta flotante: dentro de la caja, tenue mientras está vacía; sube pequeña al escribir o con foco. */
+.cu-campo { position: relative; margin-bottom: 14px; }
+.cu-campo input, .cu-campo textarea, .cu-campo select {
+    width: 100%; height: 58px; padding: 24px 16px 8px; border-radius: 13px; border: 1px solid var(--cu-borde);
+    background: var(--cu-campo); color: var(--cu-tinta); font: inherit; font-size: 15.5px; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+.cu-campo textarea { height: auto; min-height: 104px; resize: vertical; padding-top: 28px; }
+.cu-campo label {
+    position: absolute; left: 17px; top: 18px; font-size: 15px; color: var(--cu-suave); pointer-events: none;
+    transform-origin: left top; transition: transform .15s ease, color .15s ease, top .15s ease;
+}
+.cu-campo input:focus, .cu-campo textarea:focus, .cu-campo select:focus {
+    border-color: rgba(255, 255, 255, .55); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cu-rojo) 14%, transparent);
+}
+.cu-campo input:focus + label, .cu-campo input:not(:placeholder-shown) + label,
+.cu-campo textarea:focus + label, .cu-campo textarea:not(:placeholder-shown) + label,
+.cu-campo select + label { top: 9px; transform: scale(.76); color: var(--cu-gris); }
+.cu-campo input[readonly] { background: var(--cu-papel); color: var(--cu-gris); }
+.cu-campo input:user-invalid { border-color: var(--cu-rojo); }
+.cu-codigo input { letter-spacing: .4em; font-size: 20px; font-variant-numeric: tabular-nums; }
+.cu-ojo { position: absolute; right: 10px; top: 13px; width: 34px; height: 32px; border: 0; background: transparent; color: var(--cu-suave); cursor: pointer; border-radius: 8px; }
+.cu-ojo:hover { color: var(--cu-tinta); }
+
+.cu-fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 22px; font-size: 13.5px; }
+.cu-check { display: inline-flex; align-items: center; gap: 9px; color: var(--cu-gris); cursor: pointer; }
+.cu-check input { width: 17px; height: 17px; accent-color: var(--cu-rojo); }
+.cu-legal { align-items: flex-start; margin: 6px 0 20px; font-size: 13px; line-height: 1.45; }
+.cu-legal input { margin-top: 2px; flex: none; }
+
+.cu-enlace { color: var(--cu-gris); text-decoration: none; border-bottom: 1px solid transparent; }
+.cu-enlace:hover { color: var(--cu-rojo); border-bottom-color: currentColor; }
+
+.cu-boton {
+    width: 100%; height: 54px; border: 0; border-radius: 13px; background: var(--cu-boton); color: #141518;
+    font: inherit; font-weight: 600; font-size: 15.5px; letter-spacing: .01em; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: background .15s, transform .05s;
+}
+.cu-boton:hover { background: var(--cu-boton-h); }
+.cu-boton:active { transform: translateY(1px); }
+.cu-boton:focus-visible { outline: 3px solid color-mix(in srgb, var(--cu-rojo) 45%, transparent); outline-offset: 2px; }
+.cu-boton.sec { background: transparent; color: var(--cu-tinta); border: 1px solid var(--cu-borde); }
+.cu-boton.sec:hover { border-color: var(--cu-tinta); }
+.cu-separador { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; color: var(--cu-suave); font-size: 12px; }
+.cu-separador::before, .cu-separador::after { content: ""; flex: 1; height: 1px; background: var(--cu-linea); }
+.cu-alt { text-align: center; font-size: 13.5px; color: var(--cu-gris); margin-top: 18px; }
+.cu-trampa { position: absolute !important; left: -10000px !important; width: 1px; height: 1px; overflow: hidden; }
+
+/* Documento (política de tratamiento de datos) */
+.cu-doc { max-width: 760px; }
+.cu-doc h2 { font-size: 16px; margin: 22px 0 6px; }
+.cu-doc p, .cu-doc li { color: var(--cu-gris); font-size: 14px; }
+.cu-doc .cu-pendiente { border-left: 3px solid var(--cu-rojo); padding: 8px 12px; background: var(--cu-papel); font-size: 13px; }
+
+@keyframes cu-aparece { from { opacity: 0; transform: translateY(8px); } }
+@keyframes cu-sube { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { .cu, .cu-escena, .cu-marca, .cu-caja { animation: none; } .cu-trazo { animation: none; stroke-dashoffset: 0; } .cu-presion { animation: none; opacity: 1; } }
+
+/* Teléfono y tablet: la escena queda de fondo y el formulario encima. */
+@media (max-width: 900px) {
+    .cu { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+    .cu-escena { object-position: 30% center; opacity: .7; }
+    .cu-marca { padding: 32px 22px 0; }
+    .cu-nombre { font-size: 46px; }
+    .cu-lema, .cu-rotulo { display: none; }
+    .cu-panel { grid-column: 1; grid-row: 2; padding: 22px 14px 12px; align-items: flex-start; }
+    .cu-caja { padding: 30px 22px 26px; border-radius: 18px; }
+    .cu-check, .cu-fila .cu-enlace { white-space: nowrap; font-size: 13px; }
+    .cu-pie { padding: 12px 22px 18px; }
+}

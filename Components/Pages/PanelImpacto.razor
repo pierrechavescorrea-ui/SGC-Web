@@ -1,0 +1,103 @@
+@using SigWeb.Data.Impacto
+
+@* Verificación del impacto de eliminar algo (2026-11-16): ventanita con la gravedad (mismos colores de criticidad de
+   siempre: crítico = danger, alto = warning, medio = info, bajo = secondary), escala, menús afectados agrupados (cada uno
+   con el color de su peso) y "Ver todos" con buscador cuando son muchos. Mientras se calcula (Informe null) muestra un
+   cargador. Si el nivel es alto o crítico, la casilla "entendido" habilita el botón de confirmar del diálogo padre.
+   js/avisos.js eleva a ventana emergente el recuadro de confirmación que contiene este panel (data-imp-emergente). *@
+@if (Informe is null)
+{
+    <div class="imp-panel imp-cargando" role="status">
+        <span class="sig-giro" aria-hidden="true"></span>
+        <span>Verificando qué se verá afectado…</span>
+    </div>
+}
+else
+{
+    var clase = Clase(Informe.Nivel);
+    var etiqueta = Informe.Nivel switch { NivelImpacto.Critico => "Crítico", NivelImpacto.Alto => "Alto", NivelImpacto.Medio => "Medio", _ => "Bajo" };
+    var grupos = Informe.Dependencias.GroupBy(d => d.Menu)
+        .Select(g => (Menu: g.Key, Cantidad: g.Sum(d => d.Cantidad), Peso: g.Max(d => d.Peso), Puntos: g.Sum(d => d.Puntos), Items: g.ToList()))
+        .OrderByDescending(g => g.Puntos).ToList();
+    var total = Informe.Dependencias.Sum(d => d.Cantidad);
+    var visibles = verTodos
+        ? grupos.Where(g => string.IsNullOrWhiteSpace(filtro) || Coincide(g.Menu, g.Items)).ToList()
+        : grupos.Take(Limite).ToList();
+    <div class="imp-panel imp-@clase" role="alert">
+        <div class="imp-cab">
+            <span class="imp-ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
+            </span>
+            <div class="imp-cab-txt">
+                <div class="imp-nivel">Impacto @etiqueta</div>
+                <div class="imp-elem">@Informe.Elemento</div>
+            </div>
+            @if (total > 0) { <span class="imp-total" title="Registros relacionados">@total.ToString("N0")</span> }
+        </div>
+        <div class="imp-escala" aria-hidden="true">
+            @foreach (var n in new[] { NivelImpacto.Bajo, NivelImpacto.Medio, NivelImpacto.Alto, NivelImpacto.Critico })
+            {
+                <span class="imp-seg imp-@Clase(n) @(n <= Informe.Nivel ? "on" : "")"></span>
+            }
+        </div>
+        @if (grupos.Count > 0)
+        {
+            @if (verTodos && grupos.Count > Limite)
+            {
+                <input class="form-control form-control-sm imp-buscar" placeholder="Buscar…" data-sin-flotante @bind="filtro" @bind:event="oninput" />
+            }
+            <ul class="imp-lista @(verTodos ? "imp-lista-todos" : "")">
+                @foreach (var g in visibles)
+                {
+                    <li class="imp-dep imp-@ClasePeso(g.Peso)">
+                        <span class="imp-punto"></span>
+                        <span class="imp-menu">@g.Menu</span>
+                        <span class="imp-det">@string.Join(" · ", g.Items.Select(i => i.Detalle).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct())</span>
+                        <span class="imp-n">@g.Cantidad.ToString("N0")</span>
+                    </li>
+                }
+                @if (verTodos && visibles.Count == 0) { <li class="imp-vacio">Sin coincidencias.</li> }
+            </ul>
+            @if (grupos.Count > Limite)
+            {
+                <button type="button" class="imp-ver-todos" @onclick="() => { verTodos = !verTodos; filtro = string.Empty; }">
+                    @(verTodos ? "Ver menos" : $"Ver todos ({grupos.Count})")
+                </button>
+            }
+        }
+        <div class="imp-reco">@Informe.Recomendacion</div>
+        @if (Informe.RequiereEntender)
+        {
+            <label class="imp-entiendo">
+                <input type="checkbox" class="form-check-input" checked="@entendido" @onchange="Cambiar" /> Entiendo lo que se verá afectado
+            </label>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public InformeImpacto? Informe { get; set; }
+    [Parameter] public EventCallback<bool> OnEntendido { get; set; }
+    private const int Limite = 6;
+    private bool entendido, verTodos;
+    private string filtro = string.Empty;
+    private InformeImpacto? ultimo;
+
+    private static string Clase(NivelImpacto n) => n switch { NivelImpacto.Critico => "danger", NivelImpacto.Alto => "warning", NivelImpacto.Medio => "info", _ => "secondary" };
+    // Peso de la dependencia (1 = accesorio … 10 = estructural) con la misma escala de colores.
+    private static string ClasePeso(int peso) => peso >= 6 ? "danger" : peso >= 3 ? "warning" : peso >= 2 ? "info" : "secondary";
+
+    private bool Coincide(string menu, List<DependenciaImpacto> items) =>
+        menu.Contains(filtro, StringComparison.OrdinalIgnoreCase) || items.Any(i => i.Detalle.Contains(filtro, StringComparison.OrdinalIgnoreCase));
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(ultimo, Informe)) { ultimo = Informe; entendido = false; verTodos = false; filtro = string.Empty; }
+    }
+
+    private async Task Cambiar(ChangeEventArgs e)
+    {
+        entendido = e.Value is bool b && b;
+        await OnEntendido.InvokeAsync(entendido);
+    }
+}

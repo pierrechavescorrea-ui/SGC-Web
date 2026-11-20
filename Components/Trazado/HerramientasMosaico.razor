@@ -1,0 +1,14 @@
+<span class="hv-herramientas-mosaico" role="group" aria-label="Herramientas del mosaico">
+    <button type="button" class="pg-btn" title="@(Edicion ? "Terminar edición" : "Editar mosaico")" aria-pressed="@Edicion" @onclick="OnEditar"><Ico Nombre="@(Edicion ? "guardar" : "editar")" /></button>
+    @if (Edicion)
+    {
+        <button type="button" class="pg-btn" title="Restaurar disposición" @onclick="OnRestaurar"><Ico Nombre="restaurar" /></button>
+    }
+    <button type="button" class="pg-btn" title="Nueva carpeta" @onclick="OnNueva"><Ico Nombre="agregar" /></button>
+</span>
+@code {
+    [Parameter] public bool Edicion { get; set; }
+    [Parameter] public EventCallback OnEditar { get; set; }
+    [Parameter] public EventCallback OnNueva { get; set; }
+    [Parameter] public EventCallback OnRestaurar { get; set; }
+}

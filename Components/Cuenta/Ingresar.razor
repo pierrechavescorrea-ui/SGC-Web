@@ -1,0 +1,139 @@
+@page "/cuenta/ingresar"
+@layout LayoutCuenta
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using SigWeb.Data.Seguridad
+@inject SignInManager<UsuarioSig> SignIn
+@inject UserManager<UsuarioSig> Usuarios
+@inject AuditoriaAccesos Auditoria
+@inject NavigationManager Nav
+@inject IWebHostEnvironment Env
+@inject IConfiguration Cfg
+
+<PageTitle>Ingresar · SGC Web</PageTitle>
+
+<h1 class="cu-titulo">Iniciar sesión</h1>
+<p class="cu-sub">Use el correo con el que fue invitado.</p>
+
+@if (mensaje is not null)
+{
+    <div class="cu-aviso @(error ? "error" : "ok")" role="alert">@mensaje</div>
+}
+@if (Env.IsDevelopment() && Cfg.GetValue<bool>("Autenticacion:AccesoLibreDesarrollo"))
+{
+    <form method="post" @formname="dev" @onsubmit="EntrarDesarrollo" class="cu-aviso cu-dev">
+        <AntiforgeryToken />
+        Entorno de desarrollo: <button type="submit" class="cu-enlace" style="background:none;border:0;padding:0;font:inherit;cursor:pointer;text-decoration:underline">entrar sin contraseña</button>
+    </form>
+}
+
+<form method="post" @formname="ingresar" @onsubmit="EntrarAsync" novalidate="false">
+    <AntiforgeryToken />
+    <input type="hidden" name="M.Volver" value="@M.Volver" />
+    <div class="cu-campo">
+        <input id="email" name="M.Email" type="email" value="@M.Email" placeholder=" " autocomplete="username" required maxlength="256" autofocus />
+        <label for="email">Correo electrónico</label>
+    </div>
+    <div class="cu-campo">
+        <input id="clave" name="M.Clave" type="password" placeholder=" " autocomplete="current-password" required maxlength="200" />
+        <label for="clave">Contraseña</label>
+        <button type="button" class="cu-ojo" title="Mostrar u ocultar" aria-label="Mostrar u ocultar la contraseña"
+                data-accion="ver-clave" data-objetivo="clave">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+    </div>
+    <div class="cu-fila">
+        <label class="cu-check"><input type="checkbox" name="M.Recordar" value="true" checked="@M.Recordar" /> Mantener la sesión</label>
+        <a class="cu-enlace" href="cuenta/olvide">¿Olvidó su contraseña?</a>
+    </div>
+    <button type="submit" class="cu-boton">
+        Entrar
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+</form>
+
+<p class="cu-alt">El acceso es solo por invitación.</p>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "ingresar")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromQuery(Name = "ReturnUrl")] private string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "m")] private string? Aviso { get; set; }
+
+    private string? mensaje;
+    private bool error;
+
+    public sealed class Modelo
+    {
+        public string? Email { get; set; }
+        public string? Clave { get; set; }
+        public bool Recordar { get; set; } = true;
+        public string? Volver { get; set; }
+    }
+
+    // Hash de relleno: si el correo no existe se calcula igual un hash, para que el tiempo de respuesta no delate qué cuentas existen.
+    private static readonly Lazy<string> HashRelleno = new(() => new PasswordHasher<UsuarioSig>().HashPassword(new UsuarioSig(), Guid.NewGuid().ToString()));
+
+    protected override void OnInitialized()
+    {
+        M.Volver ??= ReturnUrl;
+        mensaje = Aviso switch
+        {
+            "restablecida" => "Contraseña cambiada. Ya puede entrar.",
+            "salio" => "Sesión cerrada.",
+            "expirada" => "La sesión venció. Entre de nuevo.",
+            _ => null,
+        };
+    }
+
+    public static string Destino(string? volver) =>
+        !string.IsNullOrEmpty(volver) && volver.StartsWith('/') && !volver.StartsWith("//") && !volver.StartsWith("/\\") && !volver.StartsWith("/cuenta") ? volver : "/";
+
+    private async Task EntrarAsync()
+    {
+        var email = (M.Email ?? "").Trim().ToLowerInvariant();
+        var clave = M.Clave ?? "";
+        if (email.Length == 0 || clave.Length == 0) { Error("Escriba su correo y su contraseña."); return; }
+
+        var u = await Usuarios.FindByEmailAsync(email);
+        if (u is null || !u.Activo || u.Anonimizado)
+        {
+            new PasswordHasher<UsuarioSig>().VerifyHashedPassword(new UsuarioSig(), HashRelleno.Value, clave);
+            Auditoria.Registrar(HttpContext, "Ingreso fallido", false, u is null ? "Correo no registrado" : "Cuenta inactiva", u?.Id, email);
+            Error("Correo o contraseña incorrectos.");
+            return;
+        }
+        var r = await SignIn.PasswordSignInAsync(u, clave, M.Recordar, lockoutOnFailure: true);
+        if (r.Succeeded)
+        {
+            u.UltimoIngreso = DateTime.UtcNow;
+            await Usuarios.UpdateAsync(u);
+            HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieSinAccesoLibre);
+            Auditoria.Registrar(HttpContext, "Ingreso", true, null, u.Id, u.Email);
+            Nav.NavigateTo(Destino(M.Volver), forceLoad: true);
+            return;
+        }
+        if (r.RequiresTwoFactor)
+        {
+            Nav.NavigateTo($"/cuenta/ingresar-2fa?recordar={M.Recordar}&ReturnUrl={Uri.EscapeDataString(Destino(M.Volver))}", forceLoad: true);
+            return;
+        }
+        if (r.IsLockedOut)
+        {
+            Auditoria.Registrar(HttpContext, "Cuenta bloqueada", false, "Intentos fallidos", u.Id, u.Email);
+            Error("Por seguridad la cuenta quedó bloqueada unos minutos tras varios intentos fallidos. Espere o use «¿Olvidó su contraseña?».");
+            return;
+        }
+        Auditoria.Registrar(HttpContext, "Ingreso fallido", false, "Contraseña incorrecta", u.Id, u.Email);
+        Error("Correo o contraseña incorrectos.");
+    }
+
+    private void EntrarDesarrollo()
+    {
+        HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieSinAccesoLibre);
+        Nav.NavigateTo(Destino(ReturnUrl), forceLoad: true);
+    }
+
+    private void Error(string m) { mensaje = m; error = true; }
+}

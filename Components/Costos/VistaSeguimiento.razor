@@ -1,0 +1,200 @@
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+@inject IJSRuntime JS
+
+@* Seguimiento de meta (hoja Seguimiento Meta): por semana y cuadrilla, meta de producción (digitada),
+   producción real, costo real (directo + parte de administración + overhead, sostenimiento e
+   impuestos solo de los ítems marcados) y margen. Meta de facturación contra lo facturado. *@
+
+@if (periodos.Count == 0)
+{
+    <div class="cp-sub p-3">Sin metas. Créelas en la vista Metas.</div>
+}
+else
+{
+    <div class="cp-filtros">
+        <select class="form-select form-select-sm" style="max-width:260px" value="@periodoId" @onchange="CambiarPeriodo">
+            @foreach (var m in periodos)
+            {
+                <option value="@m.Id">@FormatoCostos.Fecha(m.Desde) – @FormatoCostos.Fecha(m.Hasta) · v@(m.Version)</option>
+            }
+        </select>
+        <div class="btn-group btn-group-sm">
+            @foreach (var (k, t) in new[] { ("prod", "Producción"), ("costo", "Costo"), ("margen", "Margen") })
+            {
+                <button type="button" class="btn btn-outline-secondary @(grafico == k ? "active" : "")" @onclick="() => { grafico = k; Pintar(); }">@t</button>
+            }
+        </div>
+        <span class="cp-sub ms-auto">Administración repartida según la meta de cada cuadrilla · sin reparto: @S.Config.CuadrillasSinRepartoAdmin</span>
+    </div>
+
+    <div class="cp-kpis">
+        <div class="cp-kpi"><span class="cp-kpi-tit">Meta de producción (al corte)</span><span class="cp-kpi-val">@FormatoCostos.Millones(acum.Sum(f => f.Meta))</span><span class="cp-kpi-sub">periodo @FormatoCostos.Millones(total.Sum(f => f.Meta))</span></div>
+        <div class="cp-kpi"><span class="cp-kpi-tit">Producción real</span><span class="cp-kpi-val">@FormatoCostos.Millones(acum.Sum(f => f.Produccion))</span><span class="cp-kpi-sub">@FormatoCostos.Pct(Pct(acum.Sum(f => f.Produccion), acum.Sum(f => f.Meta))) de la meta</span></div>
+        <div class="cp-kpi"><span class="cp-kpi-tit">Costo real</span><span class="cp-kpi-val">@FormatoCostos.Millones(acum.Sum(f => f.Costo))</span><span class="cp-kpi-sub">directo + administración + indirectos</span></div>
+        <div class="cp-kpi @(acum.Sum(f => f.Margen) < 0 ? "cp-neg" : "")"><span class="cp-kpi-tit">Margen real</span><span class="cp-kpi-val">@FormatoCostos.Millones(acum.Sum(f => f.Margen))</span><span class="cp-kpi-sub">@FormatoCostos.Pct(Pct(acum.Sum(f => f.Margen), acum.Sum(f => f.Produccion)))</span></div>
+        <div class="cp-kpi"><span class="cp-kpi-tit">Meta de facturación</span><span class="cp-kpi-val">@FormatoCostos.Millones(meta?.MetaFacturacion)</span><span class="cp-kpi-sub">facturado @FormatoCostos.Millones(facturado) · @FormatoCostos.Pct(Pct(facturado, meta?.MetaFacturacion ?? 0))</span></div>
+    </div>
+
+    <div class="cp-tablero">
+        <div class="cp-caja cp-caja-ancha">
+            <div class="cp-graf"><canvas id="cp-g-seg"></canvas></div>
+        </div>
+        <div class="cp-caja cp-caja-ancha">
+            <div class="tabla-scroll cp-marco">
+                <table class="table table-sm cp-tabla cp-seguimiento">
+                    <thead class="tabla-pin">
+                        <tr>
+                            <th class="cp-fija"></th>
+                            @for (var i = 0; i < semanas.Count; i++)
+                            {
+                                <th class="cp-num">Semana @(i + 1)<div class="cp-sub">@FormatoCostos.Fecha(semanas[i].Desde) – @FormatoCostos.Fecha(semanas[i].Hasta)</div></th>
+                            }
+                            <th class="cp-num">Acumulado<div class="cp-sub">@FormatoCostos.Fecha(meta!.Desde) – @FormatoCostos.Fecha(FinAcum)</div></th>
+                            <th class="cp-num">Total periodo<div class="cp-sub">@FormatoCostos.Fecha(meta.Desde) – @FormatoCostos.Fecha(meta.Hasta)</div></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in cuadrillas)
+                        {
+                            <tr class="cp-total"><td class="cp-fija" colspan="@(semanas.Count + 3)">@c</td></tr>
+                            @foreach (var (nombre, f) in Medidas)
+                            {
+                                <tr>
+                                    <td class="cp-fija">@nombre</td>
+                                    @foreach (var col in porSemana.Append(acum).Append(total))
+                                    {
+                                        var x = c == "TOTAL" ? Suma(col) : col.FirstOrDefault(r => r.Cuadrilla == c);
+                                        var v = x is null ? (decimal?)null : f(x);
+                                        <td class="cp-num @(nombre == "Margen real" && v < 0 ? "cp-sobre" : "")" style="@(nombre == "Cumplimiento" ? $"background:{FormatoCostos.ColorPct(v)}" : "")">
+                                            @(nombre == "Cumplimiento" ? FormatoCostos.Pct(v) : FormatoCostos.Dinero(v))
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public InstantaneaCostos S { get; set; } = default!;
+    [Parameter] public DateTime Corte { get; set; }
+
+    private List<MetaPeriodo> periodos = new();
+    private int periodoId;
+    private MetaPeriodo? meta;
+    private List<(DateTime Desde, DateTime Hasta)> semanas = new();
+    private List<List<InstantaneaCostos.FilaSeguimiento>> porSemana = new();
+    private List<InstantaneaCostos.FilaSeguimiento> acum = new(), total = new();
+    private List<string> cuadrillas = new();
+    private decimal facturado;
+    private string grafico = "prod";
+    private (string, object)? pendiente;
+
+    private DateTime FinAcum => meta is null ? Corte : (meta.Hasta < Corte ? meta.Hasta : Corte);
+
+    private static readonly (string, Func<InstantaneaCostos.FilaSeguimiento, decimal?>)[] Medidas =
+    {
+        ("Meta producción", f => f.Meta),
+        ("Producción real", f => f.Produccion),
+        ("Costo real", f => f.Costo),
+        ("· directo", f => f.CostoDirecto),
+        ("· administración", f => f.Administracion),
+        ("· indirectos", f => f.Indirectos),
+        ("Margen real", f => f.Margen),
+        ("Cumplimiento", f => f.Cumplimiento),
+    };
+
+    private static decimal? Pct(decimal a, decimal b) => b > 0 ? a / b : null;
+
+    private static InstantaneaCostos.FilaSeguimiento Suma(List<InstantaneaCostos.FilaSeguimiento> l) =>
+        new("TOTAL", l.Sum(f => f.Meta), l.Sum(f => f.Produccion), l.Sum(f => f.CostoDirecto), l.Sum(f => f.Administracion), l.Sum(f => f.Indirectos), false, false);
+
+    private InstantaneaCostos? sPrevia; private DateTime cortePrevio; private bool? montajePrevio;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(S, sPrevia) && Corte == cortePrevio && montajePrevio == false) return;
+        sPrevia = S; cortePrevio = Corte; montajePrevio = false;
+        periodos = S.PeriodosMeta();
+        if (periodos.Count == 0) return;
+        if (!periodos.Any(p => p.Id == periodoId))
+            periodoId = (S.MetaDe(Corte) ?? periodos.FirstOrDefault(p => p.Desde <= Corte) ?? periodos[0]).Id;
+        Calcular();
+    }
+
+    private void CambiarPeriodo(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) { periodoId = id; Calcular(); }
+    }
+
+    private void Calcular()
+    {
+        meta = periodos.First(p => p.Id == periodoId);
+        semanas = InstantaneaCostos.Semanas(meta);
+        porSemana = semanas.Select(s => S.Seguimiento(s.Desde, s.Hasta, Corte)).ToList();
+        acum = S.Seguimiento(meta.Desde, FinAcum, Corte);
+        total = S.Seguimiento(meta.Desde, meta.Hasta, Corte);
+        // La meta del total es la de todo el periodo aunque el corte sea anterior.
+        cuadrillas = new[] { "TOTAL" }.Concat(total.Concat(acum).Where(f => !f.EsAdministracion).Select(f => f.Cuadrilla).Distinct()).ToList();
+        facturado = S.FacturadoEntre(meta.Desde, meta.Hasta);
+        Pintar();
+    }
+
+    private void Pintar()
+    {
+        var etiquetas = semanas.Select((s, i) => $"S{i + 1} {s.Desde:dd/MM}").ToList();
+        var tot = porSemana.Select(Suma).ToList();
+        object[] series = grafico switch
+        {
+            "costo" => new object[]
+            {
+                new { type = "bar", label = "Producción real", data = tot.Select(f => M(f.Produccion)), backgroundColor = "#2e7d32" },
+                new { type = "bar", label = "Costo real", data = tot.Select(f => M(f.Costo)), backgroundColor = "#EC1C24" },
+            },
+            "margen" => new object[]
+            {
+                new { type = "bar", label = "Margen real", data = tot.Select(f => M(f.Margen)), backgroundColor = tot.Select(f => f.Margen < 0 ? "#EC1C24" : "#2e7d32") },
+            },
+            _ => new object[]
+            {
+                new { type = "bar", label = "Meta", data = tot.Select(f => M(f.Meta)), backgroundColor = "#9aa5b4" },
+                new { type = "bar", label = "Producción real", data = tot.Select(f => M(f.Produccion)), backgroundColor = "#2e7d32" },
+                new { type = "line", label = "Meta acumulada", data = Acumular(tot.Select(f => f.Meta)), borderColor = "#6b7686", borderDash = new[] { 4, 4 }, pointRadius = 0, yAxisID = "y2" },
+                new { type = "line", label = "Producción acumulada", data = Acumular(tot.Select(f => f.Produccion)), borderColor = "#1b5e20", pointRadius = 2, yAxisID = "y2" },
+            }
+        };
+        pendiente = ("cp-g-seg", new
+        {
+            type = "bar",
+            data = new { labels = etiquetas, datasets = series },
+            options = new
+            {
+                responsive = true, maintainAspectRatio = false,
+                interaction = new { mode = "index", intersect = false },
+                plugins = new { legend = new { position = "bottom" } },
+                scales = new
+                {
+                    y = new { title = new { display = true, text = "Millones $ por semana" } },
+                    y2 = new { position = "right", display = grafico == "prod", grid = new { drawOnChartArea = false }, title = new { display = true, text = "Acumulado" } }
+                }
+            }
+        });
+    }
+
+    private static decimal M(decimal v) => Math.Round(v / 1_000_000m, 1);
+    private static List<decimal> Acumular(IEnumerable<decimal> l) { decimal a = 0; return l.Select(v => M(a += v)).ToList(); }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pendiente is { } g)
+        {
+            pendiente = null;
+            try { await JS.InvokeVoidAsync("sigwebRenderGrafico", g.Item1, g.Item2); } catch (JSDisconnectedException) { } catch (JSException) { }
+        }
+    }
+}

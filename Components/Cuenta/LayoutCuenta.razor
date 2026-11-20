@@ -1,0 +1,59 @@
+@inherits LayoutComponentBase
+@inject IConfiguration Cfg
+@* Páginas de cuenta: una sola lámina (img/login/escena.svg, generada con tools/login/escena_login.py desde los modelos 3D):
+   a la izquierda, la vista desde adentro de una torre AAE mirando hacia arriba; detrás del formulario (vidrio), la planta de
+   una torre BE como rosetón que gira despacio. Un brazo de la vista interior llega al rosetón: es una sola composición. *@
+<div class="cu">
+    <img class="cu-escena" src="img/login/escena.svg" width="1600" height="900" alt="" aria-hidden="true" />
+    <div class="cu-vineta" aria-hidden="true"></div>
+
+    <header class="cu-marca">
+        <div class="cu-sobre">Sistema de gestión de calidad</div>
+        <div class="cu-nombre">SGC<span>Web</span></div>
+        <div class="cu-regla"></div>
+        <div class="cu-lema">Líneas de transmisión · Torres · Subestaciones</div>
+    </header>
+
+    <main class="cu-panel">
+        <div class="cu-caja">
+            @Body
+        </div>
+    </main>
+
+    <footer class="cu-pie">
+        @* Logo de la empresa (el mismo de la app, Administración › Sistema) en un marco de vidrio como el formulario. *@
+        <div class="cu-logo" title="@Empresa">
+            @if (!string.IsNullOrEmpty(Logo.Url))
+            {
+                <img src="@Logo.Url" alt="@Empresa" />
+            }
+            else
+            {
+                <span class="cu-logo-txt">@Empresa</span>
+            }
+        </div>
+        <a href="privacidad">Tratamiento de datos</a>
+        @* Firma: «By πr» (π + r = Pierre), trazada a mano alzada como la firma de un pintor. *@
+        <div class="cu-firma" aria-label="By Pierre" title="By Pierre">
+            <span class="cu-firma-by">By</span>
+            <svg viewBox="0 0 64 36" width="58" height="33" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path class="cu-trazo" pathLength="1" stroke-width=".9" d="M2.5 17.5c-.2-2.6 1.6-4.9 4.6-5.3 4.4-.6 8.6.6 13.4.1 6.6-.7 13-1.9 19.8-1.6 1.9.1 3.3.6 4.3 1.4" />
+                <path class="cu-trazo" pathLength="1" stroke-width=".9" style="animation-delay:1.75s" d="M18.8 12.4c.5 4.9-.3 9.9-2.5 14.2-1.1 2.2-2.7 4-4.6 5.1" />
+                <path class="cu-trazo" pathLength="1" stroke-width=".9" style="animation-delay:2.05s" d="M33.6 11.8c-.8 5.2-.6 10.4.9 14.6 1 2.8 2.9 4.5 5.1 4.2 1.4-.2 2.4-1.1 2.8-2.3" />
+                <path class="cu-trazo" pathLength="1" stroke-width=".8" style="animation-delay:2.35s" d="M50 21.8c.8.9 1.1 2.6.9 4.8-.1 1.8-.4 3.4-.8 4.8M50.8 25.4c1.5-2.7 3.7-4.2 6.1-4 1.2.1 2.1.6 2.6 1.4" />
+                @* Presión del pincel: el centro de cada trazo engrosa al terminar de dibujarse. *@
+                <path class="cu-presion cu-presion-m" pathLength="1" stroke-width="1.35" d="M2.5 17.5c-.2-2.6 1.6-4.9 4.6-5.3 4.4-.6 8.6.6 13.4.1 6.6-.7 13-1.9 19.8-1.6 1.9.1 3.3.6 4.3 1.4" />
+                <path class="cu-presion" pathLength="1" stroke-width="1.9" d="M2.5 17.5c-.2-2.6 1.6-4.9 4.6-5.3 4.4-.6 8.6.6 13.4.1 6.6-.7 13-1.9 19.8-1.6 1.9.1 3.3.6 4.3 1.4" />
+                <path class="cu-presion cu-presion-m" pathLength="1" stroke-width="1.35" d="M18.8 12.4c.5 4.9-.3 9.9-2.5 14.2-1.1 2.2-2.7 4-4.6 5.1" />
+                <path class="cu-presion" pathLength="1" stroke-width="2.1" d="M18.8 12.4c.5 4.9-.3 9.9-2.5 14.2-1.1 2.2-2.7 4-4.6 5.1" />
+                <path class="cu-presion cu-presion-m" pathLength="1" stroke-width="1.35" d="M33.6 11.8c-.8 5.2-.6 10.4.9 14.6 1 2.8 2.9 4.5 5.1 4.2 1.4-.2 2.4-1.1 2.8-2.3" />
+                <path class="cu-presion" pathLength="1" stroke-width="2" d="M33.6 11.8c-.8 5.2-.6 10.4.9 14.6 1 2.8 2.9 4.5 5.1 4.2 1.4-.2 2.4-1.1 2.8-2.3" />
+            </svg>
+        </div>
+    </footer>
+</div>
+
+@code {
+    [Inject] private SigWeb.Data.Seguridad.LogoApp Logo { get; set; } = default!;
+    private string Empresa => Cfg["Marca:Empresa"] ?? "Ingeniería Demo S.A.S.";
+}

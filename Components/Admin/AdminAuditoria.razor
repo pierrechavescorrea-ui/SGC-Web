@@ -1,0 +1,122 @@
+@page "/admin/auditoria"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAuditoria)]
+
+<PageTitle>Auditoría de accesos · Administración</PageTitle>
+
+<div class="ad">
+<EncabezadoPagina Titulo="Auditoría de accesos" Subtitulo="@($"Ingresos, permisos y cambios de seguridad · se conservan {dias} días")" Icono="escudo" Atras="/admin">
+    <Acciones>
+        <a class="pg-btn" href="@UrlExcel" title="Exportar a Excel lo filtrado" download><Ico Nombre="exportar-excel" /></a>
+    </Acciones>
+</EncabezadoPagina>
+
+<div class="ad-kpis">
+    <div class="ad-kpi @(k.Fallidos24 > 0 ? "alerta" : "")"><b>@k.Fallidos24</b><span>Ingresos fallidos (24 h)</span></div>
+    <div class="ad-kpi @(k.Bloqueos7 > 0 ? "mal" : "")"><b>@k.Bloqueos7</b><span>Bloqueos de cuenta (7 d)</span></div>
+    <div class="ad-kpi @(k.Denegados7 > 0 ? "alerta" : "")"><b>@k.Denegados7</b><span>Accesos o cambios denegados (7 d)</span></div>
+    <div class="ad-kpi"><b>@k.Ingresos7</b><span>Ingresos correctos (7 d)</span></div>
+</div>
+
+<div class="ad-filtros">
+    <input type="date" class="form-control" @bind="desde" @bind:after="BuscarAsync" data-sin-flotante aria-label="Desde" title="Desde" />
+    <input type="date" class="form-control" @bind="hasta" @bind:after="BuscarAsync" data-sin-flotante aria-label="Hasta" title="Hasta" />
+    <input class="form-control" placeholder="Correo, evento, detalle o IP" @bind="texto" @bind:after="BuscarAsync" data-sin-flotante aria-label="Buscar" />
+    <select class="form-select" @bind="resultado" @bind:after="BuscarAsync" data-sin-flotante aria-label="Resultado">
+        <option value="">Todos</option>
+        <option value="fallo">Solo fallidos</option>
+        <option value="exito">Solo correctos</option>
+    </select>
+    <select class="form-select" @bind="evento" @bind:after="BuscarAsync" data-sin-flotante aria-label="Evento">
+        <option value="">Todos los eventos</option>
+        @foreach (var e in eventos) { <option value="@e">@e</option> }
+    </select>
+    <select class="form-select" @bind="proyecto" @bind:after="BuscarAsync" data-sin-flotante aria-label="Proyecto">
+        <option value="0">Todos los proyectos</option>
+        @foreach (var p in Proyectos.Todos()) { <option value="@p.Id">@p.Nombre</option> }
+    </select>
+</div>
+
+<div class="ad-tarjeta ad-tabla-marco p-0">
+    @if (cargando) { <div class="p-3"><Esqueleto Tipo="tabla" Filas="8" /></div> }
+    else
+    {
+        <table class="ad-tabla">
+            <thead><tr><th>Fecha</th><th>Evento</th><th>Usuario</th><th>Proyecto</th><th>Detalle</th><th>IP</th></tr></thead>
+            <tbody>
+            @foreach (var r in filas)
+            {
+                <tr class="@(r.Exito ? "" : "ad-mal")">
+                    <td class="small text-nowrap">@r.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
+                    <td class="text-nowrap">@(r.Exito ? "" : "✕ ")@r.Evento</td>
+                    <td class="small">@r.Email</td>
+                    <td class="small">@(r.ProyectoId is int pid ? Proyectos.Proyecto(pid)?.Codigo : "")</td>
+                    <td class="small" style="max-width:34rem">@r.Detalle</td>
+                    <td class="ad-mono" title="@r.Navegador">@r.Ip</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        @if (filas.Count >= limite)
+        {
+            <div class="p-2 text-center"><button type="button" class="btn btn-sm btn-outline-secondary" @onclick="MasAsync">＋ 500</button></div>
+        }
+    }
+</div>
+</div>
+
+@code {
+    [Inject] private IConfiguration Cfg { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "usuario")] private string? UsuarioQ { get; set; }
+    [SupplyParameterFromQuery(Name = "resultado")] private string? ResultadoQ { get; set; }
+    protected override bool PermiteAuditor => true;
+
+    private sealed record Cifras(int Fallidos24, int Bloqueos7, int Denegados7, int Ingresos7);
+    private Cifras k = new(0, 0, 0, 0);
+    private bool cargando = true;
+    private DateTime? desde, hasta;
+    private string texto = "", resultado = "", evento = "";
+    private int proyecto, limite = 500, dias;
+    private List<string> eventos = new();
+    private List<RegistroAuditoria> filas = new();
+
+    private string UrlExcel => "api/admin/auditoria.xlsx?" + string.Join("&", new[]
+    {
+        desde is null ? null : "desde=" + desde.Value.ToString("yyyy-MM-dd"),
+        hasta is null ? null : "hasta=" + hasta.Value.ToString("yyyy-MM-dd"),
+        string.IsNullOrWhiteSpace(texto) ? null : "texto=" + Uri.EscapeDataString(texto.Trim()),
+        resultado == "" ? null : "resultado=" + resultado,
+        evento == "" ? null : "evento=" + Uri.EscapeDataString(evento),
+        proyecto == 0 ? null : "proyecto=" + proyecto,
+    }.Where(x => x is not null));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Autorizado) return;
+        dias = Cfg.GetValue("Auditoria:DiasRetencion", 365);
+        texto = UsuarioQ ?? "";
+        resultado = ResultadoQ is "fallo" or "exito" ? ResultadoQ : "";
+        desde = DateTime.Today.AddDays(-30);
+        await ConDb(async (db, _) =>
+        {
+            var h24 = DateTime.UtcNow.AddHours(-24); var h7 = DateTime.UtcNow.AddDays(-7);
+            k = new Cifras(
+                await db.Auditoria.CountAsync(a => !a.Exito && a.Fecha > h24 && a.Evento.StartsWith("Ingreso")),
+                await db.Auditoria.CountAsync(a => a.Evento == "Cuenta bloqueada" && a.Fecha > h7),
+                await db.Auditoria.CountAsync(a => (a.Evento == "Acceso denegado" || a.Evento == "Escritura sin permiso") && a.Fecha > h7),
+                await db.Auditoria.CountAsync(a => a.Exito && a.Fecha > h7 && a.Evento.StartsWith("Ingreso")));
+            eventos = await db.Auditoria.AsNoTracking().Select(a => a.Evento).Distinct().OrderBy(e => e).ToListAsync();
+        });
+        await BuscarAsync();
+    }
+
+    private async Task MasAsync() { limite += 500; await BuscarAsync(); }
+
+    private async Task BuscarAsync()
+    {
+        cargando = true;
+        var f = new FiltroAuditoria(desde, hasta, texto, resultado, evento, proyecto == 0 ? null : proyecto);
+        filas = await ConDb((db, _) => f.Aplicar(db.Auditoria.AsNoTracking()).OrderByDescending(a => a.Id).Take(limite).ToListAsync());
+        cargando = false;
+    }
+}

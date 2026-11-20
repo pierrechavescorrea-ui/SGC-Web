@@ -1,0 +1,161 @@
+﻿@using SigWeb.Data.CreadorModulos
+@using System.Globalization
+@using System.Text
+@inject ServicioVinculos Vinculos
+@implements IDisposable
+
+<div class="vin-selector">
+    <div class="vin-fichas">
+        @foreach (var v in Seleccion)
+        {
+            <span class="vin-ficha" @key="(v.Fuente, v.Id)">
+                @if (Vinculos.UrlDe(v.Fuente, v.Id) is { } url)
+                { <a href="@url">@Etiqueta(v)</a> }
+                else
+                { <span>@Etiqueta(v)</span> }
+                @if (!SoloLectura)
+                { <button type="button" class="vin-boton" title="Quitar vínculo" @onclick="() => Quitar(v)"><Ico Nombre="cancelar" /></button> }
+            </span>
+        }
+        @if (!SoloLectura)
+        { <button type="button" class="vin-boton" title="Agregar vínculo" @onclick="Abrir"><Ico Nombre="agregar" /></button> }
+    </div>
+</div>
+@if (abierto)
+{
+    <div class="modal-backdrop-custom vin-capa">
+        <div class="modal-box-custom vin-modal" role="dialog" aria-modal="true" aria-label="@(Titulo ?? "Elegir vínculos")">
+            <header class="vin-cab"><h3>@(Titulo ?? Vinculos.Fuente(Fuente)?.Nombre ?? "Elegir vínculos")</h3>
+                <button type="button" class="vin-boton" title="Cancelar" data-modal-cancelar @onclick="Cerrar"><Ico Nombre="cancelar" /></button>
+            </header>
+            <div class="vin-barra"><input class="vin-buscar" aria-label="Buscar registros" placeholder="Buscar…" autofocus value="@buscar" @oninput="Buscar" />
+                <span>@filtradas.Count registros · @pendientes.Count elegidos</span>
+            </div>
+            @if (cargando) { <Esqueleto Tipo="tabla" Filas="5" /> }
+            else if (filtradas.Count == 0) { <p class="vin-vacio">@(Vinculos.FuentesVisibles().Any(f => f.Clave == Fuente) ? "No hay registros para mostrar." : "Sin permiso para ver este módulo.")</p> }
+            else
+            {
+                <div class="vin-tabla"><table><thead><tr><th scope="col">Elegir</th><th scope="col">Registro</th>
+                    @foreach (var c in columnas) { <th scope="col">@c.Nombre</th> }
+                </tr></thead><tbody>
+                @foreach (var r in filtradas.Take(limite))
+                {
+                    <tr @key="r.Id" class="@(pendientes.Contains(r.Id) ? "vin-elegida" : "")">
+                        <td><input type="@(Multiple ? "checkbox" : "radio")" name="@grupo" checked="@pendientes.Contains(r.Id)" aria-label="@($"Elegir {r.Etiqueta}")" @onchange="() => Elegir(r.Id)" /></td>
+                        <td><button type="button" class="vin-opcion" @onclick="() => Elegir(r.Id)">@r.Etiqueta</button></td>
+                        @foreach (var c in columnas) { <td>@r.Valores.GetValueOrDefault(c.Clave)</td> }
+                    </tr>
+                }
+                </tbody></table></div>
+                @if (filtradas.Count > limite)
+                {
+                    <div class="vin-mas"><span>@Math.Min(limite, filtradas.Count) de @filtradas.Count</span>
+                        <button type="button" class="vin-opcion" @onclick="Mas">＋ 500</button>
+                        <button type="button" class="vin-opcion" @onclick="Todas">Todas</button>
+                    </div>
+                }
+            }
+            <footer class="vin-pie">
+                <button type="button" class="vin-boton" title="Cancelar" data-modal-cancelar @onclick="Cerrar"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="vin-boton vin-primario" title="Aceptar" disabled="@cargando" @onclick="Aceptar"><Ico Nombre="aceptar" /></button>
+            </footer>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Fuente { get; set; } = "";
+    [Parameter] public bool Multiple { get; set; }
+    [Parameter] public List<VinculoElegido> Seleccion { get; set; } = [];
+    [Parameter] public EventCallback<List<VinculoElegido>> SeleccionChanged { get; set; }
+    [Parameter] public IReadOnlyList<string>? Columnas { get; set; }
+    [Parameter] public bool SoloLectura { get; set; }
+    [Parameter] public string? Titulo { get; set; }
+    private readonly string grupo = "vin-" + Guid.NewGuid().ToString("N");
+    private readonly CancellationTokenSource vida = new();
+    private string fuenteCargada = "", buscar = "";
+    private bool abierto, cargando;
+    private int limite = 200, version;
+    private TablaVinculo? tabla;
+    private List<ColumnaVinculo> columnas = [];
+    private List<FilaVinculo> filtradas = [];
+    private HashSet<int> pendientes = [];
+    private Dictionary<(string Fuente, int Id), string> etiquetas = [];
+
+    // Carga una vez al entrar/cambiar de fuente; también deja listas las rutas de las fichas guardadas.
+    protected override async Task OnParametersSetAsync()
+    {
+        if (fuenteCargada != Fuente)
+        {
+            fuenteCargada = Fuente;
+            abierto = false;
+            await Cargar();
+        }
+        PrepararColumnas();
+        if (SoloLectura) abierto = false;
+    }
+    private async Task Cargar()
+    {
+        var actual = ++version;
+        var fuente = Fuente;
+        cargando = true;
+        try
+        {
+            var datos = await Vinculos.TablaAsync(fuente, vida.Token);
+            if (actual != version || vida.IsCancellationRequested) return;
+            tabla = datos;
+            etiquetas = datos.Filas.ToDictionary(r => (fuente, r.Id), r => r.Etiqueta);
+            PrepararColumnas();
+            Filtrar();
+        }
+        catch (OperationCanceledException) when (vida.IsCancellationRequested) { }
+        finally { if (actual == version) cargando = false; }
+    }
+    private void PrepararColumnas() => columnas = (Columnas is null
+        ? tabla?.Columnas.Take(4)
+        : Columnas.Select(c => tabla?.Columnas.FirstOrDefault(x => x.Clave == c)).OfType<ColumnaVinculo>())?.ToList() ?? [];
+    private string Etiqueta(VinculoElegido v) => etiquetas.GetValueOrDefault((v.Fuente, v.Id), v.Etiqueta);
+    private async Task Abrir()
+    {
+        if (SoloLectura) return;
+        pendientes = Seleccion.Where(v => v.Fuente == Fuente).Select(v => v.Id).ToHashSet();
+        if (!Multiple && pendientes.Count > 1) pendientes = pendientes.Take(1).ToHashSet();
+        buscar = "";
+        abierto = true;
+        await Cargar();
+    }
+    private void Cerrar() => abierto = false;
+    private void Elegir(int id)
+    {
+        if (!Multiple) { pendientes.Clear(); pendientes.Add(id); }
+        else if (!pendientes.Add(id)) pendientes.Remove(id);
+    }
+    private void Buscar(ChangeEventArgs e) { buscar = e.Value?.ToString() ?? ""; Filtrar(); }
+    private static string Normalizar(string s) => string.Concat(s.Normalize(NormalizationForm.FormD)
+        .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)).ToLowerInvariant();
+    private void Filtrar()
+    {
+        var palabras = Normalizar(buscar).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        filtradas = (tabla?.Filas ?? []).Where(r =>
+        {
+            var texto = Normalizar(r.Etiqueta + " " + string.Join(" ", r.Valores.Values));
+            return palabras.All(texto.Contains);
+        }).ToList();
+        limite = 200;
+    }
+    private void Mas() => limite += 500;
+    private void Todas() => limite = filtradas.Count;
+    private async Task Quitar(VinculoElegido v)
+    {
+        if (!SoloLectura) await SeleccionChanged.InvokeAsync(Seleccion.Where(x => x.Fuente != v.Fuente || x.Id != v.Id).ToList());
+    }
+    private async Task Aceptar()
+    {
+        if (SoloLectura || cargando || tabla is null) return;
+        var lista = tabla.Filas.Where(r => pendientes.Contains(r.Id)).Select(r => new VinculoElegido(Fuente, r.Id, r.Etiqueta)).ToList();
+        if (!Multiple) lista = lista.Take(1).ToList();
+        abierto = false;
+        await SeleccionChanged.InvokeAsync(lista);
+    }
+    public void Dispose() { vida.Cancel(); vida.Dispose(); }
+}

@@ -1,0 +1,78 @@
+@* Selección de varios valores de un catálogo: los elegidos como fichas
+   (✕ para quitar) y una lista para agregar más. También se puede escribir un valor que no esté en el
+   catálogo ("Escribir otro…"); si el catálogo está vacío (día 0) se muestra directamente el campo de texto,
+   para que nada quede bloqueado por no haber llenado antes los catálogos. *@
+<div class="rg-multisel">
+    @foreach (var v in Valores.ToList())
+    {
+        <span class="rg-chip" title="@v">@v <button type="button" class="rg-chip-x" title="Quitar" @onclick="() => Quitar(v)">✕</button></span>
+    }
+    @if (escribiendo || !Disponibles.Any())
+    {
+        <input class="form-control form-control-sm rg-multisel-otro" placeholder="Escribir y Enter" title="Escribir un valor y pulsar Enter"
+               @bind="otro" @bind:event="oninput" @onkeydown="Tecla" @onblur="AgregarOtro" />
+    }
+    else
+    {
+        <select @key="vuelta" class="form-select form-select-sm" title="Agregar" @onchange="Agregar">
+            <option value="">＋</option>
+            @foreach (var o in Disponibles)
+            {
+                <option value="@o" title="@o">@o</option>
+            }
+            <option value="@Otro">Escribir otro…</option>
+        </select>
+    }
+</div>
+
+@code {
+    [Parameter] public List<string> Valores { get; set; } = new();
+    [Parameter] public IEnumerable<string> Opciones { get; set; } = Array.Empty<string>();
+    [Parameter] public EventCallback OnCambio { get; set; }
+
+    private const string Otro = "\u0001otro";
+    private IEnumerable<string> Disponibles => Opciones.Where(o => !Valores.Contains(o, StringComparer.OrdinalIgnoreCase));
+
+    // Se cambia la clave del <select> tras cada elección para que vuelva a "＋".
+    private int vuelta;
+    private bool escribiendo;
+    private string otro = "";
+
+    private async Task Agregar(ChangeEventArgs e)
+    {
+        var v = e.Value?.ToString();
+        if (v == Otro) { escribiendo = true; vuelta++; return; }
+        if (!string.IsNullOrEmpty(v) && !Valores.Contains(v, StringComparer.OrdinalIgnoreCase)) Valores.Add(v);
+        vuelta++;
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task Tecla(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AgregarOtro();
+        else if (e.Key == "Escape") { otro = ""; escribiendo = false; }
+    }
+
+    private async Task AgregarOtro()
+    {
+        var v = (otro ?? "").Trim();
+        otro = "";
+        escribiendo = false;
+        if (v.Length == 0 || Valores.Contains(v, StringComparer.OrdinalIgnoreCase)) return;
+        Valores.Add(v);
+        await OnCambio.InvokeAsync();
+    }
+
+    private async Task Quitar(string v)
+    {
+        Valores.Remove(v);
+        await OnCambio.InvokeAsync();
+    }
+
+    // Texto guardado (uno por línea) ⇄ lista.
+    public static List<string> Leer(string? texto) =>
+        (texto ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    public static string Unir(IEnumerable<string> valores) => string.Join("\n", valores);
+}

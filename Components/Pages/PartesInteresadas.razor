@@ -1,0 +1,950 @@
+@page "/partes-interesadas"
+@rendermode InteractiveServer
+@using SigWeb.Data.PartesInteresadas
+@using SigWeb.Models
+@using SigWeb.Data.Vistas
+
+@* Matriz de partes interesadas (ISO 9001 · 4.2). Versiones como el Organigrama: solo el borrador se
+   edita (Editar sobre la vigente crea el borrador copiándola) y al aprobarlo pasa a Vigente. Mapa
+   influencia × impacto con los cuadrantes de la hoja Parámetros del Excel; en borrador los puntos se
+   arrastran. Seguimientos por parte con periodicidad elegida por el usuario, rondas y planes de acción. *@
+<PageTitle>Partes interesadas</PageTitle>
+@if (hallazgosGuardados.Count > 0)
+{
+    <div class="alert alert-info">
+        Hallazgos registrados. Cree el plan de acción de cada seguimiento:
+        @foreach (var s in hallazgosGuardados)
+        {
+            <button type="button" class="btn btn-outline-primary btn-sm ms-2" @onclick="() => NuevoPlan(s)" title="Crear plan de acción para este hallazgo"><Ico Nombre="plan-accion" /></button>
+        }
+    </div>
+}
+
+<EncabezadoPagina Titulo="Partes interesadas" Icono="partes-interesadas" Atras="/" Subtitulo="@Subtitulo">
+    <Acciones>
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(vista == "mapa" ? "activo" : "")" title="Mapa influencia × impacto" @onclick='() => CambiarVista("mapa")'><Ico Nombre="grafico" /></button>
+            <button type="button" class="pg-btn @(vista == "lista" ? "activo" : "")" title="Matriz" @onclick='() => CambiarVista("lista")'><Ico Nombre="listado" /></button>
+            <button type="button" class="pg-btn @(vista == "resultados" ? "activo" : "")" title="Resultados de los seguimientos" @onclick='() => CambiarVista("resultados")'><Ico Nombre="indicador" /></button>
+            <button type="button" class="pg-btn @(vista == "seguimiento" ? "activo" : "")" title="Programación de seguimientos" @onclick='() => CambiarVista("seguimiento")'><Ico Nombre="calendario" /></button>
+            <button type="button" class="pg-btn @(vista == "versiones" ? "activo" : "")" title="Versiones y control de cambios" @onclick='() => CambiarVista("versiones")'><Ico Nombre="versiones" /></button>
+        </span>
+        <button type="button" class="pg-btn @(ronda is not null ? "activo" : "")" title="Ronda de seguimiento" disabled="@(partes.Count == 0)" @onclick="AbrirRonda"><Ico Nombre="seguimiento" /></button>
+        <span class="pg-sep"></span>
+        <BotonExportar Titulo="Partes interesadas" Deshabilitado="@(ver is null)" OnExportar="Exportar" />
+        <span class="pg-sep"></span>
+        @if (ver is not null)
+        {
+            <button type="button" class="pg-btn" title="Eliminar versión v@(ver.Numero)" @onclick='() => PedirEliminar("version", ver.Id, $"Versión v{ver.Numero}")'><Ico Nombre="eliminar" /></button>
+        }
+        @if (EsBorrador)
+        {
+            <button type="button" class="pg-btn" title="Llevar al borrador la valoración del último seguimiento" disabled="@guardando" @onclick="AplicarValoracion"><Ico Nombre="sugerencia" /></button>
+            <button type="button" class="pg-btn @(pub is not null ? "activo" : "")" title="Aprobar y publicar v@(ver!.Numero)" @onclick="AbrirPublicar"><Ico Nombre="aprobar" /></button>
+            <button type="button" class="pg-btn pg-btn-primario" title="Agregar parte interesada" @onclick="NuevaParte"><Ico Nombre="agregar" /></button>
+        }
+        else
+        {
+            <button type="button" class="pg-btn pg-btn-primario" title="@(borrador is not null ? $"Editar borrador v{borrador.Numero}" : ver is null ? "Crear la matriz (borrador)" : "Editar (crea un borrador)")" disabled="@guardando" @onclick="Editar"><Ico Nombre="editar" /></button>
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert @(error ? "alert-danger" : "alert-success") py-1 small d-flex justify-content-between align-items-center">
+        <span>@mensaje</span><button type="button" class="btn-close btn-sm" title="Cerrar" @onclick='() => mensaje = ""'></button>
+    </div>
+}
+
+@* ---------- Confirmar eliminación ---------- *@
+@if (elim is not null)
+{
+    <div class="card panel-formulario mb-3 border-danger">
+        <div class="card-body">
+            <div class="mb-2"><Ico Nombre="eliminar" /> <strong>@elim.Titulo</strong></div>
+            <PanelImpacto Informe="elim.Informe" OnEntendido="@(v => elim.Entendido = v)" />
+            <div class="frm-pie frm-pie-plano">
+                <button class="btn btn-secondary btn-sm" type="button" title="Cancelar" @onclick="() => elim = null"><Ico Nombre="cancelar" /></button>
+                <button data-texto="Eliminar" class="btn btn-danger btn-sm" type="button" title="Eliminar (va a la Papelera)" disabled="@(BloqueadoPorImpacto || guardando)" @onclick="ConfirmarEliminar"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ---------- Aprobar borrador ---------- *@
+@if (pub is not null && ver is not null)
+{
+    <FormularioSig Titulo="@($"Aprobar y publicar v{ver.Numero}")" Icono="aprobar" Clase="mb-3" OnCerrar="() => pub = null">
+        <ChildContent>
+            <SeccionFormulario Titulo="Control de cambios">
+                <CampoFormulario Etiqueta="Código del documento" Ancho="col-md-3"><input class="form-control" @bind="pub.Codigo" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Vigente desde" Ancho="col-md-3" Obligatorio="true"><input type="date" class="form-control" @bind="pub.VigenteDesde" required /></CampoFormulario>
+                <CampoFormulario Etiqueta="Fecha de aprobación" Ancho="col-md-3"><input type="date" class="form-control" @bind="pub.FechaAprobacion" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Motivo del cambio" Ancho="col-md-12" Obligatorio="true" Destacado="true"><textarea class="form-control" rows="2" @bind="pub.Motivo" required></textarea></CampoFormulario>
+                <CampoFormulario Etiqueta="Elaboró" Ancho="col-md-4"><input class="form-control" @bind="pub.Elaboro" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Revisó" Ancho="col-md-4"><input class="form-control" @bind="pub.Reviso" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Aprobó" Ancho="col-md-4"><input class="form-control" @bind="pub.Aprobo" /></CampoFormulario>
+            </SeccionFormulario>
+            <SeccionFormulario Titulo="@($"Cambios frente a la versión anterior ({cambios.Count})")" SinFila="true">
+                @TablaCambios(cambios)
+            </SeccionFormulario>
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => pub = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Aprobar y publicar" disabled="@guardando" @onclick="Publicar"><Ico Nombre="aprobar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@* ---------- Ronda de seguimiento ---------- *@
+@if (ronda is not null)
+{
+    <FormularioSig Titulo="Ronda de seguimiento" Icono="seguimiento" Clase="mb-3" OnCerrar="() => ronda = null">
+        <ChildContent>
+            <SeccionFormulario Titulo="Ronda">
+                <CampoFormulario Etiqueta="Fecha del seguimiento" Ancho="col-md-3" Obligatorio="true"><input type="date" class="form-control" @bind="ronda.Fecha" required /></CampoFormulario>
+                <CampoFormulario Etiqueta="Responsable" Ancho="col-md-5"><input class="form-control" @bind="ronda.Responsable" /></CampoFormulario>
+            </SeccionFormulario>
+            <SeccionFormulario Titulo="@($"Partes ({ronda.Filas.Count(f => f.Incluir)} de {ronda.Filas.Count})")" SinFila="true">
+                <div class="tabla-scroll pi-ronda">
+                    <table class="table table-sm table-bordered align-middle mb-0 tabla-compacta">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" class="form-check-input" title="Todas" checked="@ronda.Filas.All(f => f.Incluir)" @onchange="e => ronda.Filas.ForEach(f => f.Incluir = (bool)(e.Value ?? false))" /></th>
+                                <th>Parte interesada</th><th>Medición · meta</th><th>Estado</th><th>Resultado</th><th>Cumplimiento</th><th>IMP</th><th>INF</th><th>Observación</th><th>Hallazgo (si aplica)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var f in ronda.Filas)
+                            {
+                                var est = EstadoDe(f.Parte.Clave);
+                                <tr class="@(f.Incluir ? "" : "pi-apagada")">
+                                    <td><input type="checkbox" class="form-check-input" @bind="f.Incluir" /></td>
+                                    <td class="fw-semibold">@f.Parte.Orden. @f.Parte.Nombre</td>
+                                    <td class="small pi-texto-2">@f.Parte.Medicion @(string.IsNullOrWhiteSpace(f.Parte.Meta) ? "" : $"· {f.Parte.Meta}")</td>
+                                    <td><span class="pi-chip pi-est-@est">@ServicioPartesInteresadas.Nombre(est)</span></td>
+                                    <td><input class="form-control form-control-sm" @bind="f.Resultado" disabled="@(!f.Incluir)" /></td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="f.Cumplimiento" disabled="@(!f.Incluir)">
+                                            @foreach (var c in Enum.GetValues<CumplimientoParte>()) { <option value="@c">@ServicioPartesInteresadas.Nombre(c)</option> }
+                                        </select>
+                                    </td>
+                                    <td><input type="number" step="0.5" min="0" max="10" class="form-control form-control-sm pi-num" @bind="f.Impacto" disabled="@(!f.Incluir)" /></td>
+                                    <td><input type="number" step="0.5" min="0" max="10" class="form-control form-control-sm pi-num" @bind="f.Influencia" disabled="@(!f.Incluir)" /></td>
+                                    <td><input class="form-control form-control-sm" @bind="f.Observacion" disabled="@(!f.Incluir)" /></td>
+                                    <td>
+                                        <div class="pi-hallazgo-celda">
+                                            <input class="form-control form-control-sm" @bind="f.DescripcionHallazgo" @bind:event="oninput" disabled="@(!f.Incluir)" />
+                                            <button type="button" class="ens-mini @(f.Plan is not null ? "mini-on" : !string.IsNullOrWhiteSpace(f.DescripcionHallazgo) ? "pi-falta-plan" : "")"
+                                                    title="@(f.Plan is null ? "Plan de acción para este hallazgo" : $"Plan {f.Plan.Plan.Codigo}")" disabled="@(!f.Incluir)" @onclick="() => AlternarPlanFila(f)"><Ico Nombre="plan-accion" /></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @if (f.Plan is not null && f.VerPlan && f.Incluir)
+                                {
+                                    <tr class="pi-plan-fila">
+                                        <td colspan="10">
+                                            <div class="pi-plan-cab">
+                                                <span><Ico Nombre="plan-accion" /> @f.Parte.Nombre · @f.Plan.Plan.Codigo</span>
+                                                <button type="button" class="ens-mini" title="Quitar plan" @onclick="() => { f.Plan = null; f.VerPlan = false; }"><Ico Nombre="eliminar" /></button>
+                                            </div>
+                                            <EditorPlanAccion Modelo="f.Plan" Origenes="planOrigenes" Tipos="planTipos" Procesos="planProcesos" Responsables="planCargos"
+                                  Torres="planTorres" Componentes="planComponentes" Localizaciones="planLocalizaciones" Tiros="planTiros"
+                                  OnError="m => Aviso(m, true)" />
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </SeccionFormulario>
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => ronda = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar ronda" disabled="@guardando" @onclick="GuardarRonda"><Ico Nombre="guardar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@* ---------- Formularios de parte y seguimiento (en el mapa van dentro de la tarjeta) ---------- *@
+@if (formParte is not null && !TarjetasEnMapa)
+{
+    <FormularioSig Titulo="@(formParte.Id == 0 ? "Nueva parte interesada" : formParte.Nombre)" Icono="partes-interesadas" Clase="mb-3" OnCerrar="() => formParte = null" Formulario="partes-interesadas" Fila="formParte.Id">
+        <ChildContent>@CamposParte(false)</ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formParte = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@guardando" @onclick="GuardarParte"><Ico Nombre="guardar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+@if (formSeg is not null && !TarjetasEnMapa)
+{
+    <FormularioSig Titulo="@((formSeg.Id == 0 ? "Seguimiento · " : "Editar seguimiento · ") + formSegParte)" Icono="seguimiento" Clase="mb-3" OnCerrar="() => formSeg = null" Formulario="seguimiento-parte" Fila="formSeg.Id">
+        <ChildContent>@CamposSeguimiento(false)</ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formSeg = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@guardando" @onclick="GuardarSeguimiento"><Ico Nombre="guardar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@if (ver is null && vista != "mapa")
+{
+    @SinMatriz()
+}
+else if (vista == "versiones")
+{
+    @VistaVersiones()
+}
+else
+{
+    @* ---------- Barra: versiones, cuadrantes, estado del seguimiento, buscar ---------- *@
+    @if (ver is not null)
+    {
+    <div class="pi-barra">
+        <SelectorVersiones Items="ItemsVersiones" SeleccionadaId="ver?.Id" OnSeleccionar="VerVersion" />
+        @if (vista != "mapa")
+        {
+        <span class="pi-filtros">
+            @foreach (var c in new[] { CuadrantePartes.GestionarDeCerca, CuadrantePartes.MantenerSatisfecho, CuadrantePartes.MantenerInformado, CuadrantePartes.MinimoEsfuerzo })
+            {
+                var n = Activas.Count(p => ServicioPartesInteresadas.Cuadrante(p.Impacto, p.Influencia) == c);
+                <button type="button" class="pi-filtro @(filtroCuadrante == c ? "activo" : "")" style="--c:@ServicioPartesInteresadas.Color(c)" title="@ServicioPartesInteresadas.Descripcion(c)" @onclick="() => filtroCuadrante = filtroCuadrante == c ? null : c"><i></i>@ServicioPartesInteresadas.Nombre(c) <b>@n</b></button>
+            }
+        </span>
+        }
+        <span class="pi-filtros">
+            @foreach (var e in new[] { EstadoSeguimientoParte.Vencido, EstadoSeguimientoParte.PorVencer, EstadoSeguimientoParte.AlDia, EstadoSeguimientoParte.SinProgramar })
+            {
+                var n = partes.Count(p => EstadoDe(p.Clave) == e);
+                <button type="button" class="pi-filtro pi-filtro-est pi-est-@e @(filtroEstado == e ? "activo" : "")" title="Seguimiento: @ServicioPartesInteresadas.Nombre(e)" @onclick="() => filtroEstado = filtroEstado == e ? null : e">@ServicioPartesInteresadas.Nombre(e) <b>@n</b></button>
+            }
+            @{ var nIn = partes.Count(p => EsInactiva(p.Clave)); }
+            <button type="button" class="pi-filtro pi-filtro-est pi-est-Inactiva @(verInactivas ? "activo" : "")" title="@(verInactivas ? "Ocultar las inactivas" : "Ver también las inactivas")" @onclick="() => verInactivas = !verInactivas">Inactivas <b>@nIn</b></button>
+        </span>
+        <input class="form-control form-control-sm pi-buscar" placeholder="Buscar parte..." data-sin-flotante data-recordar="buscar" @bind="buscar" @bind:event="oninput" />
+    </div>
+    }
+
+    @if (vista == "mapa")
+    {
+        <VistaWidgets @ref="panelVista" Modulo="partes-interesadas" DisenarVista="@DisenarQ" Contenido="WidgetParte" OnCambio="AlCambiarWidgets">
+            @if (ver is null) { @SinMatriz() }
+            else { @VistaMapa() }
+        </VistaWidgets>
+    }
+    else if (vista == "resultados")
+    {
+        @ResultadosPartes()
+    }
+    else
+    {
+        <div class="pi-cuerpo pi-imprimible">
+            <div class="pi-principal">
+                @if (vista == "lista") { @VistaLista() }
+                else { @VistaSeguimiento() }
+            </div>
+            @if (Sel is { } p)
+            {
+                @Ficha(p)
+            }
+        </div>
+    }
+}
+
+@code {
+    private RenderFragment SinMatriz() => __builder =>
+    {
+        <div class="pg-vacio" title="Sin matriz">
+            <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos("partes-interesadas"))</svg>
+        </div>
+    };
+
+    private RenderFragment ResultadosPartes() => __builder =>
+    {
+        var itemsRes = ItemsResultados();
+        <VistaResultados Items="itemsRes" KpisTodos="KpisResultados(itemsRes)" Leyenda="LeyendaPartes" TituloTodos="Todas las partes"
+                         TituloObjeto="Parte interesada" TituloAbrir="Ver en el mapa" Anio="anioRes" OnAnio="CambiarAnioRes"
+                         @bind-Seleccion="selRes" OnAbrir="AbrirParteEnMapa"
+                         TituloEliminar="@TituloEliminarParte" OnEliminar="EliminarParteRes" />
+    };
+
+    private RenderFragment WidgetParte(Widget w) => __builder =>
+    {
+        switch (w.Tipo)
+        {
+            case "kpi":
+                var (etiqueta, cantidad, clase) = IndicadorWidget(w.Kpi);
+                <div class="vw-kpi @clase"><small>@etiqueta</small><b>@cantidad.ToString("N0")</b></div>
+                break;
+            case "mapa": @VistaMapa(true, false) break;
+            case "tarjetas": @VistaMapa(false, true) break;
+            case "seguimiento":
+                if (w.Kpi == "proximos") { @ProximosSeguimientos() }
+                else { @VistaSeguimiento(soloLinea: true) }
+                break;
+            case "resultados": @ResultadosPartes() break;
+            case "version":
+                <dl class="pi-widget-version">
+                    <dt>Vigente</dt>
+                    <dd>@if (vigente is { } v) { <button type="button" class="btn btn-link btn-sm p-0" @onclick="() => VerVersion(v.Id)">@ServicioPartesInteresadas.Etiqueta(v)</button> }
+                        else { <span>Sin versión vigente</span> }</dd>
+                    <dt>Borrador</dt>
+                    <dd>@if (borrador is { } b) { <button type="button" class="btn btn-link btn-sm p-0" @onclick="() => VerVersion(b.Id)">@ServicioPartesInteresadas.Etiqueta(b)</button> }
+                        else { <span>Sin borrador</span> }</dd>
+                </dl>
+                break;
+        }
+    };
+
+    private RenderFragment ProximosSeguimientos() => __builder =>
+    {
+        var proximos = Mostradas.Where(p => situacion.GetValueOrDefault(p.Clave)?.Proximo is not null)
+            .OrderBy(p => situacion[p.Clave].Proximo).ThenBy(p => p.Orden).ToList();
+        @if (proximos.Count == 0)
+        {
+            <div class="pv-vacio">Sin seguimientos programados.</div>
+        }
+        else
+        {
+            <ul class="pi-widget-proximos list-unstyled mb-0">
+                @foreach (var p in proximos)
+                {
+                    var estado = situacion[p.Clave];
+                    <li @key="p.Clave">
+                        <button type="button" class="btn btn-link btn-sm p-0 text-start" @onclick="() => Seleccionar(p.Clave)">@p.Nombre</button>
+                        <span class="pi-chip pi-est-@estado.Estado" title="@ServicioPartesInteresadas.Nombre(estado.Estado)">@estado.Proximo?.ToString("dd/MM/yyyy")</span>
+                    </li>
+                }
+            </ul>
+        }
+    };
+
+    // ======================= MAPA =======================
+    private RenderFragment VistaMapa(bool conMapa = true, bool conLista = true) => __builder =>
+    {
+        var u = (double)ServicioPartesInteresadas.Umbral;
+        double xu = X((decimal)u), yu = Y((decimal)u), x0 = X(0), x1 = X(10), y0 = Y(0), y1 = Y(10);
+        var puntos = conMapa ? Puntos() : null;
+        <div class="@(conMapa && conLista ? "pi-marco pi-imprimible" : conMapa ? "pi-widget-mapa pi-imprimible" : "pi-widget-tarjetas")">
+        @if (puntos is not null)
+        {
+        <div class="pi-mapa-caja">
+            <svg @ref="mapaSvg" class="pi-mapa" viewBox="0 0 @F(MW) @F(MH)" preserveAspectRatio="xMidYMid meet"
+                 data-x0="@F(x0)" data-x1="@F(x1)" data-y0="@F(y0)" data-y1="@F(y1)" data-max="10">
+                @* Cuadrantes (hoja Parámetros): X = INF, Y = IMP *@
+                <rect x="@F(x0)" y="@F(y1)" width="@F(xu - x0)" height="@F(yu - y1)" class="pi-cuad" style="--c:@ServicioPartesInteresadas.Color(CuadrantePartes.MantenerInformado)" @onclick="() => filtroCuadrante = filtroCuadrante == CuadrantePartes.MantenerInformado ? null : CuadrantePartes.MantenerInformado"><title>@ServicioPartesInteresadas.Descripcion(CuadrantePartes.MantenerInformado)</title></rect>
+                <rect x="@F(xu)" y="@F(y1)" width="@F(x1 - xu)" height="@F(yu - y1)" class="pi-cuad" style="--c:@ServicioPartesInteresadas.Color(CuadrantePartes.GestionarDeCerca)" @onclick="() => filtroCuadrante = filtroCuadrante == CuadrantePartes.GestionarDeCerca ? null : CuadrantePartes.GestionarDeCerca"><title>@ServicioPartesInteresadas.Descripcion(CuadrantePartes.GestionarDeCerca)</title></rect>
+                <rect x="@F(x0)" y="@F(yu)" width="@F(xu - x0)" height="@F(y0 - yu)" class="pi-cuad" style="--c:@ServicioPartesInteresadas.Color(CuadrantePartes.MinimoEsfuerzo)" @onclick="() => filtroCuadrante = filtroCuadrante == CuadrantePartes.MinimoEsfuerzo ? null : CuadrantePartes.MinimoEsfuerzo"><title>@ServicioPartesInteresadas.Descripcion(CuadrantePartes.MinimoEsfuerzo)</title></rect>
+                <rect x="@F(xu)" y="@F(yu)" width="@F(x1 - xu)" height="@F(y0 - yu)" class="pi-cuad" style="--c:@ServicioPartesInteresadas.Color(CuadrantePartes.MantenerSatisfecho)" @onclick="() => filtroCuadrante = filtroCuadrante == CuadrantePartes.MantenerSatisfecho ? null : CuadrantePartes.MantenerSatisfecho"><title>@ServicioPartesInteresadas.Descripcion(CuadrantePartes.MantenerSatisfecho)</title></rect>
+                <text x="@F(x0 + 8)" y="@F(y1 + 18)" class="pi-cuad-tit">MANTENERLO INFORMADO</text>
+                <text x="@F(x1 - 8)" y="@F(y1 + 18)" class="pi-cuad-tit" text-anchor="end">ATENDER SUS REQUISITOS</text>
+                <text x="@F(x0 + 8)" y="@F(y0 - 10)" class="pi-cuad-tit">MÍNIMO ESFUERZO</text>
+                <text x="@F(x1 - 8)" y="@F(y0 - 10)" class="pi-cuad-tit" text-anchor="end">MANTENER SATISFECHO</text>
+                @* Rejilla y ejes *@
+                @for (var i = 0; i <= 10; i++)
+                {
+                    var gx = X(i); var gy = Y(i);
+                    <g>
+                        <line x1="@F(gx)" y1="@F(y1)" x2="@F(gx)" y2="@F(y0)" class="pi-rejilla" />
+                        <line x1="@F(x0)" y1="@F(gy)" x2="@F(x1)" y2="@F(gy)" class="pi-rejilla" />
+                        <text x="@F(gx)" y="@F(y0 + 16)" class="pi-eje-num" text-anchor="middle">@i</text>
+                        <text x="@F(x0 - 8)" y="@F(gy + 4)" class="pi-eje-num" text-anchor="end">@i</text>
+                    </g>
+                }
+                <line x1="@F(xu)" y1="@F(y1)" x2="@F(xu)" y2="@F(y0)" class="pi-umbral" />
+                <line x1="@F(x0)" y1="@F(yu)" x2="@F(x1)" y2="@F(yu)" class="pi-umbral" />
+                <text x="@F((x0 + x1) / 2)" y="@F(MH - 8)" class="pi-eje-tit" text-anchor="middle">INFLUENCIA (INF)</text>
+                <text x="14" y="@F((y0 + y1) / 2)" class="pi-eje-tit" text-anchor="middle" transform="rotate(-90 14 @F((y0 + y1) / 2))">IMPACTO (IMP)</text>
+
+                @* Trayectoria de la parte seleccionada: matriz → valoraciones de sus seguimientos *@
+                @if (Sel is { Impacto: not null, Influencia: not null } s)
+                {
+                    var tr = Trayectoria(s.Clave);
+                    if (tr.Count > 0)
+                    {
+                        var pts = string.Join(" ", new[] { $"{F(X(s.Influencia!.Value))},{F(Y(s.Impacto!.Value))}" }.Concat(tr.Select(t => $"{F(X(t.Influencia!.Value))},{F(Y(t.Impacto!.Value))}")));
+                        <polyline points="@pts" class="pi-tray" />
+                        @foreach (var t in tr)
+                        {
+                            <circle cx="@F(X(t.Influencia!.Value))" cy="@F(Y(t.Impacto!.Value))" r="4" class="pi-tray-pto" style="--c:@ServicioPartesInteresadas.Color(t.Cumplimiento)"><title>@t.Fecha.ToString("dd/MM/yyyy") · IMP @ServicioPartesInteresadas.Num(t.Impacto) · INF @ServicioPartesInteresadas.Num(t.Influencia) · @ServicioPartesInteresadas.Nombre(t.Cumplimiento)</title></circle>
+                        }
+                    }
+                }
+
+                @foreach (var pt in puntos.OrderBy(x => x.Parte.Clave == sel))
+                {
+                    var p = pt.Parte;
+                    var c = ServicioPartesInteresadas.Cuadrante(p.Impacto, p.Influencia);
+                    var est = EstadoDe(p.Clave);
+                    <g @key="p.Clave" class="pi-punto @(p.Clave == sel ? "sel" : "") @(EsInactiva(p.Clave) ? "pi-inactiva" : "")" data-id="@p.Id" data-cx="@F(pt.Cx)" data-cy="@F(pt.Cy)" @onclick="() => Seleccionar(p.Clave)">
+                        <title>@p.Orden. @p.Nombre · IMP @ServicioPartesInteresadas.Num(p.Impacto) · INF @ServicioPartesInteresadas.Num(p.Influencia) · @ServicioPartesInteresadas.Nombre(c) · Seguimiento: @ServicioPartesInteresadas.Nombre(est)</title>
+                        @if (pt.Cx != pt.X || pt.Cy != pt.Y) { <line x1="@F(pt.X)" y1="@F(pt.Y)" x2="@F(pt.Cx)" y2="@F(pt.Cy)" class="pi-enlace" /> }
+                        <circle cx="@F(pt.Cx)" cy="@F(pt.Cy)" r="13" class="pi-burbuja" style="--c:@ServicioPartesInteresadas.Color(c)" />
+                        <text x="@F(pt.Cx)" y="@F(pt.Cy + 4)" class="pi-burbuja-num" text-anchor="middle">@p.Orden</text>
+                        @if (est != EstadoSeguimientoParte.SinProgramar) { <circle cx="@F(pt.Cx + 10)" cy="@F(pt.Cy - 10)" r="4.5" class="pi-estado" style="--e:@ColorEstado(est)" /> }
+                        <text x="@F(pt.Lx)" y="@F(pt.Ly)" class="pi-etq" text-anchor="@pt.Ancla">@p.Nombre</text>
+                    </g>
+                }
+                <text class="pi-guia" style="display:none"></text>
+            </svg>
+            @{ var sinValor = Mostradas.Where(p => p.Impacto is null || p.Influencia is null).ToList(); }
+            @if (sinValor.Count > 0)
+            {
+                <div class="pi-sin-valor">
+                    @foreach (var p in sinValor) { <button type="button" class="pi-chip" title="Sin IMP o INF" @onclick="() => Seleccionar(p.Clave)">@p.Orden. @p.Nombre</button> }
+                </div>
+            }
+            @{ var activas = Activas.ToList(); var maxN = Math.Max(1, activas.Count); }
+            <div class="rm-niveles pi-niveles">
+                @foreach (var c in new[] { CuadrantePartes.GestionarDeCerca, CuadrantePartes.MantenerSatisfecho, CuadrantePartes.MantenerInformado, CuadrantePartes.MinimoEsfuerzo })
+                {
+                    var n = activas.Count(p => ServicioPartesInteresadas.Cuadrante(p.Impacto, p.Influencia) == c);
+                    var col = ServicioPartesInteresadas.Color(c);
+                    <button type="button" class="rm-nivel pi-nivel @(filtroCuadrante == c ? "activo" : "")" title="@ServicioPartesInteresadas.Descripcion(c)" @onclick="() => filtroCuadrante = filtroCuadrante == c ? null : c">
+                        <span class="rm-nivel-nom"><span class="rm-punto" style="background:@col"></span>@ServicioPartesInteresadas.Nombre(c)</span>
+                        <span class="rm-nivel-barra"><span style="width:@F(n * 100.0 / maxN)%;background:@col"></span></span>
+                        <span class="rm-nivel-n">@n</span>
+                    </button>
+                }
+            </div>
+        </div>
+        }
+
+        @* ---------- Lista de tarjetas (estilo Riesgos) ---------- *@
+        @if (conLista)
+        {
+        var tarjetas = EnTarjetas();
+        <div class="rm-lista pi-lista pi-no-imprimir">
+            <div class="rm-lista-cab">
+                <span class="rm-lista-tit">Partes interesadas</span>
+                @if (filtroCuadrante is { } fc)
+                {
+                    <span class="pi-chip" style="--c:@ServicioPartesInteresadas.Color(fc)">@ServicioPartesInteresadas.Nombre(fc)</span>
+                    <button type="button" class="gf-x" title="Ver todas" @onclick="() => filtroCuadrante = null">✕</button>
+                }
+                <select class="form-select form-select-sm rm-orden" title="Ordenar" data-sin-flotante @bind="ordenMapa">
+                    <option value="numero">Por #</option>
+                    <option value="cuadrante">Por cuadrante</option>
+                    <option value="seguimiento">Por seguimiento</option>
+                    <option value="nombre">Por nombre</option>
+                </select>
+                <span class="rm-lista-n">@tarjetas.Count</span>
+            </div>
+            <div class="rm-lista-cuerpo">
+                @if (formParte is { Id: 0 })
+                {
+                    <div class="rm-tarjeta pi-tarjeta abierta pi-tarjeta-nueva">
+                        <div class="rm-tarjeta-cab"><span class="pi-t-num" style="--c:var(--pi-acento)">+</span><span class="pi-t-nombre">Nueva parte interesada</span></div>
+                        @FormParteEnLinea()
+                    </div>
+                }
+                @foreach (var p in tarjetas)
+                {
+                    @Tarjeta(p)
+                }
+                @if (tarjetas.Count == 0 && formParte is not { Id: 0 })
+                {
+                    <div class="pv-vacio">Sin partes interesadas.</div>
+                }
+            </div>
+        </div>
+        }
+        </div>
+    };
+
+    // ======================= TARJETA (mapa) =======================
+    // Cerrada: lo principal. Al seleccionarla se despliega: detalle, o el formulario de edición / seguimiento.
+    private RenderFragment Tarjeta(ParteInteresada p) => __builder =>
+    {
+        var c = ServicioPartesInteresadas.Cuadrante(p.Impacto, p.Influencia);
+        var col = ServicioPartesInteresadas.Color(c);
+        situacion.TryGetValue(p.Clave, out var s);
+        var abierta = p.Clave == sel;
+        var inactiva = EsInactiva(p.Clave);
+        var editando = formParte is not null && formParte.Id != 0 && formParte.Clave == p.Clave;
+        var siguiendo = formSeg is not null && formSeg.ParteClave == p.Clave;
+        <div @key="p.Clave" id="pi-t-@p.Clave" class="rm-tarjeta pi-tarjeta @(abierta ? "abierta" : "") @(inactiva ? "pi-inactiva" : "") @(editando || siguiendo ? "pi-con-form" : "")" style="--rm:@col">
+            <div class="pi-t-resumen" @onclick="() => Seleccionar(p.Clave)">
+                <div class="rm-tarjeta-cab">
+                    <span class="pi-t-num" style="--c:@col">@p.Orden</span>
+                    <span class="pi-t-nombre">@p.Nombre</span>
+                    <span class="rm-acciones pi-acciones" @onclick:stopPropagation="true">
+                        @if (!inactiva)
+                        {
+                            <button type="button" class="ens-mini @(siguiendo ? "activo" : "")" title="Hacer seguimiento" @onclick="() => SeguirDesdeTarjeta(p)"><Ico Nombre="seguimiento" /></button>
+                        }
+                        <button type="button" class="ens-mini @(editando ? "activo" : "")" title="@(EsBorrador ? "Editar" : "Editar (al guardar eliges en qué versión)")" disabled="@guardando" @onclick="() => EditarDesdeTarjeta(p)"><Ico Nombre="editar" /></button>
+                        <button type="button" class="ens-mini" title="@TituloEliminarParte" disabled="@guardando" @onclick="() => EliminarParteDesde(p)"><Ico Nombre="eliminar" /></button>
+                        <button type="button" class="ens-mini pi-btn-activa @(inactiva ? "" : "on")" title="@(inactiva ? "Activar" : "Desactivar (sin seguimiento)")" disabled="@guardando" @onclick="() => Activar(p, inactiva)"><Ico Nombre="activar" /></button>
+                    </span>
+                </div>
+                <div class="pi-t-meta">
+                    <span class="rg-pill pi-t-cuad" style="--c:@col">@ServicioPartesInteresadas.Nombre(c)</span>
+                    <span class="pi-t-val" title="Impacto">IMP <b>@(ServicioPartesInteresadas.Num(p.Impacto) ?? "—")</b></span>
+                    <span class="pi-t-val" title="Influencia">INF <b>@(ServicioPartesInteresadas.Num(p.Influencia) ?? "—")</b></span>
+                    @if (!ServicioPartesInteresadas.ClasificacionCoincide(p.Clasificacion, c)) { <span class="pi-alerta" title="La clasificación escrita («@p.Clasificacion») no coincide con el cuadrante de IMP × INF">!</span> }
+                    @if (s is not null) { <span class="pi-chip pi-est-@s.Estado ms-auto" title="Seguimiento">@ServicioPartesInteresadas.Nombre(s.Estado)@(s.Proximo is DateTime px ? $" · {px:dd/MM/yyyy}" : "")</span> }
+                </div>
+                @if (!abierta)
+                {
+                    if (!string.IsNullOrWhiteSpace(p.Estrategias)) { <div class="rm-tarjeta-desc pi-t-desc">@p.Estrategias</div> }
+                    <div class="rm-tarjeta-pie">
+                        @if (!string.IsNullOrWhiteSpace(p.Medicion)) { <span class="pi-t-medicion" title="Medición · meta">@p.Medicion@(string.IsNullOrWhiteSpace(p.Meta) ? "" : $" · {p.Meta}")</span> }
+                        @if (s?.Ultimo is { } u) { <span class="rm-seg" title="Último seguimiento: @ServicioPartesInteresadas.Nombre(u.Cumplimiento)">⟳ @u.Fecha.ToString("dd/MM/yyyy") <i class="pi-t-cumple" style="--c:@ServicioPartesInteresadas.Color(u.Cumplimiento)"></i></span> }
+                        @if (s?.Programacion?.Cada is > 0 && !inactiva) { <span class="rm-seg" title="Seguimiento cada">@ServicioPartesInteresadas.TextoPeriodo(s.Programacion)</span> }
+                    </div>
+                }
+            </div>
+            @if (abierta)
+            {
+                <div class="pi-t-detalle">
+                    @if (editando) { @FormParteEnLinea() }
+                    else if (siguiendo) { @FormSegEnLinea() }
+                    else { @DetalleParte(p) }
+                </div>
+            }
+        </div>
+    };
+
+    private RenderFragment FormParteEnLinea() => __builder =>
+    {
+        <div class="pi-form-linea">
+            @CamposParte(true)
+            <div class="pi-form-acc frm-pie frm-pie-plano">
+                @if (formParte is { Id: > 0 } fp)
+                {
+                    <button type="button" class="btn btn-outline-danger btn-sm me-auto" title="Eliminar parte (va a la Papelera)" @onclick='() => PedirEliminar("parte", fp.Id, fp.Nombre)'><Ico Nombre="eliminar" /></button>
+                }
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formParte = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary btn-sm" title="Guardar en el borrador" disabled="@guardando" @onclick="GuardarParte"><Ico Nombre="guardar" /></button>
+            </div>
+        </div>
+    };
+
+    private RenderFragment FormSegEnLinea() => __builder =>
+    {
+        <div class="pi-form-linea">
+            @CamposSeguimiento(true)
+            <div class="pi-form-acc frm-pie frm-pie-plano">
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formSeg = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary btn-sm" title="Guardar seguimiento" disabled="@guardando" @onclick="GuardarSeguimiento"><Ico Nombre="guardar" /></button>
+            </div>
+        </div>
+    };
+
+    // Campos de los formularios (etiquetas flotantes). compacto = dentro de la tarjeta del mapa.
+    private RenderFragment CamposParte(bool compacto) => __builder =>
+    {
+        var f = formParte!;
+        string W(string normal, string corto) => compacto ? corto : normal;
+        var cf = ServicioPartesInteresadas.Cuadrante(f.Impacto, f.Influencia);
+        @if (parteOrigen is not null && destinosParte.Count > 0)
+        {
+            <SeccionFormulario Titulo="Versión">
+                <CampoFormulario Etiqueta="Guardar en" Ancho="col-12">
+                    <select class="form-select" value="@destinoParte" @onchange='e => destinoParte = int.Parse(e.Value?.ToString() ?? "0")'>
+                        @foreach (var (id, nombre) in destinosParte) { <option value="@id">@nombre</option> }
+                    </select>
+                </CampoFormulario>
+            </SeccionFormulario>
+        }
+        <SeccionFormulario Titulo="Identificación">
+            <CampoFormulario Etiqueta="#" Ancho="@W("col-md-1", "col-3")"><input type="number" min="0" class="form-control" @bind="f.Orden" /></CampoFormulario>
+            <CampoFormulario Etiqueta="Parte interesada" Ancho="@W("col-md-5", "col-9")" Obligatorio="true" Destacado="true"><input class="form-control" @bind="f.Nombre" required /></CampoFormulario>
+            <CampoFormulario Etiqueta="Procesos que intervienen" Ancho="@W("col-md-6", "col-12")"><textarea class="form-control" rows="2" @bind="f.Procesos"></textarea></CampoFormulario>
+            <CampoFormulario Etiqueta="Necesidades" Ancho="@W("col-md-4", "col-12")"><textarea class="form-control" rows="3" @bind="f.Necesidades"></textarea></CampoFormulario>
+            <CampoFormulario Etiqueta="Expectativas" Ancho="@W("col-md-4", "col-12")"><textarea class="form-control" rows="3" @bind="f.Expectativas"></textarea></CampoFormulario>
+            <CampoFormulario Etiqueta="Cómo afecta al SGC" Ancho="@W("col-md-4", "col-12")"><textarea class="form-control" rows="3" @bind="f.AfectaSgc"></textarea></CampoFormulario>
+        </SeccionFormulario>
+        <SeccionFormulario Titulo="Valoración">
+            <Extra><span class="pi-cuad-punto" style="--c:@ServicioPartesInteresadas.Color(cf)" title="@ServicioPartesInteresadas.Nombre(cf)"></span> <span class="small">@ServicioPartesInteresadas.Nombre(cf)</span></Extra>
+            <ChildContent>
+                <CampoFormulario Etiqueta="IMP (impacto, 0 a 10)" Ancho="@W("col-md-2", "col-6")"><input type="number" step="0.5" min="0" max="10" class="form-control" @bind="f.Impacto" /></CampoFormulario>
+                <CampoFormulario Etiqueta="INF (influencia, 0 a 10)" Ancho="@W("col-md-2", "col-6")"><input type="number" step="0.5" min="0" max="10" class="form-control" @bind="f.Influencia" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Clasificación" Ancho="@W("col-md-8", "col-12")">
+                    <div class="input-group">
+                        <input class="form-control" @bind="f.Clasificacion" />
+                        <button type="button" class="btn btn-outline-secondary" title="Sugerir según IMP × INF" @onclick="SugerirClasificacion"><Ico Nombre="sugerencia" /></button>
+                    </div>
+                </CampoFormulario>
+            </ChildContent>
+        </SeccionFormulario>
+        <SeccionFormulario Titulo="Gestión">
+            <CampoFormulario Etiqueta="Estrategias" Ancho="@W("col-md-6", "col-12")"><textarea class="form-control" rows="3" @bind="f.Estrategias"></textarea></CampoFormulario>
+            <CampoFormulario Etiqueta="Medición" Ancho="@W("col-md-6", "col-12")"><textarea class="form-control" rows="3" @bind="f.Medicion"></textarea></CampoFormulario>
+            <CampoFormulario Etiqueta="Periodicidad (según la matriz)" Ancho="@W("col-md-4", "col-7")"><input class="form-control" @bind="f.Periodicidad" /></CampoFormulario>
+            <CampoFormulario Etiqueta="Meta" Ancho="@W("col-md-2", "col-5")"><input class="form-control" @bind="f.Meta" /></CampoFormulario>
+            <CampoFormulario Etiqueta="Observaciones" Ancho="@W("col-md-6", "col-12")"><input class="form-control" @bind="f.Observaciones" /></CampoFormulario>
+            <CampoFormulario Etiqueta="Supuesto (dato por confirmar)" Ancho="col-12"><input class="form-control" @bind="f.Supuesto" /></CampoFormulario>
+        </SeccionFormulario>
+    };
+
+    private RenderFragment CamposSeguimiento(bool compacto) => __builder =>
+    {
+        var f = formSeg!;
+        string W(string normal, string corto) => compacto ? corto : normal;
+        <SeccionFormulario Titulo="@(f.Id == 0 ? "Nuevo seguimiento" : "Editar seguimiento")" Clave="Seguimiento" Icono="seguimiento">
+            <CampoFormulario Etiqueta="Fecha" Ancho="@W("col-md-2", "col-5")" Obligatorio="true"><input type="date" class="form-control" @bind="f.Fecha" required /></CampoFormulario>
+            <CampoFormulario Etiqueta="Responsable" Ancho="@W("col-md-4", "col-7")"><input class="form-control" @bind="f.Responsable" /></CampoFormulario>
+            <CampoFormulario Etiqueta="Resultado de la medición" Ancho="@W("col-md-3", "col-6")" Destacado="true"><input class="form-control" @bind="f.Resultado" /></CampoFormulario>
+            <CampoFormulario Etiqueta="Cumplimiento de la meta" Ancho="@W("col-md-3", "col-6")">
+                <select class="form-select" @bind="f.Cumplimiento">
+                    @foreach (var c in Enum.GetValues<CumplimientoParte>()) { <option value="@c">@ServicioPartesInteresadas.Nombre(c)</option> }
+                </select>
+            </CampoFormulario>
+            <CampoFormulario Etiqueta="IMP en este seguimiento" Ancho="@W("col-md-2", "col-6")"><input type="number" step="0.5" min="0" max="10" class="form-control" @bind="f.Impacto" /></CampoFormulario>
+            <CampoFormulario Etiqueta="INF en este seguimiento" Ancho="@W("col-md-2", "col-6")"><input type="number" step="0.5" min="0" max="10" class="form-control" @bind="f.Influencia" /></CampoFormulario>
+            <CampoFormulario Etiqueta="Observación" Ancho="@W("col-md-8", "col-12")"><textarea class="form-control" rows="2" @bind="f.Observacion"></textarea></CampoFormulario>
+            <CampoFormulario Etiqueta="Hallazgo (si aplica)" Ancho="col-12">
+                <div class="pi-hallazgo-celda">
+                    <textarea class="form-control" rows="2" @bind="f.DescripcionHallazgo" @bind:event="oninput"></textarea>
+                    <button type="button" class="ens-mini @(planSeg is not null ? "mini-on" : !string.IsNullOrWhiteSpace(f.DescripcionHallazgo) && !(f.Id > 0 && planesPorSeguimiento.ContainsKey(f.Id)) ? "pi-falta-plan" : "")"
+                            title="@(planSeg is null ? "Plan de acción para este hallazgo" : $"Plan {planSeg.Plan.Codigo}")" @onclick="AlternarPlanSeg"><Ico Nombre="plan-accion" /></button>
+                </div>
+                @if (f.Id > 0 && planesPorSeguimiento.TryGetValue(f.Id, out var ligados))
+                {
+                    <div class="pi-planes mt-1">
+                        @foreach (var pl in ligados)
+                        {
+                            <button type="button" class="pi-plan" style="--c:@EscalaAccion.Color(pl.Estado)" title="@EscalaAccion.Nombre(pl.Estado)" @onclick="() => IrPlan(pl.Id)"><Ico Nombre="plan-accion" /> @pl.Codigo · @EscalaAccion.Nombre(pl.Estado)</button>
+                        }
+                    </div>
+                }
+            </CampoFormulario>
+            @if (planSeg is not null && verPlanSeg)
+            {
+                <div class="col-12 pi-plan-fila">
+                    <div class="pi-plan-cab">
+                        <span><Ico Nombre="plan-accion" /> @planSeg.Plan.Codigo</span>
+                        <button type="button" class="ens-mini" title="Quitar plan" @onclick="() => { planSeg = null; verPlanSeg = false; }"><Ico Nombre="eliminar" /></button>
+                    </div>
+                    <EditorPlanAccion Modelo="planSeg" Origenes="planOrigenes" Tipos="planTipos" Procesos="planProcesos" Responsables="planCargos"
+                                  Torres="planTorres" Componentes="planComponentes" Localizaciones="planLocalizaciones" Tiros="planTiros"
+                                  OnError="m => Aviso(m, true)" />
+                </div>
+            }
+        </SeccionFormulario>
+    };
+
+    // ======================= LISTA (la matriz) =======================
+    private RenderFragment VistaLista() => __builder =>
+    {
+        <div class="tabla-scroll tabla-auto pi-lista-marco">
+            <table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin pi-tabla">
+                <thead>
+                    <tr>
+                        <th>Parte interesada</th><th>#</th><th>Procesos que intervienen</th><th>Necesidades</th><th>Expectativas</th><th>Cómo afecta al SGC</th>
+                        <th>IMP</th><th>INF</th><th>Clasificación</th><th>Estrategias</th><th>Medición</th><th>Periodicidad</th><th>Meta</th><th>Observaciones</th>
+                        <th>Último seguimiento</th><th>Próximo</th><th>Supuesto</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Mostradas)
+                    {
+                        var c = ServicioPartesInteresadas.Cuadrante(p.Impacto, p.Influencia);
+                        situacion.TryGetValue(p.Clave, out var s);
+                        <tr class="@(p.Clave == sel ? "table-active" : "")" @onclick="() => Seleccionar(p.Clave)">
+                            <td class="fw-semibold"><span class="pi-cuad-punto" style="--c:@ServicioPartesInteresadas.Color(c)" title="@ServicioPartesInteresadas.Nombre(c)"></span> @p.Nombre</td>
+                            <td>@p.Orden</td>
+                            <td class="pi-celda">@p.Procesos</td>
+                            <td class="pi-celda">@p.Necesidades</td>
+                            <td class="pi-celda">@p.Expectativas</td>
+                            <td class="pi-celda">@p.AfectaSgc</td>
+                            <td class="text-end">@ServicioPartesInteresadas.Num(p.Impacto)</td>
+                            <td class="text-end">@ServicioPartesInteresadas.Num(p.Influencia)</td>
+                            <td class="pi-celda">
+                                @p.Clasificacion
+                                @if (!ServicioPartesInteresadas.ClasificacionCoincide(p.Clasificacion, c)) { <span class="pi-alerta" title="Por IMP × INF el cuadrante es «@ServicioPartesInteresadas.Nombre(c)»">!</span> }
+                            </td>
+                            <td class="pi-celda">@p.Estrategias</td>
+                            <td class="pi-celda">@p.Medicion</td>
+                            <td>@p.Periodicidad</td>
+                            <td>@p.Meta</td>
+                            <td class="pi-celda">@p.Observaciones</td>
+                            <td>
+                                @if (s?.Ultimo is { } u) { <span class="pi-chip" style="--c:@ServicioPartesInteresadas.Color(u.Cumplimiento)">@u.Fecha.ToString("dd/MM/yyyy")</span> }
+                            </td>
+                            <td>@if (s?.Proximo is DateTime px) { <span class="pi-chip pi-est-@s.Estado">@px.ToString("dd/MM/yyyy")</span> }</td>
+                            <td class="pi-celda pi-supuesto">@p.Supuesto</td>
+                            <td class="text-center celda-acciones" @onclick:stopPropagation="true">
+                                <button type="button" class="ens-mini" title="@TituloEliminarParte" disabled="@guardando" @onclick="() => EliminarParteDesde(p)"><Ico Nombre="eliminar" /></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    };
+
+    // ======================= SEGUIMIENTO (programación + línea de tiempo) =======================
+    private RenderFragment VistaSeguimiento(bool soloLinea = false) => __builder =>
+    {
+        var ini = InicioLinea;
+        <div class="tabla-scroll tabla-auto pi-lista-marco">
+            <table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin pi-tabla pi-tabla-seg">
+                <thead>
+                    <tr>
+                        <th>Parte interesada</th>
+                        @if (!soloLinea)
+                        {
+                            <th>Medición · meta</th><th>Periodicidad (matriz)</th><th>Seguimiento cada</th><th>Último</th><th>Próximo</th><th>Estado</th>
+                        }
+                        <th class="pi-linea-cab">
+                            <div class="pi-linea">
+                                @for (var m = 0; m <= MesesAtras + MesesAdelante; m++)
+                                {
+                                    var d = ini.AddMonths(m);
+                                    <span class="pi-mes @(d.Year == DateTime.Today.Year && d.Month == DateTime.Today.Month ? "hoy" : "")" style="left:@F(PosLinea(d.AddDays(DateTime.DaysInMonth(d.Year, d.Month) / 2.0)))%" title="@d.ToString("MMMM yyyy", Es)">@Mes(d)</span>
+                                }
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Mostradas)
+                    {
+                        situacion.TryGetValue(p.Clave, out var s);
+                        var prg = programaciones.GetValueOrDefault(p.Clave);
+                        <tr class="@(p.Clave == sel ? "table-active" : "")" @onclick="() => Seleccionar(p.Clave)">
+                            <td class="fw-semibold">@p.Orden. @p.Nombre</td>
+                            @if (!soloLinea)
+                            {
+                            <td class="pi-celda small">@p.Medicion @(string.IsNullOrWhiteSpace(p.Meta) ? "" : $"· {p.Meta}")</td>
+                            <td class="small">@p.Periodicidad</td>
+                            <td @onclick:stopPropagation="true">
+                                @if (prog?.Clave == p.Clave)
+                                {
+                                    <div class="pi-prog">
+                                        <input type="number" min="1" max="999" class="form-control form-control-sm pi-num" title="Cada" @bind="prog.Cada" />
+                                        <select class="form-select form-select-sm" title="Unidad" @bind="prog.Unidad">
+                                            <option value="@UnidadPeriodo.Dias">días</option><option value="@UnidadPeriodo.Semanas">semanas</option><option value="@UnidadPeriodo.Meses">meses</option>
+                                        </select>
+                                        <input type="date" class="form-control form-control-sm" title="Primer seguimiento (si aún no hay)" @bind="prog.Desde" />
+                                        <input class="form-control form-control-sm" placeholder="Responsable" title="Responsable" @bind="prog.Responsable" />
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Cancelar" @onclick="() => prog = null"><Ico Nombre="cancelar" /></button>
+                                        <button type="button" class="btn btn-sm btn-primary" title="Guardar" disabled="@guardando" @onclick="GuardarProgramacion"><Ico Nombre="guardar" /></button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <button type="button" class="pi-prog-btn" title="Elegir cada cuánto (no cambia la versión de la matriz)" @onclick="() => EditarProgramacion(p)">
+                                        @(prg?.Cada is > 0 ? ServicioPartesInteresadas.TextoPeriodo(prg) : "—") <Ico Nombre="calendario" />
+                                    </button>
+                                }
+                            </td>
+                            <td>@if (s?.Ultimo is { } u) { <span class="pi-chip" style="--c:@ServicioPartesInteresadas.Color(u.Cumplimiento)" title="@ServicioPartesInteresadas.Nombre(u.Cumplimiento)">@u.Fecha.ToString("dd/MM/yyyy")</span> }</td>
+                            <td>@(s?.Proximo?.ToString("dd/MM/yyyy"))</td>
+                            <td>@if (s is not null) { <span class="pi-chip pi-est-@s.Estado">@ServicioPartesInteresadas.Nombre(s.Estado)</span> }</td>
+                            }
+                            <td class="pi-linea-celda">
+                                <div class="pi-linea">
+                                    <span class="pi-hoy" style="left:@F(PosLinea(DateTime.Today))%"></span>
+                                    @foreach (var g in SeguimientosDe(p.Clave).Where(x => x.Fecha >= ini && x.Fecha < FinLinea))
+                                    {
+                                        <span class="pi-hito" style="left:@F(PosLinea(g.Fecha))%;--c:@ServicioPartesInteresadas.Color(g.Cumplimiento)" title="@g.Fecha.ToString("dd/MM/yyyy") · @ServicioPartesInteresadas.Nombre(g.Cumplimiento) @g.Resultado"></span>
+                                    }
+                                    @if (s?.Proximo is DateTime px)
+                                    {
+                                        <span class="pi-proximo pi-est-@s.Estado" style="left:@F(PosLinea(px))%" title="Próximo: @px.ToString("dd/MM/yyyy")"></span>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    };
+
+    // ======================= FICHA (lateral) =======================
+    private RenderFragment Ficha(ParteInteresada p) => __builder =>
+    {
+        var c = ServicioPartesInteresadas.Cuadrante(p.Impacto, p.Influencia);
+        <aside class="pi-ficha pi-no-imprimir">
+            <div class="pi-ficha-cab" style="--c:@ServicioPartesInteresadas.Color(c)">
+                <div class="pi-ficha-tit"><span class="pi-ficha-num">@p.Orden</span> @p.Nombre</div>
+                <div class="pi-ficha-acc">
+                    <button type="button" class="pg-btn" title="Nuevo seguimiento" @onclick="() => NuevoSeguimiento(p)"><Ico Nombre="seguimiento" /></button>
+                    <button type="button" class="pg-btn" title="@TituloEliminarParte" disabled="@guardando" @onclick="() => EliminarParteDesde(p)"><Ico Nombre="eliminar" /></button>
+                    @if (EsBorrador)
+                    {
+                        <button type="button" class="pg-btn" title="Editar parte" @onclick="() => EditarParte(p)"><Ico Nombre="editar" /></button>
+                    }
+                    <button type="button" class="pg-btn" title="Cerrar" @onclick="() => Seleccionar(p.Clave)"><Ico Nombre="cancelar" /></button>
+                </div>
+            </div>
+            <div class="pi-ficha-cuerpo">
+                <div class="pi-kpis">
+                    <div class="pi-kpi"><b>@(ServicioPartesInteresadas.Num(p.Impacto) ?? "—")</b><span>IMP</span></div>
+                    <div class="pi-kpi"><b>@(ServicioPartesInteresadas.Num(p.Influencia) ?? "—")</b><span>INF</span></div>
+                    <div class="pi-kpi pi-kpi-ancho" style="--c:@ServicioPartesInteresadas.Color(c)" title="@ServicioPartesInteresadas.Descripcion(c)"><b>@ServicioPartesInteresadas.Nombre(c)</b><span>Cuadrante</span></div>
+                </div>
+                @DetalleParte(p)
+            </div>
+        </aside>
+    };
+
+    // Detalle de una parte: avisos, datos de la matriz, seguimientos (con planes) e historia en las versiones.
+    // Lo usan la ficha lateral (matriz, seguimiento) y la tarjeta desplegada del mapa.
+    private RenderFragment DetalleParte(ParteInteresada p) => __builder =>
+    {
+        var c = ServicioPartesInteresadas.Cuadrante(p.Impacto, p.Influencia);
+        situacion.TryGetValue(p.Clave, out var s);
+        var historia = HistoriaDe(p.Clave);
+        var prgI = programaciones.GetValueOrDefault(p.Clave);
+        if (prgI?.Inactiva == true) { <div class="pi-aviso pi-aviso-inactiva">Inactiva@(prgI.InactivaDesde is DateTime dI ? $" desde {dI:dd/MM/yyyy}" : ""): sin seguimiento.</div> }
+        if (!ServicioPartesInteresadas.ClasificacionCoincide(p.Clasificacion, c))
+        {
+            <div class="pi-aviso">La clasificación escrita («@p.Clasificacion») no coincide con el cuadrante de IMP × INF.</div>
+        }
+        if (!string.IsNullOrWhiteSpace(p.Supuesto)) { <div class="pi-aviso pi-aviso-sup">@p.Supuesto</div> }
+
+        <dl class="pi-datos">
+            @Dato("Procesos que intervienen", p.Procesos)
+            @Dato("Necesidades", p.Necesidades)
+            @Dato("Expectativas", p.Expectativas)
+            @Dato("Cómo afecta al SGC", p.AfectaSgc)
+            @Dato("Clasificación", p.Clasificacion)
+            @Dato("Estrategias", p.Estrategias)
+            @Dato("Medición", p.Medicion)
+            @Dato("Meta", p.Meta)
+            @Dato("Periodicidad (matriz)", p.Periodicidad)
+            @Dato("Observaciones", p.Observaciones)
+        </dl>
+
+        <div class="pi-sec-tit"><Ico Nombre="calendario" /> Seguimiento
+            <span class="ms-auto">
+                @if (s is not null) { <span class="pi-chip pi-est-@s.Estado">@ServicioPartesInteresadas.Nombre(s.Estado)@(s.Proximo is DateTime px ? $" · {px:dd/MM/yyyy}" : "")</span> }
+            </span>
+        </div>
+        <div class="pi-prog-linea small">
+            @(s?.Programacion?.Cada is > 0 ? ServicioPartesInteresadas.TextoPeriodo(s.Programacion) : "Sin programar")
+            @if (!string.IsNullOrWhiteSpace(s?.Programacion?.Responsable)) { <span> · @s.Programacion.Responsable</span> }
+            <button type="button" class="btn btn-link btn-sm p-0 ms-1" title="Elegir cada cuánto" @onclick='() => { EditarProgramacion(p); vista = "seguimiento"; }'><Ico Nombre="editar" /></button>
+        </div>
+        var segs = SeguimientosDe(p.Clave).ToList();
+        if (segs.Count == 0) { <div class="pi-texto-2 small">Sin seguimientos.</div> }
+        <ul class="pi-segs">
+            @foreach (var g in segs)
+            {
+                <li style="--c:@ServicioPartesInteresadas.Color(g.Cumplimiento)">
+                    <div class="pi-seg-cab">
+                        <b>@g.Fecha.ToString("dd/MM/yyyy")</b>
+                        <span class="pi-chip" style="--c:@ServicioPartesInteresadas.Color(g.Cumplimiento)">@ServicioPartesInteresadas.Nombre(g.Cumplimiento)</span>
+                        @if (!string.IsNullOrWhiteSpace(g.Resultado)) { <span class="pi-seg-res">@g.Resultado</span> }
+                        <span class="ms-auto pi-seg-acc">
+                            <button type="button" class="btn btn-link btn-sm p-0" title="Plan de acción desde este seguimiento" @onclick="() => NuevoPlan(g)"><Ico Nombre="plan-accion" /></button>
+                            <button type="button" class="btn btn-link btn-sm p-0" title="Editar seguimiento" @onclick="() => EditarSeguimiento(g)"><Ico Nombre="editar" /></button>
+                            <button type="button" class="btn btn-link btn-sm p-0" title="Eliminar seguimiento" @onclick='() => PedirEliminar("seguimiento", g.Id, $"Seguimiento del {g.Fecha:dd/MM/yyyy}")'><Ico Nombre="eliminar" /></button>
+                        </span>
+                    </div>
+                    <div class="small pi-texto-2">
+                        @string.Join(" · ", new[] { g.Responsable, g.Impacto is null && g.Influencia is null ? null : $"IMP {ServicioPartesInteresadas.Num(g.Impacto)} · INF {ServicioPartesInteresadas.Num(g.Influencia)}" }.Where(x => !string.IsNullOrWhiteSpace(x)))
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(g.DescripcionHallazgo)) { <div class="small pi-pre"><b>Hallazgo:</b> @g.DescripcionHallazgo</div> }
+                    @if (!string.IsNullOrWhiteSpace(g.Observacion)) { <div class="small pi-pre">@g.Observacion</div> }
+                    @if (planesPorSeguimiento.TryGetValue(g.Id, out var pls))
+                    {
+                        <div class="pi-planes">
+                            @foreach (var pl in pls)
+                            {
+                                <button type="button" class="pi-plan" style="--c:@EscalaAccion.Color(pl.Estado)" title="@EscalaAccion.Nombre(pl.Estado)" @onclick="() => IrPlan(pl.Id)"><Ico Nombre="plan-accion" /> @pl.Codigo · @EscalaAccion.Nombre(pl.Estado)</button>
+                            }
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+
+        if (historia.Count > 0)
+        {
+            <div class="pi-sec-tit"><Ico Nombre="versiones" /> Historia en la matriz</div>
+            <ul class="pi-historia">
+                @foreach (var (v, cs) in historia)
+                {
+                    <li>
+                        <b>v@(v.Numero)</b> <span class="pi-texto-2 small">@v.Estado · @RangoVigencia(v)</span>
+                        @foreach (var x in cs.Take(8))
+                        {
+                            <div class="small">@x.Campo@(x.Tipo == TipoCambioParte.Campo ? $": {Corto(x.Antes)} → {Corto(x.Despues)}" : "")</div>
+                        }
+                        @if (cs.Count > 8) { <div class="small pi-texto-2">+@(cs.Count - 8) cambio(s)</div> }
+                    </li>
+                }
+            </ul>
+        }
+    };
+
+    private static string Corto(string? s) => string.IsNullOrWhiteSpace(s) ? "∅" : s.Length > 60 ? s[..57].ReplaceLineEndings(" ") + "…" : s.ReplaceLineEndings(" ");
+
+    private RenderFragment Dato(string etq, string? valor) => __builder =>
+    {
+        if (!string.IsNullOrWhiteSpace(valor))
+        {
+            <dt>@etq</dt>
+            <dd class="pi-pre">@valor</dd>
+        }
+    };
+
+    // ======================= VERSIONES =======================
+    private RenderFragment VistaVersiones() => __builder =>
+    {
+        <div class="pi-versiones-vista">
+            <ol class="pi-linea-ver">
+                @foreach (var v in versiones)
+                {
+                    var n = partesPorVersion.GetValueOrDefault(v.Id)?.Count ?? 0;
+                    <li class="pi-hito-ver pi-ver-@v.Estado.ToLowerInvariant() @(v.Id == ver?.Id ? "activo" : "")" @onclick="() => VerVersion(v.Id)">
+                        <div class="pi-hito-cab"><b>@ServicioPartesInteresadas.Etiqueta(v)</b> <span class="pi-estado-ver">@v.Estado</span></div>
+                        <div class="small">@RangoVigencia(v) · @n parte(s)</div>
+                        @if (!string.IsNullOrWhiteSpace(v.MotivoCambio)) { <div class="small">@v.MotivoCambio</div> }
+                        <div class="small pi-texto-2">@string.Join(" · ", new[] { v.Elaboro is null ? null : $"Elaboró {v.Elaboro}", v.Reviso is null ? null : $"Revisó {v.Reviso}", v.Aprobo is null ? null : $"Aprobó {v.Aprobo}", v.Origen }.Where(x => !string.IsNullOrWhiteSpace(x)))</div>
+                    </li>
+                }
+            </ol>
+            <div class="pi-comparar">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                    <Ico Nombre="comparar" />
+                    <select class="form-select form-select-sm pi-sel-ver" title="Versión anterior" data-sin-flotante @bind="compA" @bind:after="Comparar">
+                        <option value="">—</option>
+                        @foreach (var v in versiones) { <option value="@v.Id">v@(v.Numero) · @v.Estado</option> }
+                    </select>
+                    <span>→</span>
+                    <select class="form-select form-select-sm pi-sel-ver" title="Versión nueva" data-sin-flotante @bind="compB" @bind:after="Comparar">
+                        <option value="">—</option>
+                        @foreach (var v in versiones) { <option value="@v.Id">v@(v.Numero) · @v.Estado</option> }
+                    </select>
+                    <span class="pi-texto-2 small">@cambios.Count cambio(s)</span>
+                </div>
+                @TablaCambios(cambios)
+            </div>
+        </div>
+    };
+
+    private RenderFragment TablaCambios(List<CambioParte> cs) => __builder =>
+    {
+        if (cs.Count == 0)
+        {
+            <div class="pi-texto-2 small">Sin cambios.</div>
+        }
+        else
+        {
+        <div class="tabla-scroll pi-cambios">
+            <table class="table table-sm table-bordered align-middle mb-0 tabla-compacta tabla-pin">
+                <thead><tr><th>Parte interesada</th><th>Cambio</th><th>Antes</th><th>Después</th></tr></thead>
+                <tbody>
+                    @foreach (var x in cs)
+                    {
+                        <tr class="pi-cambio-@x.Tipo.ToString().ToLowerInvariant()">
+                            <td class="fw-semibold">@x.Parte</td><td>@x.Campo</td><td class="pi-celda pi-antes">@x.Antes</td><td class="pi-celda">@x.Despues</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        }
+    };
+}

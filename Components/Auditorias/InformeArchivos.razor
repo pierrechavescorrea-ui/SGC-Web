@@ -1,0 +1,41 @@
+@* Fotos (en rejilla, con su número y descripción) y anexos (lista con descripción) dentro del informe. *@
+@using SigWeb.Models
+
+@{
+    var fotos = Archivos.Where(x => SigWeb.Data.Planes.AlmacenAnexos.EsImagen(x.RutaArchivo)).ToList();
+    var otros = Archivos.Where(x => !SigWeb.Data.Planes.AlmacenAnexos.EsImagen(x.RutaArchivo)).ToList();
+}
+@if (fotos.Count > 0)
+{
+    <div class="inf-fotos">
+        @for (var i = 0; i < fotos.Count; i++)
+        {
+            var f = fotos[i];
+            <figure class="inf-foto">
+                <a href="@f.RutaArchivo" target="_blank" rel="noopener"><img src="@f.RutaArchivo" alt="@(f.Descripcion ?? f.NombreOriginal)" /></a>
+                <figcaption><b>@(fotos.Count > 1 ? $"{Prefijo} · foto {i + 1}." : $"{Prefijo} · foto.")</b> @(string.IsNullOrWhiteSpace(f.Descripcion) ? f.NombreOriginal : f.Descripcion)</figcaption>
+            </figure>
+        }
+    </div>
+}
+@if (otros.Count > 0)
+{
+    <table class="inf-tabla inf-anexos">
+        <thead><tr><th>Anexo</th><th>Descripción</th><th>Fecha</th></tr></thead>
+        <tbody>
+            @foreach (var x in otros)
+            {
+                <tr>
+                    <td><a href="@x.RutaArchivo" target="_blank" rel="noopener">@x.NombreOriginal</a></td>
+                    <td class="inf-multi">@x.Descripcion</td>
+                    <td class="text-nowrap">@x.FechaRegistro.ToString("dd/MM/yyyy")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<IAdjuntoDescrito> Archivos { get; set; } = new();
+    [Parameter] public string Prefijo { get; set; } = "";
+}

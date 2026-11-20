@@ -1,0 +1,265 @@
+@namespace SigWeb.Components.CargasTrazado
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Trazado
+@using SigWeb.Models
+@inject IServiceScopeFactory Scopes
+@inject NavigationManager Nav
+
+@* Control de cambios del trazado (como Riesgos › Revisiones): tabla de revisiones de la tabla de torres, KMZ y coordenadas
+   (estado, control de cambios, conteos, Excel, deshacer la vigente de cada origen) y "Comparar A → B" con fichas por tipo
+   de cambio y la tabla de diferencias por torre (ServicioRevisionesTabla.CompararAsync). *@
+
+<div class="rv-panel">
+    <div class="rv-cab">
+        <h5 class="mb-0">Control de cambios del trazado</h5>
+        <div class="d-flex gap-2 align-items-center">
+            <select class="form-select form-select-sm" data-sin-flotante title="Origen" @bind="filtroOrigen" @bind:after="AjustarComparacion">
+                <option value="">Todos los orígenes</option>
+                <option value="@RevisionTablaTorres.OrigenTabla">Tabla de torres</option>
+                <option value="@RevisionTablaTorres.OrigenKmz">KMZ</option>
+                <option value="@RevisionTablaTorres.OrigenCoordenadas">Coordenadas</option>
+            </select>
+            <button type="button" class="btn-close" aria-label="Cerrar" title="Cerrar" @onclick="OnCerrar"></button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(mensaje)) { <div class="alert @(error ? "alert-danger" : "alert-success") py-1 small">@mensaje</div> }
+
+    <div class="tabla-scroll"><table class="table table-sm table-bordered tabla-compacta align-middle mb-0">
+        <thead>
+            <tr>
+                <th style="width:120px;">Revisión</th>
+                <th style="width:120px;">Origen</th>
+                <th style="width:95px;">Fecha</th>
+                <th style="width:100px;">Estado</th>
+                <th>Control de cambios</th>
+                <th style="width:70px;" class="text-center">Torres</th>
+                <th style="width:75px;" class="text-center">Cambios</th>
+                <th style="width:110px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Visibles)
+            {
+                var rev = r;
+                <tr class="@(compB == rev.Id ? "table-active" : "")">
+                    <td class="fw-bold" title="@rev.NombreArchivo">@rev.Codigo</td>
+                    <td class="small">@rev.Origen</td>
+                    <td>@((rev.Fecha ?? rev.FechaCarga).ToString("dd/MM/yyyy"))</td>
+                    <td><span class="rg-pill" style="background:@ColorEstado(rev.Estado);color:#fff">@rev.Estado</span></td>
+                    <td class="rg-multi small">@(rev.Estado == EstadoRevisionTabla.Deshecha ? $"Deshecha: {rev.MotivoDeshacer}" : rev.Descripcion)</td>
+                    <td class="text-center">@rev.Torres</td>
+                    <td class="text-center">@rev.Cambios</td>
+                    <td class="text-center text-nowrap">
+                        <button type="button" class="ens-mini" title="Ver sus cambios (contra la revisión anterior)" @onclick="() => VerRevision(rev)"><Ico Nombre="listado" /></button>
+                        @if (!string.IsNullOrEmpty(rev.RutaArchivo))
+                        {
+                            <a class="ens-mini" href="@rev.RutaArchivo" download="@rev.NombreArchivo" title="Descargar el archivo de esta revisión"><Ico Nombre="excel" /></a>
+                        }
+                        @if (rev.Estado == EstadoRevisionTabla.Vigente && rev.Origen == RevisionTablaTorres.OrigenTabla && !string.IsNullOrEmpty(rev.RutaArchivo))
+                        {
+                            <button type="button" class="ens-mini" title="Corregir columnas: deshace esta revisión y vuelve a la pantalla de columnas con el mismo archivo" @onclick="() => { corregirId = rev.Id; deshacerId = null; }"><Ico Nombre="editar" /></button>
+                        }
+                        @if (rev.Estado == EstadoRevisionTabla.Vigente)
+                        {
+                            <button type="button" class="ens-mini" title="Deshacer esta revisión (devuelve los valores anteriores)" @onclick="() => { deshacerId = rev.Id; corregirId = null; motivo = string.Empty; }"><Ico Nombre="restaurar" /></button>
+                        }
+                    </td>
+                </tr>
+                @if (corregirId == rev.Id)
+                {
+                    <tr><td colspan="8">
+                        <div class="rv-deshacer">
+                            <div class="small mb-1">Se deshará <strong>@rev.Codigo</strong> (vuelven los valores anteriores) y se abrirá la pantalla de columnas con el mismo archivo y la misma configuración. Corriges y confirmas de nuevo.</div>
+                            <div class="frm-pie frm-pie-plano">
+                                <button class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => corregirId = null"><Ico Nombre="cancelar" /></button>
+                                <button class="btn btn-primary btn-sm" title="Corregir columnas" disabled="@ocupado" @onclick="() => CorregirColumnas(rev)"><Ico Nombre="editar" /></button>
+                            </div>
+                        </div>
+                    </td></tr>
+                }
+                @if (deshacerId == rev.Id)
+                {
+                    <tr><td colspan="8">
+                        <div class="rv-deshacer">
+                            <div class="small mb-1">Se devolverán los valores anteriores de @rev.Torres torre(s) @(rev.Origen == RevisionTablaTorres.OrigenTabla ? "" : "(ubicación, nombre y código; las torres nuevas van a la Papelera)"). Lo cambiado después no se toca.</div>
+                            <input class="form-control form-control-sm mb-1" data-sin-flotante placeholder="Motivo (obligatorio)" @bind="motivo" @bind:event="oninput" />
+                            <div class="frm-pie frm-pie-plano">
+                                <button class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => deshacerId = null"><Ico Nombre="cancelar" /></button>
+                                <button class="btn btn-danger btn-sm" title="Deshacer revisión" disabled="@(string.IsNullOrWhiteSpace(motivo) || ocupado)" @onclick="() => Deshacer(rev)"><Ico Nombre="restaurar" /></button>
+                            </div>
+                        </div>
+                    </td></tr>
+                }
+            }
+            @if (!Visibles.Any())
+            {
+                <tr><td colspan="8" class="text-muted small text-center py-2"><em>Sin revisiones. Cada carga de tabla de torres, KMZ o coordenadas queda aquí.</em></td></tr>
+            }
+        </tbody>
+    </table></div>
+
+    @if (Activas.Count > 0)
+    {
+        <div class="cmpv mt-3">
+            <div class="cmpv-sel">
+                <Ico Nombre="comparar" />
+                <select class="form-select form-select-sm" title="Revisión anterior" data-sin-flotante @bind="compA" @bind:after="Comparar">
+                    <option value="0">(Inicio)</option>
+                    @foreach (var r in Activas) { <option value="@r.Id">@r.Codigo · @r.Origen</option> }
+                </select>
+                <span>→</span>
+                <select class="form-select form-select-sm" title="Revisión posterior" data-sin-flotante @bind="compB" @bind:after="Comparar">
+                    @foreach (var r in Activas) { <option value="@r.Id">@r.Codigo · @r.Origen</option> }
+                </select>
+                @foreach (var g in diferencias.GroupBy(d => d.Tipo).OrderBy(g => g.Key))
+                {
+                    var t = g.Key;
+                    <button type="button" class="cmpv-chip cmpv-@Clase(t) @(filtroTipo == t ? "activo" : "")" @onclick="() => filtroTipo = filtroTipo == t ? null : t">
+                        @ServicioRevisionesTabla.NombreTipo(t) <b>@g.Count()</b>
+                    </button>
+                }
+                <input class="form-control form-control-sm rv-buscar" data-sin-flotante placeholder="Buscar torre o campo…" @bind="filtro" @bind:event="oninput" />
+            </div>
+            <div class="tabla-scroll"><table class="table table-sm table-bordered tabla-compacta align-middle mb-0">
+                <thead>
+                    <tr><th style="width:90px;">Torre</th><th style="width:90px;">Dónde</th><th>Campo</th><th>Antes</th><th>Ahora</th><th style="width:130px;">Revisión</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in DiferenciasFiltradas)
+                    {
+                        <tr>
+                            <td class="fw-bold">@d.Torre</td>
+                            <td class="small">@d.Ambito</td>
+                            <td class="small">@d.Clave@if (!string.IsNullOrWhiteSpace(d.Observacion)) { <div class="text-muted fst-italic">@d.Observacion</div> }</td>
+                            <td class="small rv-antes">@d.Antes</td>
+                            <td class="small rv-ahora">@d.Ahora</td>
+                            <td class="small text-muted">@d.Revisiones</td>
+                        </tr>
+                    }
+                    @if (!DiferenciasFiltradas.Any())
+                    {
+                        <tr><td colspan="6" class="text-muted small text-center py-2"><em>Sin diferencias@(string.IsNullOrWhiteSpace(filtro) && filtroTipo is null ? "" : " con ese filtro").</em></td></tr>
+                    }
+                </tbody>
+            </table></div>
+        </div>
+    }
+</div>
+
+<style>
+    .rv-panel { border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 12px; background: var(--bs-body-bg, #fff); padding: 12px 14px; margin-bottom: 12px; }
+    .rv-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    .rv-cab select { width: auto; }
+    .rv-deshacer { border: 1px solid var(--bs-danger-border-subtle, #f1aeb5); border-radius: 8px; padding: 8px; }
+    .rv-antes { text-decoration: line-through; color: var(--bs-danger, #dc3545); overflow-wrap: anywhere; }
+    .rv-ahora { color: var(--bs-success, #198754); font-weight: 600; overflow-wrap: anywhere; }
+    .rv-buscar { max-width: 240px; margin-left: auto; }
+</style>
+
+@code {
+    [Parameter] public EventCallback OnCerrar { get; set; }
+    // Tras deshacer: la página debe recargarse.
+    [Parameter] public EventCallback OnCambio { get; set; }
+
+    private List<RevisionTablaTorres> revisiones = new();
+    private List<ServicioRevisionesTabla.Diferencia> diferencias = new();
+    private string filtroOrigen = "", filtro = "", motivo = "";
+    private int compA, compB;
+    private int? deshacerId, corregirId;
+    private TipoCambioTabla? filtroTipo;
+    private string? mensaje;
+    private bool error, ocupado;
+
+    private IEnumerable<RevisionTablaTorres> Visibles => revisiones.Where(r => filtroOrigen == "" || r.Origen == filtroOrigen);
+    // Para comparar: no deshechas, de la más antigua a la más reciente.
+    private List<RevisionTablaTorres> Activas => Visibles.Where(r => r.Estado != EstadoRevisionTabla.Deshecha).OrderBy(r => r.FechaCarga).ThenBy(r => r.Id).ToList();
+
+    private IEnumerable<ServicioRevisionesTabla.Diferencia> DiferenciasFiltradas => diferencias
+        .Where(d => filtroTipo is null || d.Tipo == filtroTipo)
+        .Where(d => string.IsNullOrWhiteSpace(filtro) || $"{d.Torre} {d.Ambito} {d.Clave} {d.Antes} {d.Ahora} {d.Observacion}".Contains(filtro.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await Cargar();
+
+    private async Task Cargar()
+    {
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            revisiones = await ServicioRevisionesTabla.RevisionesAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+        }
+        catch (Exception ex) { mensaje = "El control de cambios aún no está disponible (¿falta aplicar la migración?). " + ex.Message; error = true; }
+        await AjustarComparacion();
+    }
+
+    // Por defecto: la revisión anterior → la más reciente.
+    private async Task AjustarComparacion()
+    {
+        var act = Activas;
+        compB = act.Count > 0 ? act[^1].Id : 0;
+        compA = act.Count > 1 ? act[^2].Id : 0;
+        await Comparar();
+    }
+
+    private async Task VerRevision(RevisionTablaTorres r)
+    {
+        var act = Activas;
+        var i = act.FindIndex(x => x.Id == r.Id);
+        if (i < 0) { mensaje = "Esa revisión está deshecha: no tiene cambios vigentes para comparar."; error = false; return; }
+        compB = r.Id; compA = i > 0 ? act[i - 1].Id : 0;
+        await Comparar();
+    }
+
+    private async Task Comparar()
+    {
+        filtroTipo = null;
+        if (compB == 0) { diferencias = new(); return; }
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            diferencias = await ServicioRevisionesTabla.CompararAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), compA == 0 ? null : compA, compB);
+        }
+        catch (Exception ex) { diferencias = new(); mensaje = ex.Message; error = true; }
+    }
+
+    private async Task Deshacer(RevisionTablaTorres rev)
+    {
+        ocupado = true; mensaje = null;
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            var res = await ServicioRevisionesTabla.DeshacerAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), rev.Id, motivo);
+            mensaje = $"Revisión {rev.Codigo} deshecha: {res.Devueltos} valor(es) devuelto(s), {res.Retirados} dato(s) nuevo(s) retirado(s)."
+                + (res.NoTocados.Count > 0 ? $" No se tocaron {res.NoTocados.Count} porque cambiaron después: {string.Join("; ", res.NoTocados.Take(5))}{(res.NoTocados.Count > 5 ? "…" : "")}" : "");
+            error = false; deshacerId = null; motivo = "";
+            await Cargar();
+            await OnCambio.InvokeAsync();
+        }
+        catch (Exception ex) { mensaje = ex.Message; error = true; }
+        finally { ocupado = false; }
+    }
+
+    // Deshace la revisión y reabre la carga con su archivo y su configuración de columnas (ConfigCargaTabla).
+    private async Task CorregirColumnas(RevisionTablaTorres rev)
+    {
+        ocupado = true; mensaje = null;
+        try
+        {
+            using (var scope = Scopes.CreateScope())
+                await ServicioRevisionesTabla.DeshacerAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), rev.Id, "Corrección de columnas");
+            Nav.NavigateTo($"/trazado/datos-adicionales?revision={rev.Id}");
+        }
+        catch (Exception ex) { mensaje = ex.Message; error = true; ocupado = false; }
+    }
+
+    private static string ColorEstado(EstadoRevisionTabla e) => e switch
+    {
+        EstadoRevisionTabla.Vigente => "#198754", EstadoRevisionTabla.Anterior => "#6c757d", _ => "#dc3545"
+    };
+
+    private static string Clase(TipoCambioTabla t) => t switch
+    {
+        TipoCambioTabla.Nuevo => "nuevo", TipoCambioTabla.Cambiado => "modificado", _ => "ubicacion"
+    };
+}

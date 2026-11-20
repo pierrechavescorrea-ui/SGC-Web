@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es-CO">
+@* Dos cascarones: el de la app (menú, Blazor interactivo, librerías) y uno liviano para las páginas de cuenta
+   (ingresar, invitación, restablecer, privacidad): sin circuito de Blazor ni librerías de terceros. *@
+@if (EsCuenta)
+{
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <base href="/" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="@Assets["css/cuenta.css"]" />
+    <script src="@Assets["js/temaInicial.js"]" data-cuenta></script>
+    <script src="@Assets["js/acciones.js"]" defer></script>
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+<body class="cu-body">
+    <Routes />
+</body>
+}
+else
+{
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["SigWeb.styles.css"]" />
+    <link rel="stylesheet" href="@Assets["css/temas.css"]" />
+    <link rel="stylesheet" href="@Assets["css/formularios.css"]" />
+    <link rel="stylesheet" href="@Assets["css/disenador.css"]" />
+    <link rel="stylesheet" href="@Assets["css/vistas.css"]" />
+    <link rel="stylesheet" href="@Assets["css/inicio.css"]" />
+    <link rel="stylesheet" href="@Assets["css/avance-obra.css"]" />
+    <link rel="stylesheet" href="@Assets["css/modelos3d.css"]" />
+    <link rel="stylesheet" href="@Assets["css/costos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/costos-no-calidad.css"]" />
+    <link rel="stylesheet" href="@Assets["css/menu-icono.css"]" />
+    <link rel="stylesheet" href="@Assets["css/tablero-proyectos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/ensayos-resumen.css"]" />
+    <link rel="stylesheet" href="@Assets["css/listados.css"]" />
+    <link rel="stylesheet" href="@Assets["css/certificaciones.css"]" />
+    <link rel="stylesheet" href="@Assets["css/direccionamiento.css"]" />
+    <link rel="stylesheet" href="@Assets["css/versiones.css"]" />
+    <link rel="stylesheet" href="@Assets["css/resultados.css"]" />
+    <link rel="stylesheet" href="@Assets["css/organigrama.css"]" />
+    <link rel="stylesheet" href="@Assets["css/partes-interesadas.css"]" />
+    <link rel="stylesheet" href="@Assets["css/auditorias.css"]" />
+    <link rel="stylesheet" href="@Assets["css/tiros.css"]" />
+    <link rel="stylesheet" href="@Assets["css/avisos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/carga.css"]" />
+    <link rel="stylesheet" href="@Assets["css/iconos-temas.css"]" />
+    <link rel="stylesheet" href="@Assets["css/admin.css"]" />
+    <link rel="stylesheet" href="@Assets["css/estadistica.css"]" />
+    <link rel="stylesheet" href="@Assets["css/analisis-causa.css"]" />
+    <link rel="stylesheet" href="@Assets["css/asistente.css"]" />
+    <link rel="stylesheet" href="@Assets["css/galeria-iconos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/vinculos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/creador-modulos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/disenador-modulos.css"]" />
+    <link rel="stylesheet" href="@Assets["css/herramientas-app.css"]" />
+    @* Aplica el tema guardado y el menú contraído antes de pintar (evita el parpadeo). Sin scripts en línea:
+       la política de seguridad (CSP) no permite 'unsafe-inline' en script-src. *@
+    @* Preferencias del usuario (tema, menú, columnas, vistas…): js/preferencias.js las pone en localStorage antes que
+       temaInicial.js y envía los cambios al servidor. Sin bloque (sin tabla o error) = se queda lo del navegador. *@
+    @if (prefs is not null)
+    {
+        <meta name="sig-preferencias" content="@prefs" />
+        <script src="@Assets["js/preferencias.js"]"></script>
+    }
+    <script src="@Assets["js/temaInicial.js"]"></script>
+    @* Leaflet, Chart.js, pdf.js, Univer, three y Cesium van en wwwroot/lib y se cargan solo en la pantalla que los usa
+       (js/librerias.js, import() de los módulos 3D, hojaExcel.js, vitrina.js). *@
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <div id="sig-progreso" class="sig-progreso" data-permanent aria-hidden="true"><span></span></div>
+    <div id="sig-aviso-estado" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true" data-permanent></div>
+    <div id="sig-aviso-error" class="visually-hidden" role="alert" aria-atomic="true" data-permanent></div>
+    <CargaInicial @rendermode="InteractiveServer" />
+    <Routes />
+    <ReconnectModal />
+    @* Antes de Blazor: envuelve el historial para saber a qué pantalla vuelve «Atrás» (js/volver.js). *@
+    <script src="js/volver.js"></script>
+    <script src="@Assets["js/fotoPerfil.js"]" defer></script>
+    <script src="@Assets["js/carga.js"]"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["js/conectarBlazor.js"]"></script>
+    <script src="@Assets["js/acciones.js"]"></script>
+    <script src="@Assets["js/librerias.js"]"></script>
+    <script src="js/temas.js"></script>
+    <script src="js/menu.js"></script>
+    <script src="js/navegacion.js"></script>
+    <script src="js/camposFlotantes.js"></script>
+    <script src="js/formularios.js"></script>
+    <script src="js/analisisCausa.js"></script>
+    <script src="js/avisos.js"></script>
+    <script src="@Assets["js/modales.js"]"></script>
+    <script src="js/inicio.js"></script>
+    <script src="js/disenoFormulario.js"></script>
+    <script src="js/disenadorModulos.js"></script>
+    <script src="js/estadoTorres.js"></script>
+    <script src="js/tirosTablero.js"></script>
+    <script src="js/downloadFile.js"></script>
+    <script src="js/vitrina.js"></script>
+    <script src="js/organigrama.js"></script>
+    <script src="js/partesInteresadas.js"></script>
+    <script src="js/exportarTabla.js"></script>
+    <script src="js/mapaTrazado.js"></script>
+    <script src="js/tablaFijar.js"></script>
+    <script src="js/tablaPin.js"></script>
+    <script src="js/tablaAlto.js"></script>
+    <script src="js/arrastre.js"></script>
+    <script src="js/formulaCampoEnsayo.js"></script>
+    @* hojaExcel.js es liviano: solo carga lib/univer/univer.bundle.min.js
+       (el motor de hoja de cálculo real, con fórmulas — varios MB) la
+       primera vez que el usuario abre la Vista Excel en Ensayos, no en
+       cada carga de página. *@
+    <script src="js/hojaExcel.js"></script>
+    <script src="js/graficoEnsayos.js"></script>
+    <script src="@Assets["js/estadistica.js"]"></script>
+    <script src="@Assets["js/cambioProyecto.js"]"></script>
+    <script src="@Assets["js/asistente.js"]"></script>
+</body>
+
+}
+</html>
+
+@code {
+    [CascadingParameter] public HttpContext? HttpContext { get; set; }
+    // Lo prepara EndpointsPreferencias.UsePreferenciasUsuario (middleware, tras la sesión).
+    private string? prefs => EsCuenta ? null : HttpContext?.Items[SigWeb.Data.Seguridad.EndpointsPreferencias.ClaveItem] as string;
+
+    private bool EsCuenta
+    {
+        get
+        {
+            var p = HttpContext?.Request.Path ?? default;
+            return p.StartsWithSegments("/cuenta") || p.StartsWithSegments("/privacidad")
+                || HttpContext?.User.Identity?.IsAuthenticated != true;
+        }
+    }
+}

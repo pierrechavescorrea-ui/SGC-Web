@@ -1,0 +1,323 @@
+
+@using SigWeb.Data.CreadorModulos
+
+<div class="ha-herramienta" style="height:@(Altura)px" aria-label="@Campo.Etiqueta" aria-busy="@cargando.ToString().ToLowerInvariant()">
+    @if (cargando)
+    {
+        <Esqueleto Tipo="texto" Filas="2" />
+    }
+    else if (filas.Count == 0)
+    {
+        <div class="ha-vacio">@MensajeVacio</div>
+    }
+    else
+    {
+        @switch (Campo.Tipo)
+        {
+            case TipoCampoModulo.Tabla:
+                <div class="ha-scroll">
+                    <table class="ha-tabla">
+                        <thead><tr>
+                            <th scope="col">Registro</th>
+                            @foreach (var columna in columnas)
+                            {
+                                <th scope="col">@columna.Nombre</th>
+                            }
+                        </tr></thead>
+                        <tbody>
+                            @foreach (var fila in filas.Take(limite))
+                            {
+                                <tr @key="fila.Id">
+                                    <th scope="row">
+                                        @if (UrlFila(fila) is { } url)
+                                        {
+                                            <a href="@url">@fila.Etiqueta</a>
+                                        }
+                                        else
+                                        {
+                                            @fila.Etiqueta
+                                        }
+                                    </th>
+                                    @foreach (var columna in columnas)
+                                    {
+                                        <td>@Texto(fila, columna.Clave)</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (filas.Count > limite)
+                {
+                    <div class="ha-acciones">
+                        <span>@limite de @filas.Count</span>
+                        <button type="button" class="ha-accion" title="＋ 500 filas" aria-label="Mostrar 500 filas más"
+                                @onclick="() => limite = Math.Min(limite + 500, filas.Count)"><Ico Nombre="agregar" /></button>
+                        <button type="button" class="ha-accion" title="Todas las filas" aria-label="Mostrar todas las filas"
+                                @onclick="() => limite = filas.Count"><Ico Nombre="seleccionar-todo" /></button>
+                    </div>
+                }
+                break;
+
+            case TipoCampoModulo.Kpi:
+                if (indicador.Valor is double valor)
+                {
+                    <div class="ha-kpi">
+                        <strong>@Cifra(valor) <small>@Unidad</small></strong>
+                        <span>@indicador.Detalle</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="ha-vacio">No hay valores para calcular.</div>
+                }
+                break;
+
+            case TipoCampoModulo.Estadistica:
+                if (estadistica is { N: > 0 } e)
+                {
+                    <dl class="ha-estadistica ha-scroll">
+                        <div><dt>n</dt><dd>@e.N</dd></div>
+                        <div><dt>Media</dt><dd>@Medida(e.Media)</dd></div>
+                        <div><dt>Desv. estándar</dt><dd>@(e.N > 1 ? Medida(e.Desviacion) : "—")</dd></div>
+                        <div><dt>Mínimo</dt><dd>@Medida(e.Min)</dd></div>
+                        <div><dt>Máximo</dt><dd>@Medida(e.Max)</dd></div>
+                        <div><dt>Mediana</dt><dd>@Medida(e.Mediana)</dd></div>
+                    </dl>
+                }
+                else
+                {
+                    <div class="ha-vacio">No hay valores numéricos.</div>
+                }
+                break;
+
+            case TipoCampoModulo.Grafico:
+                @Grafico()
+                break;
+
+            case TipoCampoModulo.Mapa:
+                if (errorMapa)
+                {
+                    <div class="ha-vacio">El mapa no está disponible.</div>
+                }
+                else if (puntos.Length == 0)
+                {
+                    <div class="ha-vacio">@(string.IsNullOrWhiteSpace(Campo.ColumnaLat) || string.IsNullOrWhiteSpace(Campo.ColumnaLon)
+                        ? "Elija las columnas de latitud y longitud." : "No hay coordenadas válidas.")</div>
+                }
+                else
+                {
+                    <div @key="claveMapa" @ref="mapa" class="ha-mapa" aria-label="Mapa de registros"></div>
+                }
+                break;
+
+            case TipoCampoModulo.Pdf:
+                if (adjuntos.Count == 0)
+                {
+                    <div class="ha-vacio">@(VistaPrevia ? "Visor PDF" : "No hay PDF vigentes disponibles.")</div>
+                }
+                else
+                {
+                    var pdf = adjuntos[pdfSeleccionado];
+                    <div class="ha-acciones">
+                        @if (adjuntos.Count > 1)
+                        {
+                            <select aria-label="PDF vigente" title="PDF vigente" @bind="pdfSeleccionado">
+                                @for (var i = 0; i < adjuntos.Count; i++)
+                                {
+                                    <option value="@i">@adjuntos[i].Nombre</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <span>@pdf.Nombre</span>
+                        }
+                        <a class="ha-accion" href="@pdf.Url" target="_blank" rel="noopener" title="Abrir PDF en otra pestaña"
+                           aria-label="Abrir PDF en otra pestaña"><Ico Nombre="enlace" /></a>
+                    </div>
+                    <iframe @key="pdf.Url" class="ha-pdf" src="@pdf.Url" title="@pdf.Nombre" loading="lazy"></iframe>
+                }
+                break;
+
+            case TipoCampoModulo.Modelo3D:
+                if (Campo.Fuente == "torres" || VistaPrevia)
+                {
+                    var torre = filas[0];
+                    <div class="ha-modelo">
+                        <Ico Nombre="torre" />
+                        <strong>@torre.Etiqueta</strong>
+                        @if (!VistaPrevia)
+                        {
+                            <a class="ha-accion" href="@($"avance-obra?vista=torre&torre={torre.Id}")"
+                               title="Abrir en Avance de obra" aria-label="Abrir en Avance de obra"><Ico Nombre="enlace" /></a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="ha-vacio">Elija Torres como fuente del modelo.</div>
+                }
+                break;
+
+            case TipoCampoModulo.Carpetas:
+                if (adjuntos.Count == 0)
+                {
+                    <div class="ha-vacio">@(VistaPrevia ? "Carpetas y archivos" : "No hay archivos disponibles.")</div>
+                }
+                else
+                {
+                    <div class="ha-scroll ha-carpetas">
+                        @foreach (var grupo in adjuntos.GroupBy(a => (a.Clase, a.Carpeta)).OrderBy(g => g.Key.Clase).ThenBy(g => g.Key.Carpeta))
+                        {
+                            <section>
+                                <strong><Ico Nombre="carpeta" /> @grupo.Key.Clase
+                                    @if (!string.IsNullOrEmpty(grupo.Key.Carpeta))
+                                    {
+                                        <span> / @grupo.Key.Carpeta</span>
+                                    }
+                                </strong>
+                                <ul>
+                                    @foreach (var archivo in grupo)
+                                    {
+                                        <li>
+                                            <a href="@archivo.Url" target="_blank" rel="noopener noreferrer">@archivo.Nombre</a>
+                                            @if (!archivo.Actual)
+                                            {
+                                                <small>Obsoleto</small>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            </section>
+                        }
+                    </div>
+                }
+                break;
+
+            case TipoCampoModulo.LineaTiempo:
+                if (eventos.Length == 0)
+                {
+                    <div class="ha-vacio">No hay fechas disponibles.</div>
+                }
+                else
+                {
+                    <ol class="ha-scroll ha-tiempo">
+                        @foreach (var evento in eventos)
+                        {
+                            <li @key="evento.Fila.Id">
+                                <time datetime="@evento.Fecha.ToString("yyyy-MM-dd", Invariante)">@evento.Fecha.ToString("dd/MM/yyyy", Invariante)</time>
+                                <strong>@evento.Fila.Etiqueta</strong>
+                                @if (Campo.ColumnasFuente.Count > 0)
+                                {
+                                    @foreach (var columna in columnas.Where(c => c.Clave != Campo.ColumnaFecha).Take(2))
+                                    {
+                                        var contenido = Texto(evento.Fila, columna.Clave);
+                                        if (!string.IsNullOrWhiteSpace(contenido))
+                                        {
+                                            <span>@columna.Nombre · @contenido</span>
+                                        }
+                                    }
+                                }
+                            </li>
+                        }
+                    </ol>
+                }
+                break;
+        }
+    }
+</div>
+
+@code {
+    private static string ColorSerie(int i) => $"ha-color-{i % 7}";
+
+    private RenderFragment Grafico() => @<div class="ha-grafico ha-scroll">
+        @if (serie.Length == 0)
+        {
+            <div class="ha-vacio">No hay valores para graficar.</div>
+        }
+        else if (Campo.TipoGrafico == "torta")
+        {
+            var maximo = serie.Max(p => p.Valor);
+            if (maximo <= 0 || serie.Any(p => p.Valor < 0))
+            {
+                <div class="ha-vacio">La torta requiere valores no negativos y un total positivo.</div>
+            }
+            else
+            {
+                var total = serie.Sum(p => p.Valor / maximo);
+                double inicio = 0;
+                <svg class="ha-torta" viewBox="0 0 120 120" role="img" aria-label="@Campo.Etiqueta">
+                    @for (var i = 0; i < serie.Length; i++)
+                    {
+                        var p = serie[i];
+                        var parte = p.Valor / maximo / total;
+                        if (parte > 0)
+                        {
+                            <circle class="@ColorSerie(i)" cx="60" cy="60" r="30" pathLength="1"
+                                    stroke-width="60" fill="none" stroke-dasharray="@($"{Svg(parte)} {Svg(1 - parte)}")"
+                                    stroke-dashoffset="@Svg(-inicio)" transform="rotate(-90 60 60)">
+                                <title>@p.Etiqueta · @Cifra(p.Valor) @Unidad</title>
+                            </circle>
+                        }
+                        inicio += parte;
+                    }
+                </svg>
+                @Leyenda(true)
+            }
+        }
+        else
+        {
+            var ancho = Math.Max(280, 32d * serie.Length);
+            const int alto = 140;
+            const int margen = 12;
+            var paso = ancho / serie.Length;
+            var escala = Math.Max(1, serie.Max(p => Math.Abs(p.Valor)));
+            var min = Math.Min(0, serie.Min(p => p.Valor / escala));
+            var max = Math.Max(0, serie.Max(p => p.Valor / escala));
+            double Y(double v) => max == min ? alto - margen : margen + (max - v / escala) / (max - min) * (alto - 2 * margen);
+            var baseY = Y(0);
+            var lineas = Campo.TipoGrafico == "lineas";
+            <svg class="ha-cartesiano" viewBox="@($"0 0 {Svg(ancho)} {alto}")" style="min-width:@(Svg(ancho * .6))px" role="img" aria-label="@Campo.Etiqueta">
+                <line class="ha-eje" x1="0" x2="@Svg(ancho)" y1="@Svg(baseY)" y2="@Svg(baseY)" />
+                @if (lineas)
+                {
+                    <polyline class="ha-linea" points="@string.Join(" ", serie.Select((p, i) => $"{Svg((i + .5) * paso)},{Svg(Y(p.Valor))}"))" />
+                }
+                @for (var i = 0; i < serie.Length; i++)
+                {
+                    var p = serie[i];
+                    var x = (i + .5) * paso;
+                    var y = Y(p.Valor);
+                    if (lineas)
+                    {
+                        <circle class="ha-punto" cx="@Svg(x)" cy="@Svg(y)" r="3.5"><title>@p.Etiqueta · @Cifra(p.Valor) @Unidad</title></circle>
+                    }
+                    else
+                    {
+                        var anchoBarra = Math.Min(40, paso * .65);
+                        <rect class="ha-barra" x="@Svg(x - anchoBarra / 2)" y="@Svg(Math.Min(y, baseY))"
+                              width="@Svg(anchoBarra)" height="@Svg(Math.Max(1, Math.Abs(y - baseY)))" rx="2">
+                            <title>@p.Etiqueta · @Cifra(p.Valor) @Unidad</title>
+                        </rect>
+                    }
+                }
+            </svg>
+            @Leyenda(false)
+        }
+    </div>;
+
+    private RenderFragment Leyenda(bool colores) => @<ol class="ha-leyenda">
+        @for (var i = 0; i < serie.Length; i++)
+        {
+            var p = serie[i];
+            <li>
+                @if (colores)
+                {
+                    <svg viewBox="0 0 10 10" aria-hidden="true"><circle class="@ColorSerie(i)" cx="5" cy="5" r="4" fill="none" stroke-width="2" /></svg>
+                }
+                <span>@p.Etiqueta</span><strong>@Cifra(p.Valor) @Unidad</strong>
+            </li>
+        }
+    </ol>;
+}

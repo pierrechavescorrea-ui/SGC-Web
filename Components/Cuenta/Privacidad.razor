@@ -1,0 +1,47 @@
+@page "/privacidad"
+@layout LayoutCuenta
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+@using SigWeb.Data.Seguridad
+@inject IConfiguration Cfg
+
+<PageTitle>Tratamiento de datos · SGC Web</PageTitle>
+
+<div class="cu-doc">
+    <h1 class="cu-titulo">Política de tratamiento de datos personales</h1>
+    <p class="cu-sub">Versión @SigWeb.Data.Seguridad.Privacidad.Version · @Empresa</p>
+    <p class="cu-pendiente">Borrador técnico pendiente de revisión jurídica. Debe completarlo y aprobarlo el responsable del tratamiento antes de salir a producción.</p>
+
+    <h2>1. Responsable</h2>
+    <p>@Empresa, en calidad de responsable del tratamiento (Ley 1581 de 2012 y Decreto 1377 de 2013, compilado en el Decreto 1074 de 2015). Canal de atención: @(Cfg["Privacidad:Contacto"] ?? "[correo de contacto pendiente]").</p>
+
+    <h2>2. Datos que se tratan</h2>
+    <ul>
+        <li>Identificación y contacto: nombre, correo, cargo, empresa.</li>
+        <li>Registros de acceso y seguridad: fecha, dirección IP, navegador, resultado del ingreso, cambios de permisos.</li>
+        <li>Vinculación con el bot de Telegram: identificador del chat y nombre de usuario de Telegram.</li>
+        <li>Información que el usuario registra en los módulos del proyecto (no se piden datos sensibles).</li>
+    </ul>
+
+    <h2>3. Finalidades</h2>
+    <ul>
+        <li>Dar acceso a SGC Web según los proyectos y permisos asignados.</li>
+        <li>Proteger la plataforma: detectar accesos indebidos, bloquear ataques y auditar cambios.</li>
+        <li>Enviar avisos de la cuenta (invitaciones, cambio de contraseña, alertas de seguridad).</li>
+    </ul>
+
+    <h2>4. Derechos del titular</h2>
+    <p>Conocer, actualizar, rectificar y suprimir sus datos, revocar la autorización y presentar quejas ante la Superintendencia de Industria y Comercio. Desde <b>Mi cuenta</b> puede descargar sus datos. La supresión se hace por anonimización, conservando los registros de auditoría exigidos por seguridad sin datos identificables.</p>
+
+    <h2>5. Conservación y seguridad</h2>
+    <p>Los registros de acceso se conservan @(Cfg.GetValue("Auditoria:DiasRetencion", 365)) días. Las contraseñas se guardan cifradas con un algoritmo de una vía; la comunicación va cifrada (HTTPS) y la base de datos en el servidor también.</p>
+
+    <h2>6. Transferencia y transmisión</h2>
+    <p>Los datos se alojan en servidores de Amazon Web Services. [Región y cláusulas contractuales pendientes de confirmar por el responsable.]</p>
+
+    <p class="cu-alt"><a class="cu-enlace" href="cuenta/ingresar">Volver</a></p>
+</div>
+
+@code {
+    private string Empresa => Cfg["Marca:Empresa"] ?? "Ingeniería Demo S.A.S.";
+}

@@ -1,0 +1,88 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Datos del contrato, parámetros de nómina (valor día del personal), criterio de reparto del costo
+   por actividad y cuadrillas que no reciben costo de administración. *@
+
+@{ var c = Editando ? ed : S.Config; }
+<div class="cp-tablero">
+    <div class="cp-caja">
+        <div class="cp-panel-tit">Contrato</div>
+        <div class="cp-form">
+            <label>Cliente</label><input class="form-control form-control-sm" @bind="c.Cliente" disabled="@(!Editando)" />
+            <label>Contrato</label><input class="form-control form-control-sm" @bind="c.Contrato" disabled="@(!Editando)" />
+            <label>Interventoría</label><input class="form-control form-control-sm" @bind="c.Interventor" disabled="@(!Editando)" />
+            <label>Objeto</label><textarea class="form-control form-control-sm" rows="3" @bind="c.Objeto" disabled="@(!Editando)"></textarea>
+            <label>Inicio</label><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(c.Inicio)" @onchange="e => c.Inicio = Fec(e.Value)" disabled="@(!Editando)" />
+            <label>Fin</label><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(c.Fin)" @onchange="e => c.Fin = Fec(e.Value)" disabled="@(!Editando)" />
+            <label title="Vacío = suma del Formulario de precios">Valor del contrato</label>
+            <div>
+                <input class="form-control form-control-sm cp-in-num" @bind="c.ValorContrato" disabled="@(!Editando)" placeholder="@FormatoCostos.Dinero(S.ValorContrato(Corte))" />
+            </div>
+            <label>Valorizar</label>
+            <select class="form-select form-select-sm" @bind="c.ValorizarPrecioActual" disabled="@(!Editando)">
+                <option value="False">Al precio del año de ejecución</option>
+                <option value="True">Al precio del año de corte (como el Excel)</option>
+            </select>
+        </div>
+    </div>
+    <div class="cp-caja">
+        <div class="cp-panel-tit">Nómina <span class="cp-sub">valor día = salario/30 × factor × (1 + A × B) + auxilio/30 + base/divisor/30</span></div>
+        <div class="cp-form">
+            <label>Factor prestacional</label><input class="form-control form-control-sm cp-in-num" @bind="c.FactorPrestacional" disabled="@(!Editando)" />
+            <label>Recargo A</label><input class="form-control form-control-sm cp-in-num" @bind="c.RecargoA" disabled="@(!Editando)" />
+            <label>Recargo B</label><input class="form-control form-control-sm cp-in-num" @bind="c.RecargoB" disabled="@(!Editando)" />
+            <label>Base adicional</label><input class="form-control form-control-sm cp-in-num" @bind="c.BaseAdicional" disabled="@(!Editando)" />
+            <label>Divisor adicional</label><input class="form-control form-control-sm cp-in-num" @bind="c.DivisorAdicional" disabled="@(!Editando)" />
+        </div>
+        <div class="cp-panel-tit mt-3">Reparto de costos</div>
+        <div class="cp-form">
+            <label>Criterio por actividad</label>
+            <select class="form-select form-select-sm" @bind="c.CriterioReparto" disabled="@(!Editando)">
+                <option value="@CriterioRepartoCosto.ValorProducido">Valor producido</option>
+                <option value="@CriterioRepartoCosto.Cantidad">Cantidad ejecutada</option>
+                <option value="@CriterioRepartoCosto.PartesIguales">Partes iguales</option>
+            </select>
+            <label>Cuadrilla de administración</label>
+            <select class="form-select form-select-sm" @bind="c.CuadrillaAdministracion" disabled="@(!Editando)">
+                @foreach (var q in S.Cuadrillas) { <option value="@q">@q</option> }
+            </select>
+            <label title="Separadas por coma">Sin reparto de administración</label>
+            <input class="form-control form-control-sm" @bind="c.CuadrillasSinRepartoAdmin" disabled="@(!Editando)" />
+        </div>
+        <div class="cp-sub mt-2">Cuadrillas (catálogo «@InstantaneaCostos.CatalogoCuadrilla»): @string.Join(" · ", S.Cuadrillas) · <a href="catalogos">Catálogos</a></div>
+    </div>
+</div>
+
+@code {
+    private ConfiguracionCostos ed = new();
+
+    public override bool PuedeAgregar => false;
+
+    public override Task EditarAsync()
+    {
+        var k = S.Config;
+        ed = new ConfiguracionCostos
+        {
+            Id = k.Id, Cliente = k.Cliente, Contrato = k.Contrato, Interventor = k.Interventor, Objeto = k.Objeto, Inicio = k.Inicio, Fin = k.Fin,
+            ValorContrato = k.ValorContrato, ValorizarPrecioActual = k.ValorizarPrecioActual, CriterioReparto = k.CriterioReparto,
+            CuadrillaAdministracion = k.CuadrillaAdministracion, CuadrillasSinRepartoAdmin = k.CuadrillasSinRepartoAdmin,
+            FactorPrestacional = k.FactorPrestacional, RecargoA = k.RecargoA, RecargoB = k.RecargoB, BaseAdicional = k.BaseAdicional, DivisorAdicional = k.DivisorAdicional
+        };
+        return base.EditarAsync();
+    }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        var k = await Db.ConfiguracionCostos.FirstOrDefaultAsync();
+        if (k is null) { k = new ConfiguracionCostos(); Db.ConfiguracionCostos.Add(k); }
+        k.Cliente = ed.Cliente; k.Contrato = ed.Contrato; k.Interventor = ed.Interventor; k.Objeto = ed.Objeto; k.Inicio = ed.Inicio; k.Fin = ed.Fin;
+        k.ValorContrato = ed.ValorContrato; k.ValorizarPrecioActual = ed.ValorizarPrecioActual; k.CriterioReparto = ed.CriterioReparto;
+        k.CuadrillaAdministracion = ed.CuadrillaAdministracion; k.CuadrillasSinRepartoAdmin = ed.CuadrillasSinRepartoAdmin;
+        k.FactorPrestacional = ed.FactorPrestacional; k.RecargoA = ed.RecargoA; k.RecargoB = ed.RecargoB; k.BaseAdicional = ed.BaseAdicional; k.DivisorAdicional = ed.DivisorAdicional;
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+    }
+}

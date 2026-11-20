@@ -1,0 +1,235 @@
+@page "/admin/invitaciones"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+
+<PageTitle>Invitaciones · Administración</PageTitle>
+
+<div class="ad ad-invitaciones">
+<EncabezadoPagina Titulo="Invitaciones y solicitudes" Subtitulo="El registro en SGC Web es solo por invitación al correo" Icono="correo" Atras="/admin" />
+
+@if (Mensaje is not null)
+{
+    <div class="alert @(MensajeError ? "alert-danger" : "alert-success")" role="alert">@Mensaje</div>
+}
+@if (enlace is not null)
+{
+    <div class="ad-tarjeta mb-3">
+        <div class="small mb-1">@(enviado ? "Enlace enviado. Copia (vence con la invitación, sirve una vez):" : "El correo no salió: copie el enlace y envíelo por un medio seguro (sirve una vez).")</div>
+        <div class="ad-enlace-copia">
+            <input class="form-control ad-mono" value="@enlace" readonly data-sin-flotante aria-label="Enlace de invitación" data-accion="seleccionar" />
+            <button type="button" class="btn btn-outline-secondary" title="Copiar" data-accion="copiar-anterior"><Ico Nombre="enlace" /></button>
+            <button type="button" class="btn btn-outline-secondary" title="Ocultar" @onclick="() => enlace = null"><Ico Nombre="cancelar" /></button>
+        </div>
+    </div>
+}
+
+<FormularioSig Titulo="Invitar" Icono="correo" Clase="ad-invitacion-formulario">
+    <ChildContent>
+        <div class="ad-invitacion-campos">
+            <CampoFormulario Etiqueta="Correo" Ancho="" Obligatorio="true" Destacado="true">
+                <input @ref="correo" aria-label="Correo" type="email" class="form-control" @bind="f.Email" maxlength="256" required />
+            </CampoFormulario>
+            <CampoFormulario Etiqueta="Nombre (opcional)" Ancho="">
+                <input aria-label="Nombre (opcional)" class="form-control" @bind="f.Nombre" maxlength="150" />
+            </CampoFormulario>
+            <CampoFormulario Etiqueta="Proyecto" Ancho="" Obligatorio="@(!f.Admin)">
+                <select aria-label="Proyecto" class="form-select" @bind="f.ProyectoId" disabled="@f.Admin">
+                    <option value="0">—</option>
+                    @foreach (var p in proyectos) { <option value="@p.Id">@(p.EsEmpresa ? "Empresa · " : "")@p.Nombre</option> }
+                </select>
+            </CampoFormulario>
+            <CampoFormulario Etiqueta="Rol" Ancho="">
+                <select aria-label="Rol" class="form-select" @bind="f.RolId" disabled="@f.Admin">
+                    @foreach (var r in roles) { <option value="@r.Id" title="@r.Descripcion">@r.Nombre</option> }
+                </select>
+                @if (roles.FirstOrDefault(r => r.Id == f.RolId) is { } rs && !f.Admin)
+                {
+                    <small class="text-muted">@rs.Descripcion</small>
+                }
+            </CampoFormulario>
+            <CampoFormulario Etiqueta="Acceso hasta (opcional)" Ancho="">
+                <input aria-label="Acceso hasta (opcional)" type="date" class="form-control" @bind="f.AccesoVence" />
+            </CampoFormulario>
+            <label class="ad-check ad-invitacion-admin"><input type="checkbox" @bind="f.Admin" /> Administrador del SGC (todos los proyectos y esta Administración)</label>
+            <CampoFormulario Etiqueta="Mensaje para la persona (opcional)" Ancho="ad-invitacion-mensaje">
+                <textarea aria-label="Mensaje para la persona (opcional)" class="form-control" rows="2" maxlength="1000" @bind="f.Mensaje"></textarea>
+            </CampoFormulario>
+        </div>
+    </ChildContent>
+    <Acciones>
+        <span class="frm-pie-msg"></span>
+        <button type="button" class="btn btn-primary" title="Enviar invitación" aria-label="Enviar invitación" @onclick="InvitarAsync" disabled="@Ocupado"><Ico Nombre="aceptar" /></button>
+    </Acciones>
+</FormularioSig>
+
+<div class="ad-pestanas">
+    <button type="button" class="@(vista == "invitaciones" ? "activo" : "")" @onclick='() => vista = "invitaciones"'>Invitaciones <span class="ad-chip">@invitaciones.Count(i => i.Estado == EstadoInvitacion.Pendiente)</span></button>
+    <button type="button" class="@(vista == "solicitudes" ? "activo" : "")" @onclick='() => vista = "solicitudes"'>Solicitudes <span class="ad-chip @(solicitudes.Any(s => s.Estado == EstadoSolicitud.Pendiente) ? "alerta" : "")">@solicitudes.Count(s => s.Estado == EstadoSolicitud.Pendiente)</span></button>
+</div>
+
+@if (vista == "invitaciones")
+{
+    <div class="ad-filtros">
+        <select class="form-select" @bind="filtroInv" data-sin-flotante aria-label="Estado">
+            <option value="pendientes">Pendientes</option>
+            <option value="todas">Todas</option>
+        </select>
+    </div>
+    <div class="ad-tarjeta ad-tabla-marco p-0">
+        <table class="ad-tabla">
+            <thead><tr><th>Correo</th><th>Proyecto · rol</th><th>Creada</th><th>Vence</th><th>Envíos</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var i in invitaciones.Where(i => filtroInv == "todas" || i.Estado == EstadoInvitacion.Pendiente))
+            {
+                var vencida = i.Estado == EstadoInvitacion.Pendiente && i.Vence < DateTime.UtcNow;
+                <tr>
+                    <td>@i.Email<div class="small text-muted">@i.Nombre</div></td>
+                    <td>@(i.AdministradorGlobal ? "Administrador SGC" : $"{NombreProyecto(i.ProyectoId)} · {roles.FirstOrDefault(r => r.Id == i.RolSigId)?.Nombre}")</td>
+                    <td class="small">@Dia(i.CreadaEn)</td>
+                    <td class="small">@Fecha(i.Vence)</td>
+                    <td>@i.Envios</td>
+                    <td><span class="ad-chip @(vencida ? "mal" : i.Estado == EstadoInvitacion.Aceptada ? "ok" : i.Estado == EstadoInvitacion.Pendiente ? "alerta" : "")">@(vencida ? "Vencida" : i.Estado.ToString())</span></td>
+                    <td class="ad-acc">
+                        @if (i.Estado == EstadoInvitacion.Pendiente)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Reenviar (enlace nuevo)" @onclick="() => ReenviarAsync(i.Id)"><Ico Nombre="restaurar" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Revocar" @onclick="() => RevocarAsync(i.Id)"><Ico Nombre="cancelar" /></button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="ad-tarjeta ad-tabla-marco p-0">
+        <table class="ad-tabla">
+            <thead><tr><th>Fecha</th><th>Persona</th><th>Motivo</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var s in solicitudes)
+            {
+                <tr>
+                    <td class="small text-nowrap">@Fecha(s.Fecha)</td>
+                    <td>@s.Nombre<div class="small text-muted">@s.Email@(s.Empresa is null ? "" : " · " + s.Empresa)</div></td>
+                    <td class="small" style="max-width:28rem;white-space:pre-wrap">@s.Motivo</td>
+                    <td><span class="ad-chip @(s.Estado == EstadoSolicitud.Pendiente ? "alerta" : s.Estado == EstadoSolicitud.Aprobada ? "ok" : "")">@s.Estado</span></td>
+                    <td class="ad-acc">
+                        @if (s.Estado == EstadoSolicitud.Pendiente)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Invitar a esta persona" @onclick="() => Aprobar(s)"><Ico Nombre="aceptar" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Rechazar" @onclick="() => RechazarAsync(s.Id)"><Ico Nombre="cancelar" /></button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+</div>
+
+@code {
+    [Inject] private ServicioInvitaciones Inv { get; set; } = default!;
+    [SupplyParameterFromQuery(Name = "vista")] private string? VistaQ { get; set; }
+
+    private sealed class Formulario
+    {
+        public string? Email { get; set; } public string? Nombre { get; set; } public int ProyectoId { get; set; } public int RolId { get; set; }
+        public DateTime? AccesoVence { get; set; } public string? Mensaje { get; set; } public bool Admin { get; set; }
+        public int? SolicitudId;
+    }
+
+    private string vista = "invitaciones", filtroInv = "pendientes";
+    private Formulario f = new();
+    private List<Proyecto> proyectos = new();
+    private List<RolSig> roles = new();
+    private List<Invitacion> invitaciones = new();
+    private List<SolicitudAcceso> solicitudes = new();
+    private string? enlace;
+    private bool enviado;
+    private ElementReference correo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Autorizado) return;
+        vista = VistaQ == "solicitudes" ? "solicitudes" : "invitaciones";
+        await CargarAsync();
+        f.ProyectoId = Actual.Proyecto is { EsEmpresa: false } pa ? pa.Id : proyectos.FirstOrDefault(p => !p.EsEmpresa)?.Id ?? 0;
+        f.RolId = roles.FirstOrDefault(r => r.Clave == "consulta")?.Id ?? roles.FirstOrDefault()?.Id ?? 0;
+    }
+
+    private async Task CargarAsync() => await ConDb(async (db, _) =>
+    {
+        proyectos = await db.Proyectos.AsNoTracking().Where(p => p.Estado != EstadoProyecto.Archivado).OrderByDescending(p => p.EsEmpresa).ThenBy(p => p.Nombre).ToListAsync();
+        roles = await db.RolesSig.AsNoTracking().OrderBy(r => r.Orden).ToListAsync();
+        invitaciones = await db.Invitaciones.AsNoTracking().OrderByDescending(i => i.Id).Take(500).ToListAsync();
+        solicitudes = await db.SolicitudesAcceso.AsNoTracking().OrderBy(s => s.Estado).ThenByDescending(s => s.Id).Take(300).ToListAsync();
+    });
+
+    private string NombreProyecto(int? id) => id is int x ? proyectos.FirstOrDefault(p => p.Id == x)?.Nombre ?? Proyectos.Proyecto(x)?.Nombre ?? $"#{x}" : "—";
+
+    private async Task InvitarAsync()
+    {
+        var form = f;
+        ServicioInvitaciones.Resultado? r = null;
+        await Cambiar(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(form.Email)) throw new OperacionAdminException("Escriba el correo.");
+            if (!form.Admin && form.ProyectoId == 0) throw new OperacionAdminException("Elija el proyecto.");
+            DateTime? vence = form.AccesoVence is { } v ? DateTime.SpecifyKind(v.Date.AddDays(1).AddSeconds(-1), DateTimeKind.Local).ToUniversalTime() : null;
+            r = await Inv.InvitarAsync(form.Email, form.Nombre, form.Admin ? (form.ProyectoId == 0 ? null : form.ProyectoId) : form.ProyectoId,
+                form.Admin && form.ProyectoId == 0 ? null : form.RolId, form.Admin, vence, form.Mensaje, Actual.Id!, Inv.UrlBase(Nav.BaseUri));
+            if (!r.Ok) throw new OperacionAdminException(r.Mensaje);
+            if (form.SolicitudId is int sid)
+                await ConDb(async (db, _) =>
+                {
+                    var s = await db.SolicitudesAcceso.FindAsync(sid);
+                    if (s is not null) { s.Estado = EstadoSolicitud.Aprobada; s.RevisadaPor = Actual.Id; s.RevisadaEn = DateTime.UtcNow; await db.SaveChangesAsync(); }
+                });
+        });
+        if (r is { Ok: true })
+        {
+            Exito(r.Mensaje);
+            enlace = r.Enlace; enviado = r.Enviado;
+            var pid = f.ProyectoId; var rid = f.RolId;
+            f = new Formulario { ProyectoId = pid, RolId = rid };
+            await CargarAsync();
+        }
+    }
+
+    private async Task ReenviarAsync(int id)
+    {
+        ServicioInvitaciones.Resultado? r = null;
+        await Cambiar(async () => { r = await Inv.ReenviarAsync(id, Actual.Id!, Inv.UrlBase(Nav.BaseUri)); if (!r.Ok) throw new OperacionAdminException(r.Mensaje); });
+        if (r is { Ok: true }) { Exito(r.Mensaje); enlace = r.Enlace; enviado = r.Enviado; }
+        await CargarAsync();
+    }
+
+    private async Task RevocarAsync(int id)
+    {
+        await Cambiar(() => Inv.RevocarAsync(id, Actual.Id!), "Invitación revocada: el enlace ya no sirve.");
+        await CargarAsync();
+    }
+
+    private async Task Aprobar(SolicitudAcceso s)
+    {
+        f = new Formulario { Email = s.Email, Nombre = s.Nombre, ProyectoId = f.ProyectoId, RolId = f.RolId, SolicitudId = s.Id };
+        Exito("Revise proyecto y rol y envíe la invitación.");
+        await correo.FocusAsync();
+    }
+
+    private async Task RechazarAsync(int id)
+    {
+        await Cambiar(async () => await ConDb(async (db, _) =>
+        {
+            var s = await db.SolicitudesAcceso.FindAsync(id);
+            if (s is null) return;
+            s.Estado = EstadoSolicitud.Rechazada; s.RevisadaPor = Actual.Id; s.RevisadaEn = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            Registrar("Solicitud de acceso rechazada", s.Email);
+        }), "Solicitud rechazada.");
+        await CargarAsync();
+    }
+}

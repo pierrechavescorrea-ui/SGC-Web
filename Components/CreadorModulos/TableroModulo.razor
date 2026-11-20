@@ -1,0 +1,138 @@
+@* Tablero de un módulo creado: cifras por estado, registros por mes (12 meses), reparto de cada lista y Sí/No y resumen de
+   cada número. Sin configurar nada: sale de la definición. Respeta los filtros de la lista (buscar y estado).
+   Barras en CSS (sin librería de gráficos): se ven igual en todos los temas y al imprimir. *@
+@using System.Globalization
+@using SigWeb.Data.CreadorModulos
+@using SigWeb.Data.Tablas
+@using SigWeb.Models
+
+<div class="mt">
+    <div class="mt-kpis">
+        <div class="mt-kpi"><span class="mt-kpi-n">@Registros.Count</span><span class="mt-kpi-t">Registros</span></div>
+        <div class="mt-kpi"><span class="mt-kpi-n">@EsteMes</span><span class="mt-kpi-t">Creados este mes</span></div>
+        @foreach (var s in Modulo.Definicion.Estados)
+        {
+            var n = Registros.Count(r => r.Estado == s.Nombre);
+            var (f, _) = Color(s.Color);
+            <button type="button" class="mt-kpi mt-kpi-btn" style="@($"--mt-c:{f}")" title="Ver en la lista los registros «{s.Nombre}»" @onclick="() => OnEstado.InvokeAsync(s.Nombre)">
+                <span class="mt-kpi-n">@n</span><span class="mt-kpi-t">@s.Nombre · @Pct(n, Registros.Count)</span>
+            </button>
+        }
+    </div>
+
+    <div class="mt-rejilla">
+        <section class="mt-tarjeta mt-ancha">
+            <h6>Registros por mes</h6>
+            @{ var meses = PorMes(); var max = Math.Max(1, meses.Max(m => m.N)); }
+            <div class="mt-columnas">
+                @foreach (var m in meses)
+                {
+                    <div class="mt-col" title="@m.Etiqueta: @m.N">
+                        <span class="mt-col-n">@(m.N == 0 ? "" : m.N.ToString())</span>
+                        <span class="mt-col-barra" style="@($"height:{m.N * 100 / max}%")"></span>
+                        <span class="mt-col-t">@m.Corto</span>
+                    </div>
+                }
+            </div>
+        </section>
+
+        @foreach (var c in Modulo.Definicion.CamposConValor.Where(c => c.Tipo is TipoCampoModulo.Lista or TipoCampoModulo.SiNo or TipoCampoModulo.Vinculo))
+        {
+            var reparto = Reparto(c);
+            if (reparto.Count == 0) continue;
+            var tope = Math.Max(1, reparto.Max(x => x.N));
+            <section class="mt-tarjeta">
+                <h6>@c.Etiqueta</h6>
+                @foreach (var (valor, n) in reparto.Take(8))
+                {
+                    <div class="mt-fila" title="@valor: @n">
+                        <span class="mt-fila-t">@valor</span>
+                        <span class="mt-fila-barra"><i style="@($"width:{n * 100 / tope}%")"></i></span>
+                        <span class="mt-fila-n">@n</span>
+                    </div>
+                }
+                @if (reparto.Count > 8) { <div class="mt-nota">y @(reparto.Count - 8) valores más</div> }
+            </section>
+        }
+
+        @foreach (var c in Modulo.Definicion.CamposConValor.Where(c => c.Tipo == TipoCampoModulo.Numero))
+        {
+            var v = Numeros(c);
+            if (v.Count == 0) continue;
+            <section class="mt-tarjeta">
+                <h6>@c.Etiqueta@(string.IsNullOrWhiteSpace(c.Unidad) ? "" : $" ({c.Unidad})")</h6>
+                <div class="mt-num">
+                    <div><span>Mínimo</span><b>@Num(v.Min(), c)</b></div>
+                    <div><span>Promedio</span><b>@Num(v.Average(), c)</b></div>
+                    <div><span>Máximo</span><b>@Num(v.Max(), c)</b></div>
+                    <div><span>Total</span><b>@Num(v.Sum(), c)</b></div>
+                </div>
+                <div class="mt-nota">@v.Count registros con valor</div>
+            </section>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public RegistroModulosCreados.Publicado Modulo { get; set; } = default!;
+    [Parameter, EditorRequired] public List<RegistroModulo> Registros { get; set; } = new();
+    [Parameter, EditorRequired] public MotorTabla Motor { get; set; } = default!;
+    [Parameter] public EventCallback<string> OnEstado { get; set; }
+
+    private static readonly CultureInfo Es = CultureInfo.GetCultureInfo("es-CO");
+
+    private int EsteMes
+    {
+        get { var hoy = DateTime.Now; return Registros.Count(r => r.CreadoEn.ToLocalTime() is var d && d.Year == hoy.Year && d.Month == hoy.Month); }
+    }
+
+    private sealed record Mes(string Etiqueta, string Corto, int N);
+
+    private List<Mes> PorMes()
+    {
+        var hoy = DateTime.Now;
+        var inicio = new DateTime(hoy.Year, hoy.Month, 1).AddMonths(-11);
+        var cuenta = Registros.GroupBy(r => { var d = r.CreadoEn.ToLocalTime(); return new DateTime(d.Year, d.Month, 1); })
+            .ToDictionary(g => g.Key, g => g.Count());
+        return Enumerable.Range(0, 12).Select(i => inicio.AddMonths(i))
+            .Select(m => new Mes(m.ToString("MMMM yyyy", Es), m.ToString("MMM", Es).TrimEnd('.'), cuenta.GetValueOrDefault(m))).ToList();
+    }
+
+    private List<(string Valor, int N)> Reparto(CampoModulo c)
+    {
+        var ct = Motor.PorClave(c.Clave);
+        if (ct is null) return new();
+        var d = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in Registros)
+        {
+            var texto = Motor.Texto(r.Id, ct, out _);
+            var partes = c.Multiple || c.Tipo == TipoCampoModulo.Vinculo ? MotorTabla.Partes(texto) : new List<string> { texto };
+            foreach (var p in partes.Select(x => x?.Trim() ?? ""))
+            {
+                var k = p.Length == 0 ? (c.Tipo == TipoCampoModulo.SiNo ? "No" : "(vacío)") : p;
+                d[k] = d.GetValueOrDefault(k) + 1;
+            }
+        }
+        return d.OrderByDescending(x => x.Value).ThenBy(x => x.Key).Select(x => (x.Key, x.Value)).ToList();
+    }
+
+    private List<double> Numeros(CampoModulo c)
+    {
+        var ct = Motor.PorClave(c.Clave);
+        if (ct is null) return new();
+        var l = new List<double>();
+        foreach (var r in Registros)
+            if (Motor.Valor(r.Id, ct) is { } v)
+                try { l.Add(Convert.ToDouble(v, CultureInfo.InvariantCulture)); } catch { /* no numérico */ }
+        return l;
+    }
+
+    private static string Num(double v, CampoModulo c) => v.ToString("N" + Math.Clamp(c.Decimales ?? 2, 0, 6), Es);
+    private static string Pct(int n, int total) => total == 0 ? "0 %" : $"{n * 100.0 / total:0} %";
+
+    private static (string Fondo, string Texto) Color(string clave)
+    {
+        var p = MotorTabla.Paleta.FirstOrDefault(x => x.Clave == clave);
+        return p.Clave is null ? ("#6c757d", "#fff") : (p.Fondo, p.Texto);
+    }
+}

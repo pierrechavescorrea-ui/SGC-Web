@@ -1,0 +1,56 @@
+/* Direccionamiento estratégico (Components/Pages/DireccionamientoEstrategico.razor): reutiliza la sala de
+   Certificaciones (cv-*) con hojas apaisadas y grupos por tipo; carga con tira de páginas y partes por color. */
+
+/* Mosaicos: todo cabe sin scroll vertical. js/vitrina.js (ajustarMosaico) fija el alto de la sala y calcula
+   --de-w (ancho de cada hoja) y --de-c (columnas) según la cantidad; tipografía y botones escalan con --de-w. */
+.de-sala { display: flex; padding: 20px 20px 16px; min-height: 0; overflow-y: auto; }
+.de-pared { position: relative; z-index: 1; margin: auto; display: grid; justify-content: center;
+    grid-template-columns: repeat(var(--de-c, 4), var(--de-w, 260px)); gap: 22px 24px; }
+.de-sala .cv-foco { top: -20px; width: calc(var(--de-w, 260px) + 30px); height: calc(var(--de-w, 260px) * .7); }
+.de-sala .cv-marco { width: var(--de-w, 260px); }
+.de-mini-hoja.cv-mini { aspect-ratio: 1.414 / 1; }
+.de-sala .cv-acciones { padding: 6px; gap: 6px; }
+.de-sala .cv-btn { width: clamp(24px, calc(var(--de-w, 260px) * .12), 42px); height: clamp(24px, calc(var(--de-w, 260px) * .12), 42px); border-radius: 7px; }
+.de-sala .cv-placa { width: calc(var(--de-w, 260px) - 16px); margin-top: 12px; padding: 5px 10px; }
+.de-placa em { display: block; font-style: normal; font-size: clamp(9px, calc(var(--de-w, 260px) * .04), 11px); font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px; color: var(--cv-acento); }
+.de-placa b { font-size: clamp(11px, calc(var(--de-w, 260px) * .055), 15.5px); line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.de-sala .de-placa span { font-size: clamp(9.5px, calc(var(--de-w, 260px) * .045), 12.5px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.de-lamina { justify-content: center; }
+.de-lamina .cv-lamina-n { font-size: 13px; }
+
+/* Carga: elegir archivos */
+.de-soltar { display: flex; align-items: center; justify-content: center; min-height: 64px; border: 2px dashed var(--cv-borde); border-radius: 12px;
+    color: var(--cv-texto-2); cursor: pointer; font-size: 1.4rem; transition: border-color .15s, color .15s; margin-bottom: 14px; }
+.de-soltar:hover { border-color: var(--cv-acento); color: var(--cv-acento); }
+.de-soltar.leyendo { cursor: progress; }
+
+.de-archivo { border: 1px solid var(--cv-borde); border-radius: 12px; padding: 10px 12px 12px; margin-bottom: 14px; background: var(--cv-placa); }
+.de-archivo-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; min-width: 0; }
+.de-tenue { color: var(--cv-texto-2); font-size: .82rem; white-space: nowrap; }
+.de-aviso { display: inline-block; margin: 2px 4px; padding: 0 8px; border-radius: 10px; background: var(--cv-aviso); color: #fff; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.de-mini { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--cv-borde);
+    background: transparent; color: var(--cv-texto-2); cursor: pointer; }
+.de-mini:hover { color: var(--cv-acento); border-color: var(--cv-acento); }
+
+/* Tira de páginas: borde inferior = color de la parte; clic = partir ahí */
+.de-tira { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 10px; margin-bottom: 8px; }
+.de-pag { position: relative; flex: 0 0 auto; width: 96px; padding: 4px 4px 2px; border: 1px solid var(--cv-borde); border-bottom: 4px solid var(--de-c, transparent);
+    border-radius: 6px; background: var(--cv-placa); opacity: .45; cursor: pointer; }
+.de-pag.incluida { opacity: 1; }
+.de-pag.inicio { box-shadow: -3px 0 0 var(--de-c, transparent); }
+.de-pag:disabled { cursor: default; }
+.de-pag-img { display: block; width: 100%; aspect-ratio: 1.414 / 1; background: #f4f4f4; overflow: hidden; }
+.de-pag-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.de-pag-n { display: block; font-size: .72rem; color: var(--cv-texto-2); text-align: center; }
+.de-tijera { position: absolute; inset: 4px 4px 18px; display: flex; align-items: center; justify-content: center; background: rgba(20, 24, 31, .7);
+    color: #fff; opacity: 0; transition: opacity .15s; border-radius: 3px; }
+.de-pag:hover:not(:disabled) .de-tijera, .de-pag:focus-visible .de-tijera { opacity: 1; }
+
+/* Partes */
+.de-partes td.de-marca { border-left: 4px solid var(--de-c, transparent); text-align: center; }
+.de-partes tr.de-excluida td:not(.de-marca) { opacity: .5; }
+.de-rango { display: flex; align-items: center; gap: 2px; }
+.de-rango input { width: 52px; text-align: center; }
+.de-error td { color: var(--cv-acento); font-size: .78rem; padding-top: 0; padding-bottom: 2px; border-top: 0; }

@@ -1,0 +1,173 @@
+@* Campo nuevo de un formulario (CampoTabla creado en el diseñador o en Campos): se pinta según su tipo y su valor
+   queda en la sesión del formulario (ValoresFormulario) hasta que la página guarda el registro. *@
+@using SigWeb.Data.Formularios
+@using SigWeb.Data.Tablas
+@using SigWeb.Models
+@using System.Globalization
+@inject ValoresFormulario Valores
+@inject IWebHostEnvironment Env
+@using Microsoft.AspNetCore.Components.Forms
+@{
+    var valor = Sesion.Valores.GetValueOrDefault(Campo.Id);
+    var etiqueta = SigWeb.Data.Tablas.MotorTabla.EtiquetaCampo(Campo);
+}
+<div class="frm-campo frm-ub frm-nuevo @(Obligatorio ? "frm-obligatorio" : "") @(Ubicacion.H > 1 ? "frm-alto" : "") @(Campo.Tipo == TipoCampoTabla.Archivos ? "frm-campo-archivos" : "")" style="@Estilo" data-campo="@DisenoModelo.ClaveNuevo(Campo.Id)">
+    <label class="form-label frm-etq">
+        @etiqueta
+        @if (Obligatorio) { <span class="frm-req" title="Obligatorio">*</span> }
+    </label>
+    @if (CamposPorOpcion.EsPlantilla(Campo))
+    {
+        @* Un valor por cada opción elegida en la lista (cada uno es su propio campo: "Valor - Humanos"…). *@
+        var filas = Sesion.PorOpcion(Campo);
+        <div class="frm-por-opcion">
+            @foreach (var (op, hijo) in filas)
+            {
+                var h = hijo; var vh = Sesion.Valores.GetValueOrDefault(h.Id);
+                <div class="frm-por-opcion-fila" title="@h.Nombre">
+                    <span class="frm-por-opcion-op">@op</span>
+                    @switch (h.Tipo)
+                    {
+                        case TipoCampoTabla.Numero:
+                            <input class="form-control form-control-sm" inputmode="decimal" data-sin-flotante value="@NumeroDe(h, vh)" @onchange="e => PonerNumeroDe(h, e.Value?.ToString())" />
+                            break;
+                        case TipoCampoTabla.Fecha:
+                            <input type="date" class="form-control form-control-sm" data-sin-flotante value="@Fecha(vh)" @onchange="e => Valores.Poner(Sesion, h.Id, e.Value?.ToString())" />
+                            break;
+                        case TipoCampoTabla.SiNo:
+                            <select class="form-select form-select-sm" data-sin-flotante value="@(vh ?? "")" @onchange="e => Valores.Poner(Sesion, h.Id, e.Value?.ToString())">
+                                <option value="">—</option><option value="1">Sí</option><option value="0">No</option>
+                            </select>
+                            break;
+                        default:
+                            <input class="form-control form-control-sm" data-sin-flotante value="@vh" @onchange="e => Valores.Poner(Sesion, h.Id, e.Value?.ToString())" />
+                            break;
+                    }
+                </div>
+            }
+            @if (filas.Count == 0) { <span class="text-muted small">Elija opciones en «@(Sesion.Campo(Campo.CampoPadreId ?? 0)?.Nombre)».</span> }
+        </div>
+    }
+    else
+    {
+    @switch (Campo.Tipo)
+    {
+        case TipoCampoTabla.Archivos:
+            @* Recuadro de adjuntos: los archivos se suben al elegirlos y quedan con el registro cuando la página guarda. *@
+            var guardados = Sesion.Archivos.TryGetValue(Campo.Id, out var lg) ? lg.Where(a => !Sesion.ArchivosQuitados.Contains(a.Id)).ToList() : new List<ArchivoCampoFormulario>();
+            <div class="frm-archivos">
+                @foreach (var a in guardados)
+                {
+                    var ar = a;
+                    <div class="frm-archivo">
+                        <a href="@ar.RutaArchivo" target="_blank" rel="noopener" title="@($"{ar.NombreOriginal} · {ar.FechaCarga:dd/MM/yyyy}")"><Ico Nombre="documento" /> <span>@ar.NombreOriginal</span></a>
+                        <button type="button" class="ens-mini" title="Quitar (va a la Papelera al guardar)" @onclick="() => Valores.QuitarArchivo(Sesion, ar.Id)"><Ico Nombre="cancelar" /></button>
+                    </div>
+                }
+                @for (var i = 0; i < Sesion.ArchivosNuevos.Count; i++)
+                {
+                    var idx = i; var n = Sesion.ArchivosNuevos[i];
+                    if (n.Campo != Campo.Id) continue;
+                    <div class="frm-archivo frm-archivo-nuevo">
+                        <a href="@n.Ruta" target="_blank" rel="noopener"><Ico Nombre="documento" /> <span>@n.Nombre</span></a>
+                        <span class="badge text-bg-light" title="Se guarda con el registro">nuevo</span>
+                        <button type="button" class="ens-mini" title="Quitar" @onclick="() => Valores.QuitarNuevo(Sesion, idx)"><Ico Nombre="cancelar" /></button>
+                    </div>
+                }
+                @if (Sesion.CuantosArchivos(Campo.Id) == 0) { <span class="text-muted small">Sin archivos.</span> }
+                <label class="btn btn-sm btn-outline-secondary frm-adjuntar mb-0" title="Adjuntar archivos"><Ico Nombre="adjuntar" /> Adjuntar<InputFile class="d-none" multiple OnChange="Subir" /></label>
+                @if (errorArchivos is not null) { <span class="small text-danger">@errorArchivos</span> }
+            </div>
+            break;
+        case TipoCampoTabla.Lista when Campo.Multiple:
+            <SelectorMultiple Valores="varios" Opciones="Sesion.OpcionesDe(Campo)" OnCambio="PonerVarios" />
+            break;
+        case TipoCampoTabla.Lista:
+            var opciones = Sesion.OpcionesDe(Campo);
+            <select class="form-select" value="@(valor ?? "")" @onchange="e => Poner(e.Value?.ToString())">
+                <option value="">— Seleccione —</option>
+                @foreach (var o in opciones) { <option value="@o">@o</option> }
+                @if (!string.IsNullOrEmpty(valor) && !opciones.Contains(valor)) { <option value="@valor">@valor</option> }
+            </select>
+            break;
+        case TipoCampoTabla.Fecha:
+            <input type="date" class="form-control" value="@Fecha(valor)" @onchange="e => Poner(e.Value?.ToString())" />
+            break;
+        case TipoCampoTabla.Numero:
+            <input class="form-control" inputmode="decimal" value="@Numero(valor)" @onchange="e => PonerNumero(e.Value?.ToString())" />
+            break;
+        case TipoCampoTabla.SiNo:
+            <select class="form-select" value="@(valor ?? "")" @onchange="e => Poner(e.Value?.ToString())">
+                <option value="">— Seleccione —</option>
+                <option value="1">Sí</option>
+                <option value="0">No</option>
+            </select>
+            break;
+        default:
+            @if (Ubicacion.H > 1)
+            {
+                <textarea class="form-control" rows="@(Ubicacion.H * 2)" @onchange="e => Poner(e.Value?.ToString())">@valor</textarea>
+            }
+            else
+            {
+                <input class="form-control" value="@valor" @onchange="e => Poner(e.Value?.ToString())" />
+            }
+            break;
+    }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CampoTabla Campo { get; set; } = default!;
+    [Parameter, EditorRequired] public Ubicacion Ubicacion { get; set; } = default!;
+    [Parameter, EditorRequired] public ValoresFormulario.Sesion Sesion { get; set; } = default!;
+    [Parameter] public bool Obligatorio { get; set; }
+    // Posición en la rejilla única del formulario (ContextoFormulario.EstiloCampo).
+    [Parameter] public string? Estilo { get; set; }
+
+    private void Poner(string? v) => Valores.Poner(Sesion, Campo.Id, v);
+
+    private string? errorArchivos;
+    private async Task Subir(InputFileChangeEventArgs e)
+    {
+        errorArchivos = null;
+        var fallos = new List<string>();
+        foreach (var f in e.GetMultipleFiles(30))
+        {
+            try
+            {
+                var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(f, Env.WebRootPath, $"{ArchivosCampo.CarpetaDisco}/{Sesion.Info.Clave}");
+                Valores.AgregarArchivo(Sesion, Campo.Id, nombre, ruta);
+            }
+            catch (Exception ex) { fallos.Add(ex.Message); }
+        }
+        if (fallos.Count > 0) errorArchivos = "No se cargaron: " + string.Join("; ", fallos);
+    }
+
+    // Varios valores: la lista vive en el componente (SelectorMultiple la modifica) y se vuelve a leer al cambiar de registro.
+    private List<string> varios = new();
+    private string? variosDe;
+    protected override void OnParametersSet()
+    {
+        var clave = $"{Sesion.FilaId}:{Campo.Id}";
+        if (Campo.Multiple && variosDe != clave) { varios = MotorTabla.Partes(Sesion.Valores.GetValueOrDefault(Campo.Id)); variosDe = clave; }
+    }
+    private void PonerVarios() => Poner(MotorTabla.UnirVarios(varios));
+
+    // Números: se guardan invariantes (como en Campos); se muestran con coma decimal.
+    private void PonerNumero(string? v)
+    {
+        if (string.IsNullOrWhiteSpace(v)) { Poner(null); return; }
+        var t = MotorTabla.Tipar(Campo, v.Trim());
+        Poner(MotorTabla.Serializar(t));
+    }
+
+    private static string? Fecha(string? v) => MotorTabla.Tipar(new CampoTabla { Tipo = TipoCampoTabla.Fecha }, v) is DateTime d ? d.ToString("yyyy-MM-dd") : null;
+    private string? Numero(string? v) => MotorTabla.Tipar(Campo, v) is double d ? MotorTabla.Mostrar(Campo, d) : v;
+    private static string? NumeroDe(CampoTabla c, string? v) => MotorTabla.Tipar(c, v) is double d ? MotorTabla.Mostrar(c, d) : v;
+    private void PonerNumeroDe(CampoTabla c, string? v)
+    {
+        if (string.IsNullOrWhiteSpace(v)) { Valores.Poner(Sesion, c.Id, null); return; }
+        Valores.Poner(Sesion, c.Id, MotorTabla.Serializar(MotorTabla.Tipar(c, v.Trim())));
+    }
+}

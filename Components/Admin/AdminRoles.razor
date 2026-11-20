@@ -1,0 +1,221 @@
+@page "/admin/roles"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+
+<PageTitle>Roles · Administración</PageTitle>
+
+<div class="ad">
+<EncabezadoPagina Titulo="Roles y permisos" Subtitulo="Qué puede hacer cada rol en cada módulo; aplica en todos los proyectos" Icono="roles" Atras="/admin">
+    <Acciones>
+        <button type="button" class="pg-btn" title="Rol nuevo (copia del seleccionado)" @onclick="NuevoAsync"><Ico Nombre="agregar" /></button>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (Mensaje is not null)
+{
+    <div class="alert @(MensajeError ? "alert-danger" : "alert-success")" role="alert">@Mensaje</div>
+}
+
+<div class="ad-dos">
+    <aside class="ad-tarjeta ad-lateral">
+        @foreach (var r in roles)
+        {
+            <button type="button" class="ad-item @(ed?.Id == r.Id ? "activo" : "")" @onclick="() => Abrir(r.Id)">
+                <span class="ad-item-txt"><span>@r.Nombre</span><small>@(miembros.GetValueOrDefault(r.Id)) usuarios@(r.DeFabrica ? " · de fábrica" : "")</small></span>
+            </button>
+        }
+        <div class="small text-muted p-2 mt-2 border-top">Roles globales (Usuarios): <b>Administrador del SGC</b> = todo; <b>Auditor del SGC</b> = ver y descargar todos los proyectos.</div>
+    </aside>
+
+    @if (ed is not null)
+    {
+        <div class="d-grid gap-3">
+            <section class="ad-tarjeta">
+                <div class="ad-form">
+                    <div class="mb-3"><label for="r-nom">Nombre del rol</label><input id="r-nom" class="form-control" @bind="ed.Nombre" maxlength="80" /></div>
+                    <div class="mb-3 ad-ancho"><label for="r-des">Descripción</label><input id="r-des" class="form-control" @bind="ed.Descripcion" maxlength="400" /></div>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    @foreach (var (txt, acc) in Atajos)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Aplicar a todos los módulos operativos: @txt" @onclick="() => AplicarATodos(acc)">@txt</button>
+                    }
+                    @if (ed.Clave is not null) { <button type="button" class="btn btn-sm btn-outline-secondary" title="Volver a los permisos de fábrica de este rol" @onclick="Fabrica"><Ico Nombre="restaurar" /></button> }
+                </div>
+            </section>
+
+            <div class="ad-matriz-marco">
+                <table class="ad-matriz">
+                    <thead><tr><th>Módulo</th>@foreach (var a in Acciones.Lista) { <th title="@a.Descripcion">@a.Corto</th> }<th title="Todo / nada">∑</th></tr></thead>
+                    <tbody>
+                    @foreach (var g in CatalogoModulos.Lista.GroupBy(m => m.Grupo))
+                    {
+                        <tr class="ad-grupo"><td colspan="@(Acciones.Lista.Count + 2)">@g.Key</td></tr>
+                        @foreach (var m in g)
+                        {
+                            var v = ed.Permisos.GetValueOrDefault(m.Clave);
+                            <tr>
+                                <td>@m.Nombre @if (m.Sensible) { <span class="ad-sens">sensible</span> }</td>
+                                @foreach (var a in Acciones.Lista)
+                                {
+                                    <td><input type="checkbox" checked="@((v & a.Accion) != 0)" @onchange="e => Marcar(m.Clave, a.Accion, (bool)e.Value!)" aria-label="@m.Nombre: @a.Nombre" /></td>
+                                }
+                                <td><input type="checkbox" checked="@(v == Accion.Todas)" @onchange="e => ed.Permisos[m.Clave] = (bool)e.Value! ? Accion.Todas : Accion.Ninguna" aria-label="@m.Nombre: todo" /></td>
+                            </tr>
+                        }
+                    }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="frm-pie">
+                @if (!ed.DeFabrica)
+                {
+                    <button type="button" class="btn btn-outline-danger frm-pie-izq" title="Eliminar rol (solo sin usuarios)" @onclick="EliminarAsync" disabled="@(miembros.GetValueOrDefault(ed.Id) > 0)"><Ico Nombre="eliminar" /></button>
+                }
+                <span class="frm-pie-msg">@(miembros.GetValueOrDefault(ed.Id) > 0 ? $"Los cambios aplican de inmediato a {miembros.GetValueOrDefault(ed.Id)} usuarios." : "")</span>
+                <button type="button" class="btn btn-outline-secondary" title="Cancelar" @onclick="() => Abrir(ed.Id)"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary" title="Guardar" @onclick="GuardarAsync" disabled="@Ocupado"><Ico Nombre="guardar" /></button>
+            </div>
+        </div>
+    }
+</div>
+</div>
+
+@code {
+    private sealed class Edicion
+    {
+        public int Id; public bool DeFabrica; public string? Clave;
+        public string Nombre { get; set; } = ""; public string? Descripcion { get; set; }
+        public Dictionary<string, Accion> Permisos { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static readonly (string, Accion)[] Atajos =
+    {
+        ("Solo ver", Accion.Ver),
+        ("Ver y descargar", Accion.Ver | Accion.Descargar),
+        ("Colaborar", Accion.Ver | Accion.Descargar | Accion.Comentar | Accion.Crear),
+        ("Editar", Accion.Ver | Accion.Descargar | Accion.Comentar | Accion.Crear | Accion.Editar | Accion.Eliminar | Accion.Importar),
+    };
+
+    private List<RolSig> roles = new();
+    private Dictionary<int, int> miembros = new();
+    private Edicion? ed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Autorizado) return;
+        await CargarAsync();
+        if (roles.Count > 0) Abrir(roles[0].Id);
+    }
+
+    private async Task CargarAsync() => await ConDb(async (db, _) =>
+    {
+        roles = await db.RolesSig.AsNoTracking().Include(r => r.Permisos).OrderBy(r => r.Orden).ThenBy(r => r.Nombre).ToListAsync();
+        miembros = await db.Miembros.AsNoTracking().Where(m => m.Activo).GroupBy(m => m.RolSigId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+    });
+
+    private void Abrir(int id)
+    {
+        var r = roles.FirstOrDefault(x => x.Id == id);
+        if (r is null) return;
+        ed = new Edicion
+        {
+            Id = r.Id, DeFabrica = r.DeFabrica, Clave = r.Clave, Nombre = r.Nombre, Descripcion = r.Descripcion,
+            Permisos = new Dictionary<string, Accion>(r.Permisos.ToDictionary(p => p.Modulo, p => p.Acciones), StringComparer.OrdinalIgnoreCase),
+        };
+    }
+
+    private void Marcar(string modulo, Accion a, bool v)
+    {
+        if (ed is null) return;
+        var actual = ed.Permisos.GetValueOrDefault(modulo);
+        actual = v ? actual | a : actual & ~a;
+        // Sin "Ver" no hay nada; cualquier otra acción implica "Ver".
+        if (a == Accion.Ver && !v) actual = Accion.Ninguna;
+        else if (v) actual |= Accion.Ver;
+        ed.Permisos[modulo] = actual;
+    }
+
+    private void AplicarATodos(Accion a)
+    {
+        if (ed is null) return;
+        foreach (var m in CatalogoModulos.Lista.Where(m => !m.Configuracion && !m.Sensible)) ed.Permisos[m.Clave] = a;
+    }
+
+    private void Fabrica()
+    {
+        if (ed?.Clave is null) return;
+        foreach (var m in CatalogoModulos.Lista) ed.Permisos[m.Clave] = RolesFabrica.Permiso(ed.Clave, m);
+    }
+
+    private async Task NuevoAsync()
+    {
+        var copia = ed;
+        await Cambiar(async () => await ConDb(async (db, _) =>
+        {
+            var r = new RolSig
+            {
+                Nombre = (copia is null ? "Rol nuevo" : copia.Nombre + " (copia)").Length > 80 ? "Rol nuevo" : (copia is null ? "Rol nuevo" : copia.Nombre + " (copia)"),
+                Descripcion = copia?.Descripcion, Orden = (roles.Count == 0 ? 0 : roles.Max(x => x.Orden)) + 10,
+            };
+            foreach (var m in CatalogoModulos.Lista)
+                r.Permisos.Add(new PermisoRol { Modulo = m.Clave, Acciones = copia?.Permisos.GetValueOrDefault(m.Clave) ?? Accion.Ninguna });
+            db.RolesSig.Add(r);
+            await db.SaveChangesAsync();
+            Registrar("Rol creado", r.Nombre);
+            await CargarAsync();
+            Abrir(r.Id);
+        }), "Rol creado. Ajuste el nombre y los permisos.");
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (ed is null) return;
+        var e = ed;
+        await Cambiar(async () =>
+        {
+            e.Nombre = e.Nombre.Trim();
+            if (e.Nombre.Length == 0) throw new OperacionAdminException("Escriba el nombre del rol.");
+            await ConDb(async (db, _) =>
+            {
+                if (await db.RolesSig.AnyAsync(x => x.Id != e.Id && x.Nombre == e.Nombre)) throw new OperacionAdminException("Ya existe un rol con ese nombre.");
+                var r = await db.RolesSig.Include(x => x.Permisos).FirstAsync(x => x.Id == e.Id);
+                var antes = r.Permisos.ToDictionary(p => p.Modulo, p => p.Acciones);
+                r.Nombre = e.Nombre; r.Descripcion = string.IsNullOrWhiteSpace(e.Descripcion) ? null : e.Descripcion.Trim();
+                foreach (var m in CatalogoModulos.Lista)
+                {
+                    var p = r.Permisos.FirstOrDefault(x => x.Modulo == m.Clave);
+                    if (p is null) { p = new PermisoRol { Modulo = m.Clave }; r.Permisos.Add(p); }
+                    p.Acciones = e.Permisos.GetValueOrDefault(m.Clave);
+                }
+                await db.SaveChangesAsync();
+                var cambios = CatalogoModulos.Lista.Where(m => antes.GetValueOrDefault(m.Clave) != e.Permisos.GetValueOrDefault(m.Clave))
+                    .Select(m => $"{m.Clave}: [{Acciones.Texto(antes.GetValueOrDefault(m.Clave))}] → [{Acciones.Texto(e.Permisos.GetValueOrDefault(m.Clave))}]");
+                Registrar("Rol modificado", $"{r.Nombre} · {string.Join("; ", cambios)}");
+            });
+            Permisos.Invalidar();
+        }, "Rol guardado.");
+        await CargarAsync();
+        Abrir(e.Id);
+    }
+
+    private async Task EliminarAsync()
+    {
+        if (ed is null || ed.DeFabrica) return;
+        var id = ed.Id;
+        await Cambiar(async () => await ConDb(async (db, _) =>
+        {
+            if (await db.Miembros.AnyAsync(m => m.RolSigId == id)) throw new OperacionAdminException("El rol tiene usuarios: cámbielos de rol primero.");
+            if (await db.Invitaciones.AnyAsync(i => i.RolSigId == id && i.Estado == EstadoInvitacion.Pendiente)) throw new OperacionAdminException("Hay invitaciones pendientes con este rol.");
+            var r = await db.RolesSig.Include(x => x.Permisos).FirstAsync(x => x.Id == id);
+            db.PermisosRol.RemoveRange(r.Permisos);
+            db.RolesSig.Remove(r);
+            await db.SaveChangesAsync();
+            Registrar("Rol eliminado", r.Nombre);
+        }), "Rol eliminado.");
+        ed = null;
+        await CargarAsync();
+        if (roles.Count > 0) Abrir(roles[0].Id);
+    }
+}

@@ -1,0 +1,328 @@
+@page "/direccionamiento"
+@rendermode InteractiveServer
+@using SigWeb.Data.Direccionamiento
+@using SigWeb.Data.Impacto
+@using SigWeb.Models
+
+@* Direccionamiento estratégico: documentos clasificados por tipo en mosaicos (como la vitrina de
+   Certificaciones) o lista. Lógica en DireccionamientoEstrategico.razor.cs. *@
+<PageTitle>Direccionamiento estratégico</PageTitle>
+
+<EncabezadoPagina Titulo="Direccionamiento estratégico" Icono="direccionamiento" Atras="/">
+    <Acciones>
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(vista == "mosaicos" ? "activo" : "")" title="Mosaicos" aria-label="Mosaicos" @onclick='() => CambiarVista("mosaicos")'><Ico Nombre="tablero" /></button>
+            <button type="button" class="pg-btn @(vista == "lista" ? "activo" : "")" title="Lista" aria-label="Lista" @onclick='() => CambiarVista("lista")'><Ico Nombre="listado" /></button>
+        </span>
+        @if (vista == "mosaicos")
+        {
+            <button type="button" class="pg-btn" title="Pantalla completa" aria-label="Pantalla completa" @onclick="PantallaCompleta"><Ico Nombre="pantalla-completa" /></button>
+        }
+        <button type="button" class="pg-btn" title="Descargar compilado (PDF)" aria-label="Descargar compilado" disabled="@(docs.Count == 0)" @onclick="DescargarCompilado"><Ico Nombre="exportar-pdf" /></button>
+        <button type="button" class="pg-btn @(carga is not null ? "activo" : "")" title="Cargar documentos (PDF)" aria-label="Cargar" @onclick="AbrirCarga"><Ico Nombre="cargar-pdf" /></button>
+    </Acciones>
+</EncabezadoPagina>
+@if (EsCompartido)
+{
+    <div class="alert alert-secondary py-2 small" data-sin-aviso>Documentos de la empresa, compartidos con todos los proyectos. Aquí son de consulta; se actualizan en el espacio de la Empresa.</div>
+}
+
+<div @ref="raiz">
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert @(error ? "alert-danger" : "alert-success") py-1 small">@mensaje</div>
+}
+
+@if (carga is not null)
+{
+    <FormularioSig Titulo="Cargar documentos" Icono="cargar-pdf" Clase="mb-3" OnCerrar="CancelarCarga">
+        <ChildContent>
+            <label class="de-soltar @(carga.Leyendo ? "leyendo" : "")" title="Elegir PDF (uno con varios documentos, o varios por separado)">
+                @if (carga.Leyendo)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                }
+                else
+                {
+                    <Ico Nombre="adjuntar" />
+                }
+                <InputFile class="d-none" accept=".pdf" multiple OnChange="ElegirArchivos" disabled="@carga.Leyendo" />
+            </label>
+
+            @foreach (var a in carga.Archivos)
+            {
+                var arch = a;
+                <div class="de-archivo" @key="arch.Url">
+                    <div class="de-archivo-cab">
+                        <Ico Nombre="pdf" />
+                        <b class="text-truncate">@arch.Nombre</b>
+                        <span class="de-tenue">@arch.Paginas p.</span>
+                        @if (arch.SinTexto)
+                        {
+                            <span class="de-aviso" title="El PDF no tiene texto (escaneado): clasifique a mano">Sin texto</span>
+                        }
+                        <button type="button" class="de-mini ms-auto" title="Quitar archivo" @onclick="() => QuitarArchivo(arch)"><Ico Nombre="cancelar" /></button>
+                    </div>
+
+                    @* Tira de páginas: color = parte; clic en una página = partir ahí *@
+                    <div class="de-tira">
+                        @for (int n = 1; n <= arch.Paginas; n++)
+                        {
+                            var pag = n;
+                            var ip = ParteDePagina(arch, pag);
+                            var incl = ip >= 0 && arch.Partes[ip].Incluir;
+                            var inicio = ip >= 0 && arch.Partes[ip].Desde == pag;
+                            <button type="button" class="de-pag @(incl ? "incluida" : "") @(inicio ? "inicio" : "")" style="--de-c:@ColorParte(ip)"
+                                    title="@(inicio || ip < 0 ? $"Página {pag}" : $"Partir aquí (página {pag})")" disabled="@(inicio || ip < 0)" @onclick="() => PartirEn(arch, pag)">
+                                <span class="de-pag-img" data-pdf="@arch.Url" data-pag="@pag"></span>
+                                <span class="de-pag-n">@pag</span>
+                                @if (!inicio && ip >= 0) { <span class="de-tijera"><Ico Nombre="dividir" /></span> }
+                            </button>
+                        }
+                    </div>
+
+                    <div class="tabla-scroll">
+                        <table class="table table-sm table-bordered align-middle mb-0 de-partes">
+                            <thead>
+                                <tr>
+                                    <th style="width:34px;"></th><th style="width:118px;">Páginas</th><th style="width:190px;">Tipo</th><th>Título</th>
+                                    <th style="width:140px;">Código</th><th style="width:70px;">Versión</th><th style="width:76px;">Revisión</th><th style="width:140px;">Fecha</th>
+                                    <th style="width:210px;">Destino</th><th style="width:44px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < arch.Partes.Count; i++)
+                                {
+                                    var p = arch.Partes[i];
+                                    var ultima = i == arch.Partes.Count - 1;
+                                    var err = ErrorParte(arch, p);
+                                    <tr class="@(p.Incluir ? "" : "de-excluida")" style="--de-c:@ColorParte(i)">
+                                        <td class="de-marca"><input type="checkbox" class="form-check-input" title="Guardar esta parte" @bind="p.Incluir" /></td>
+                                        <td class="p-0">
+                                            <div class="de-rango">
+                                                <input type="number" class="form-control form-control-sm cc-input" min="1" max="@arch.Paginas" title="Desde" @bind="p.Desde" />
+                                                <span>–</span>
+                                                <input type="number" class="form-control form-control-sm cc-input" min="1" max="@arch.Paginas" title="Hasta" @bind="p.Hasta" />
+                                            </div>
+                                        </td>
+                                        <td class="p-0"><input class="form-control form-control-sm cc-input @(p.Incluir && string.IsNullOrWhiteSpace(p.Tipo) ? "is-invalid" : "")" list="dl-de-tipo" @bind="p.Tipo" @bind:event="oninput" /></td>
+                                        <td class="p-0"><input class="form-control form-control-sm cc-input @(p.Incluir && string.IsNullOrWhiteSpace(p.Titulo) ? "is-invalid" : "")" @bind="p.Titulo" @bind:event="oninput" /></td>
+                                        <td class="p-0"><input class="form-control form-control-sm cc-input" @bind="p.Codigo" @bind:after="() => AjustarDestino(p)" /></td>
+                                        <td class="p-0"><input class="form-control form-control-sm cc-input" @bind="p.Version" /></td>
+                                        <td class="p-0"><input class="form-control form-control-sm cc-input" @bind="p.Revision" /></td>
+                                        <td class="p-0"><input type="date" class="form-control form-control-sm cc-input" @bind="p.Fecha" /></td>
+                                        <td class="p-0">
+                                            <select class="form-select form-select-sm cc-input" value="@p.Destino" @onchange="e => CambiarDestino(p, e)">
+                                                <option value="0">Nuevo</option>
+                                                @foreach (var d in docs)
+                                                {
+                                                    <option value="@d.Id">Actualizar: @d.Titulo</option>
+                                                }
+                                            </select>
+                                            @if (p.YaCargada)
+                                            {
+                                                <span class="de-aviso" title="Ese documento ya tiene esta versión y fecha">Ya cargada</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (!ultima)
+                                            {
+                                                <button type="button" class="de-mini" title="Unir con la siguiente" @onclick="() => UnirConSiguiente(arch, p)"><Ico Nombre="unificar" /></button>
+                                            }
+                                        </td>
+                                    </tr>
+                                    @if (err is not null)
+                                    {
+                                        <tr class="de-error"><td></td><td colspan="9">@err</td></tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="CancelarCarga"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@(guardando || !CargaValida())" @onclick="GuardarCarga">
+                @if (guardando) { <span class="spinner-border spinner-border-sm" role="status"></span> } else { <Ico Nombre="guardar" /> }
+            </button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@if (form is not null)
+{
+    <FormularioSig Titulo="Editar documento" Icono="editar" Clase="mb-3" OnCerrar="() => form = null" Formulario="direccionamiento" Fila="form.Id">
+        <ChildContent>
+            <SeccionFormulario Titulo="Clasificación">
+                <CampoFormulario Etiqueta="Tipo" Ancho="col-md-4" Obligatorio="true" Destacado="true"><input class="form-control" list="dl-de-tipo" @bind="form.Tipo" @bind:event="oninput" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Título" Ancho="col-md-8" Obligatorio="true"><input class="form-control" @bind="form.Titulo" @bind:event="oninput" /></CampoFormulario>
+            </SeccionFormulario>
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => form = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@(guardando || string.IsNullOrWhiteSpace(form.Tipo) || string.IsNullOrWhiteSpace(form.Titulo))" @onclick="GuardarForm">
+                @if (guardando) { <span class="spinner-border spinner-border-sm" role="status"></span> } else { <Ico Nombre="guardar" /> }
+            </button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@if (elim is not null)
+{
+    <div class="card mb-3 cv-elim">
+        <div class="card-body py-2">
+            <PanelImpacto Informe="elim.Informe" OnEntendido="v => elim.Entendido = v" />
+            <div class="frm-pie frm-pie-plano">
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => elim = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-danger btn-sm" title="Enviar a la Papelera" disabled="@(elim.Informe.RequiereEntender && !elim.Entendido)" @onclick="ConfirmarEliminar"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@{ var tipos = TiposPresentes(); }
+@if (tipos.Count > 1)
+{
+    <div class="cv-filtros" role="group">
+        <button type="button" class="cv-chip @(filtro == "" ? "activo" : "")" @onclick='() => filtro = ""'>Todos <span class="cv-chip-n">@docs.Count</span></button>
+        @foreach (var t in tipos)
+        {
+            var k = t;
+            <button type="button" class="cv-chip @(filtro == k ? "activo" : "")" @onclick="() => filtro = k">
+                @k <span class="cv-chip-n">@docs.Count(d => string.Equals(d.Tipo, k, StringComparison.OrdinalIgnoreCase))</span>
+            </button>
+        }
+    </div>
+}
+
+@{ var visibles = Visibles(); }
+
+@if (vista == "mosaicos")
+{
+    <div class="cv-sala de-sala" @ref="sala">
+        @if (visibles.Count == 0)
+        {
+            <div class="pg-vacio cv-vacio" title="Sin documentos">
+                <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos("direccionamiento"))</svg>
+            </div>
+        }
+        else
+        {
+            <div class="de-pared">
+                @foreach (var d in visibles)
+                {
+                    var doc = d;
+                    var arch = VigenteDe(doc);
+                    var grupo = docs.Where(x => string.Equals(x.Tipo, doc.Tipo, StringComparison.OrdinalIgnoreCase)).ToList();
+                    var idx = grupo.FindIndex(x => x.Id == doc.Id);
+                    <div class="cv-obra" @key="doc.Id">
+                        <div class="cv-foco" aria-hidden="true"></div>
+                        <div class="cv-marco" tabindex="0">
+                            <div class="cv-paspartu">
+                                @if (arch is not null && EsImagen(arch.NombreOriginal))
+                                {
+                                    <img class="cv-mini de-mini-hoja" src="@arch.RutaArchivo" alt="" loading="lazy" />
+                                }
+                                else if (arch is not null && EsPdf(arch.NombreOriginal))
+                                {
+                                    <div class="cv-mini de-mini-hoja" data-pdf="@arch.RutaArchivo">@Lamina(doc)</div>
+                                }
+                                else
+                                {
+                                    <div class="cv-mini de-mini-hoja">@Lamina(doc)</div>
+                                }
+                            </div>
+                            <div class="cv-acciones">
+                                @OpcionesDoc(doc, arch)
+                                @if (idx > 0) { <button type="button" class="cv-btn" title="Mover antes" @onclick="() => Mover(doc, -1)"><Ico Nombre="subir" /></button> }
+                                @if (idx >= 0 && idx < grupo.Count - 1) { <button type="button" class="cv-btn" title="Mover después" @onclick="() => Mover(doc, 1)"><Ico Nombre="bajar" /></button> }
+                            </div>
+                        </div>
+                        <div class="cv-placa de-placa" title="@doc.Titulo">
+                            <em>@doc.Tipo</em>
+                            <b>@doc.Titulo</b>
+                            @{ var rot = LineaRotulo(doc); var fec = FechaDe(doc)?.ToString("dd/MM/yyyy"); }
+                            @{ var linea = string.Join(" · ", new[] { rot, fec }.Where(t => !string.IsNullOrWhiteSpace(t))); }
+                            @if (linea.Length > 0) { <span>@linea</span> }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="tabla-scroll tabla-auto">
+        <table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin cv-tabla">
+            <thead>
+                <tr><th>Título</th><th>Tipo</th><th>Código</th><th>Versión</th><th>Revisión</th><th>Fecha</th><th style="width:250px;"></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var d in visibles)
+                {
+                    var doc = d;
+                    var rev = RevisionDe(doc);
+                    <tr @key="doc.Id">
+                        <td class="fw-bold">@doc.Titulo</td>
+                        <td>@doc.Tipo</td>
+                        <td>@CodigoDoc(doc)</td>
+                        <td>@(rev?.Version ?? VigenteDe(doc)?.Version)</td>
+                        <td>@rev?.Cambio</td>
+                        <td class="text-nowrap">@(FechaDe(doc)?.ToString("dd/MM/yyyy"))</td>
+                        <td class="text-nowrap cv-fila-acc">@OpcionesDoc(doc, VigenteDe(doc))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+</div>
+
+<datalist id="dl-de-tipo">@foreach (var t in TiposSugeridos()) { <option value="@t"></option> }</datalist>
+
+@code {
+    private static readonly string[] Colores = { "#2f6fdf", "#1f9d55", "#e0a100", "#8e44ad", "#d35400", "#16a085", "#c0392b", "#2c3e50" };
+    private static string ColorParte(int i) => i < 0 ? "transparent" : Colores[i % Colores.Length];
+
+    // Hoja de respaldo (sin archivo, o mientras se dibuja la primera página del PDF).
+    private RenderFragment Lamina(DocumentoDireccionamiento d) => __builder =>
+    {
+        <div class="cv-lamina de-lamina">
+            <span class="cv-lamina-e">@d.Tipo</span>
+            <span class="cv-lamina-n">@d.Titulo</span>
+            <i style="width:80%"></i><i style="width:60%"></i><i style="width:70%"></i>
+        </div>
+    };
+
+    // Opciones documentales (mosaicos: al pasar el mouse; lista: en la fila).
+    private RenderFragment OpcionesDoc(DocumentoDireccionamiento d, VersionDocumento? arch) => __builder =>
+    {
+        var conDoc = TieneDoc(d);
+        if (arch is not null)
+        {
+            <a class="cv-btn" href="@arch.RutaArchivo" target="_blank" rel="noopener" title="Ver actual"><Ico Nombre="ubicar" /></a>
+        }
+        else
+        {
+            <button type="button" class="cv-btn" disabled title="Sin archivo vigente"><Ico Nombre="ubicar" /></button>
+        }
+        <button type="button" class="cv-btn" title="Actualizar" disabled="@(!conDoc)" @onclick='() => AbrirDocumento(d, "actualizar")'><Ico Nombre="nueva-version" /></button>
+        if (arch is not null)
+        {
+            <a class="cv-btn" href="@arch.RutaArchivo" download="@arch.NombreOriginal" title="Descargar"><Ico Nombre="importar" /></a>
+        }
+        else
+        {
+            <button type="button" class="cv-btn" disabled title="Sin archivo vigente"><Ico Nombre="importar" /></button>
+        }
+        <button type="button" class="cv-btn" title="Versiones obsoletas" disabled="@(!conDoc)" @onclick='() => AbrirDocumento(d, "obsoletos")'><Ico Nombre="versiones" /></button>
+        <button type="button" class="cv-btn" title="Ver todos" disabled="@(!conDoc)" @onclick='() => AbrirDocumento(d, "todos")'><Ico Nombre="carpeta" /></button>
+        <button type="button" class="cv-btn" title="Editar" @onclick="() => Editar(d)"><Ico Nombre="editar" /></button>
+        <button type="button" class="cv-btn" title="Eliminar" @onclick="() => PedirEliminar(d)"><Ico Nombre="eliminar" /></button>
+    };
+}

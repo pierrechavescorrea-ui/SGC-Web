@@ -1,0 +1,200 @@
+@page "/admin/telegram"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+@inject IJSRuntime JS
+
+<PageTitle>Bot de Telegram · Administración</PageTitle>
+
+<div class="ad">
+<EncabezadoPagina Titulo="Bot de Telegram" Icono="telegram" Atras="/admin">
+    <Acciones>
+        <button type="button" class="pg-btn" title="Actualizar" disabled="@(Ocupado || cargando)" @onclick="CargarAsync"><Ico Nombre="restaurar" /></button>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (Mensaje is not null)
+{
+    <div class="alert @(MensajeError ? "alert-danger" : "alert-success")" role="alert">@Mensaje</div>
+}
+
+<div class="ad-rejilla ad-rejilla-2 mb-3">
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Estado</h5>
+        <dl class="ad-dl">
+            <dt>Token</dt><dd><span class="ad-salud @(Bot.TieneToken ? "ok" : "mal")">@(Bot.TieneToken ? "Configurado (Telegram__Token)" : "Sin token")</span></dd>
+            <dt>Conexión</dt><dd><span class="ad-salud @(Bot.Conectado ? "ok" : "alerta")">@(Bot.Conectado ? "Conectado" : "Desconectado")</span></dd>
+            <dt>Bot</dt><dd>@(Bot.UsuarioBot is null ? "—" : "@" + Bot.UsuarioBot)</dd>
+            <dt>Último mensaje</dt><dd>@Fecha(Bot.UltimoMensaje?.ToUniversalTime())</dd>
+            <dt>Chats sin usuario</dt><dd>@(PermitirSinUsuario ? "Permitidos (acceso de consulta del proyecto)" : "Bloqueados: solo chats ligados a un usuario")</dd>
+            <dt>Último error</dt><dd class="text-danger small">@(Bot.UltimoError ?? "—")</dd>
+            <dt>URL pública de SGC Web</dt><dd>@(Bot.UrlSigWeb ?? "Sin configurar")</dd>
+        </dl>
+        @if (EnlaceBot is { } enlace)
+        {
+            <h5 class="ad-tit mt-3">Compartir el bot</h5>
+            <div class="d-flex flex-wrap align-items-start gap-3">
+                <img src="@QrPng(enlace)" alt="QR para abrir el bot en Telegram" width="@(qrAmpliado ? 260 : 96)" height="@(qrAmpliado ? 260 : 96)" decoding="async" class="telegram-qr" />
+                <div>
+                    <a href="@enlace" target="_blank" rel="noopener">@enlace</a>
+                    <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Copiar enlace" @onclick="() => CopiarEnlace(enlace)"><Ico Nombre="enlace" /></button>
+                        <a class="btn btn-sm btn-outline-secondary" title="Descargar QR (PNG)" href="@QrPng(enlace)" download="@($"QR_{Bot.UsuarioBot}.png")"><Ico Nombre="bajar" /></a>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="@(qrAmpliado ? "Reducir QR" : "Ampliar QR")" @onclick="() => qrAmpliado = !qrAmpliado"><Ico Nombre="@(qrAmpliado ? "alejar" : "acercar")" /></button>
+                        <span class="small text-muted" role="status">@mensajeCopia</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </section>
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Código de vinculación</h5>
+        <div class="ad-form">
+            <div class="mb-3"><label for="t-usu">Usuario @(PermitirSinUsuario ? "(opcional)" : "(obligatorio)")</label>
+                <select id="t-usu" class="form-select" @bind="codUsuario">
+                    <option value="">— sin usuario —</option>
+                    @foreach (var u in usuarios) { <option value="@u.Id">@u.Nombre</option> }
+                </select></div>
+            <div class="mb-3"><label for="t-pro">Proyecto</label>
+                <select id="t-pro" class="form-select" @bind="codProyecto">
+                    @foreach (var p in ProyectosActivos) { <option value="@p.Id">@p.Nombre</option> }
+                </select></div>
+            <div class="mb-3"><label for="t-nom">Nombre del chat</label><input id="t-nom" class="form-control" @bind="codNombre" maxlength="150" /></div>
+        </div>
+        <button type="button" class="btn btn-outline-secondary" title="Generar código" @onclick="GenerarAsync" disabled="@(SinEdicion || !Bot.TieneToken || codProyecto == 0)"><Ico Nombre="enlace" /></button>
+    </section>
+</div>
+
+<section class="ad-tarjeta mb-3">
+    <h5 class="ad-tit">Códigos pendientes</h5>
+    @{
+        var pendientes = Bot.CodigosPendientes(todos: true);
+    }
+    @if (pendientes.Count == 0)
+    {
+        <p class="text-muted mb-0">Sin códigos pendientes.</p>
+    }
+    else
+    {
+        <div class="ad-tabla-marco">
+            <table class="ad-tabla">
+                <thead><tr><th scope="col">Comando en Telegram</th><th scope="col">Nombre</th><th scope="col">Usuario de SGC Web</th><th scope="col">Proyecto</th><th scope="col">Vence</th><th scope="col" aria-label="Acciones"></th></tr></thead>
+                <tbody>
+                @foreach (var c in pendientes)
+                {
+                    <tr @key="c.Codigo">
+                        <td><code>/vincular @c.Codigo</code></td>
+                        <td>@c.Nombre</td>
+                        <td>@NombreUsuario(c.UsuarioId)</td>
+                        <td>@(c.ProyectoId is int pid ? NombreProyecto(pid) : "—")</td>
+                        <td>@Fecha(c.Vence)</td>
+                        <td class="ad-acc"><button type="button" class="btn btn-sm btn-outline-secondary" title="Anular código" disabled="@SinEdicion" @onclick="() => AnularAsync(c.Codigo, c.Nombre, c.ProyectoId)"><Ico Nombre="cancelar" /></button></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<h5 class="ad-tit">Chats vinculados</h5>
+@if (basesNoDisponibles.Count > 0)
+{
+    <div class="alert alert-warning" role="status">No se pudieron leer los chats anteriores de @string.Join(", ", basesNoDisponibles).</div>
+}
+<div class="ad-filtros">
+    <input class="form-control" placeholder="Buscar chat, usuario o @@telegram" @bind="texto" @bind:event="oninput" data-sin-flotante aria-label="Buscar chat" />
+    <select class="form-select" @bind="filtroProyecto" data-sin-flotante aria-label="Filtrar por proyecto">
+        <option value="0">Todos los proyectos</option>
+        @foreach (var p in Proyectos.Todos()) { <option value="@p.Id">@p.Nombre</option> }
+    </select>
+</div>
+@if (cargando)
+{
+    <Esqueleto Tipo="tabla" Filas="3" />
+}
+else
+{
+    <div class="ad-tarjeta ad-tabla-marco p-0">
+        <table class="ad-tabla">
+            <thead><tr><th scope="col">Chat</th><th scope="col">Usuario de SGC Web</th><th scope="col">Proyecto</th><th scope="col">Vinculado</th><th scope="col">Último uso</th><th scope="col">Estado</th><th scope="col" aria-label="Acciones"></th></tr></thead>
+            <tbody>
+            @foreach (var v in Filtrados())
+            {
+                <tr @key="v.Clave" class="@(v.Activo ? "" : "text-muted")">
+                    <td>
+                        @if (editando == v.Clave)
+                        {
+                            <input class="form-control form-control-sm" @bind="nombreEdicion" @bind:event="oninput" maxlength="150" aria-label="Nombre del chat" />
+                        }
+                        else
+                        {
+                            @v.Nombre
+                        }
+                        @if (v.Anterior) { <span class="badge text-bg-secondary ms-1">Anterior</span> }
+                        <div class="small text-muted">@v.UsuarioTelegram <span class="ad-mono">@v.ChatId</span></div>
+                    </td>
+                    <td>
+                        @if (editando == v.Clave)
+                        {
+                            <select class="form-select form-select-sm" @bind="usuarioEdicion" data-sin-flotante aria-label="Usuario de SGC Web">
+                                <option value="">— sin usuario —</option>
+                                @if (v.UsuarioId is { } id && usuarios.All(u => u.Id != id))
+                                {
+                                    <option value="@id">@NombreUsuario(id)</option>
+                                }
+                                @foreach (var u in usuarios) { <option value="@u.Id">@u.Nombre</option> }
+                            </select>
+                        }
+                        else { @NombreUsuario(v.UsuarioId) }
+                    </td>
+                    <td>
+                        @if (editando == v.Clave)
+                        {
+                            <select class="form-select form-select-sm" @bind="proyectoEdicion" data-sin-flotante aria-label="Proyecto">
+                                @if (Proyectos.Proyecto(v.ProyectoId)?.Estado != EstadoProyecto.Activo)
+                                {
+                                    <option value="@v.ProyectoId">@NombreProyecto(v.ProyectoId)</option>
+                                }
+                                @foreach (var p in ProyectosActivos) { <option value="@p.Id">@p.Nombre</option> }
+                            </select>
+                        }
+                        else { @NombreProyecto(v.ProyectoId) }
+                    </td>
+                    <td class="small">@Dia(v.Vinculado)</td>
+                    <td class="small">@Fecha(v.UltimoUso)</td>
+                    <td>@(v.Activo ? "Activo" : "Desactivado")</td>
+                    <td class="ad-acc text-nowrap">
+                        @if (eliminando == v.Clave)
+                        {
+                            <span class="small me-1">¿Eliminar? El chat deberá vincularse de nuevo.</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Cancelar" disabled="@Ocupado" @onclick="() => eliminando = null"><Ico Nombre="cancelar" /></button>
+                            <button type="button" class="btn btn-sm btn-danger" title="Confirmar eliminación" disabled="@SinEdicion" @onclick="() => EliminarAsync(v)"><Ico Nombre="eliminar" /></button>
+                        }
+                        else if (editando == v.Clave)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Cancelar" disabled="@Ocupado" @onclick="() => editando = null"><Ico Nombre="cancelar" /></button>
+                            <button type="button" class="btn btn-sm btn-primary" title="Guardar cambios" disabled="@(SinEdicion || string.IsNullOrWhiteSpace(nombreEdicion))" @onclick="() => GuardarAsync(v)"><Ico Nombre="guardar" /></button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar vínculo" disabled="@SinEdicion" @onclick="() => Editar(v)"><Ico Nombre="editar" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Reiniciar activación" disabled="@SinEdicion" @onclick="() => ReiniciarAsync(v)"><Ico Nombre="restaurar" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="@(v.Activo ? "Desactivar chat" : "Activar chat")" disabled="@SinEdicion" @onclick="() => AlternarAsync(v)"><Ico Nombre="@(v.Activo ? "candado" : "candado-abierto")" /></button>
+                            @if (v.Anterior)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Pasar al registro central" disabled="@SinEdicion" @onclick="() => CentralizarAsync(v)"><Ico Nombre="enlace" /></button>
+                            }
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar vínculo" disabled="@SinEdicion" @onclick="() => { eliminando = v.Clave; editando = null; }"><Ico Nombre="eliminar" /></button>
+                        }
+                    </td>
+                </tr>
+            }
+            @if (!Filtrados().Any())
+            {
+                <tr><td colspan="7" class="text-muted">Sin chats vinculados para estos filtros.</td></tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+</div>

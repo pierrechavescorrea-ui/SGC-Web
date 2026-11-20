@@ -1,0 +1,461 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Formulario de precios: ítems por capítulo, ajustes anuales (IPC y compuestos), precios fijados a
+   mano y modificaciones del contrato con su soporte. *@
+
+<div class="cp-mosaicos">
+    <button type="button" class="cp-mosaico @(cap is null ? "activo" : "")" @onclick="() => cap = null">
+        <span class="cp-mos-nom">Todos</span><span class="cp-mos-val">@FormatoCostos.Millones(S.ValorFormulario(Corte))</span>
+    </button>
+    @foreach (var c in S.Items.Where(i => i.EsCapitulo && i.CapituloId is null))
+    {
+        var id = c.Id;
+        <button type="button" class="cp-mosaico @(cap == id ? "activo" : "")" title="@c.Descripcion" @onclick="() => cap = id">
+            <span class="cp-mos-nom">@(c.Codigo.StartsWith("CAP-") ? c.Descripcion : $"{c.Codigo} · {c.Descripcion}")</span>
+            <span class="cp-mos-val">@FormatoCostos.Millones(ValorCapitulo(id))</span>
+        </button>
+    }
+</div>
+
+<div class="cp-filtros">
+    <input class="form-control form-control-sm" style="max-width:260px" placeholder="Buscar ítem…" @bind="buscar" @bind:event="oninput" />
+    <label class="cp-check"><input type="checkbox" @bind="soloEjecutados" /> Con ejecución</label>
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="Ajustes de precio por año (IPC)" @onclick="() => verAjustes = !verAjustes"><Ico Nombre="precios" /> @S.Ajustes.Count</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" title="Modificaciones del contrato" @onclick="() => verMods = !verMods"><Ico Nombre="versiones" /> @S.Modificaciones.Count</button>
+</div>
+
+@if (verAjustes)
+{
+    <div class="panel-formulario cp-panel">
+        <div class="cp-panel-tit">Ajuste de precios por año <span class="cp-sub">precio(año) = precio(año − 1) × Σ peso × (1 + índice); un precio fijado a mano manda</span></div>
+        <div class="cp-ajustes">
+            @foreach (var a in ajustes)
+            {
+                <div class="cp-ajuste">
+                    <div class="d-flex gap-1 align-items-center">
+                        <input type="number" class="form-control form-control-sm" style="width:80px" @bind="a.Anio" />
+                        <input class="form-control form-control-sm" @bind="a.Nombre" />
+                        <button type="button" class="btn btn-sm btn-link text-danger" title="Quitar ajuste" @onclick="() => ajustes.Remove(a)"><Ico Nombre="eliminar" /></button>
+                    </div>
+                    @foreach (var c in a.Comps)
+                    {
+                        <div class="d-flex gap-1 align-items-center mt-1">
+                            <input class="form-control form-control-sm" style="width:120px" title="Nombre del índice" @bind="c.Nombre" />
+                            <input type="number" step="any" class="form-control form-control-sm" style="width:80px" title="Peso (fracción)" @bind="c.Peso" />
+                            <span>×</span>
+                            <input type="number" step="any" class="form-control form-control-sm" style="width:90px" title="Índice en %" @bind="c.IndicePct" /><span>%</span>
+                            <button type="button" class="btn btn-sm btn-link" title="Quitar componente" @onclick="() => a.Comps.Remove(c)"><Ico Nombre="cancelar" /></button>
+                        </div>
+                    }
+                    <div class="d-flex justify-content-between mt-1">
+                        <button type="button" class="btn btn-sm btn-link" title="Agregar componente" @onclick='() => a.Comps.Add(new CompEd { Nombre = "Índice", Peso = 1 })'><Ico Nombre="agregar" /></button>
+                        <span class="cp-sub">Factor @FormatoCostos.Num(a.Comps.Sum(c => c.Peso * (1 + c.IndicePct / 100m)), 5)</span>
+                        @if (a.Comps.Count > 0 && Math.Abs(a.Comps.Sum(c => c.Peso) - 1m) > 0.001m) { <span class="cp-sobre">Σ pesos = @FormatoCostos.Num(a.Comps.Sum(c => c.Peso), 3) (debe ser 1)</span> }
+                    </div>
+                    <input class="form-control form-control-sm mt-1" placeholder="Soporte (resolución, DANE…)" @bind="a.Soporte" />
+                </div>
+            }
+        </div>
+        <div class="frm-pie frm-pie-plano">
+            <button type="button" class="btn btn-sm btn-outline-secondary frm-pie-izq" title="Agregar año" @onclick="NuevoAjuste"><Ico Nombre="agregar" /></button>
+            <button type="button" class="btn btn-sm btn-primary" title="Guardar ajustes" @onclick="GuardarAjustes"><Ico Nombre="guardar" /></button>
+        </div>
+    </div>
+}
+
+@if (verMods)
+{
+    <div class="panel-formulario cp-panel">
+        <div class="cp-panel-tit">Modificaciones del contrato</div>
+        <table class="table table-sm cp-tabla">
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>N.º</th><th>Descripción</th><th>Ítems</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var m in S.Modificaciones)
+                {
+                    var lineas = S.LineasModificacion.Where(l => l.ModificacionContratoId == m.Id).ToList();
+                    <tr>
+                        <td>@FormatoCostos.Fecha(m.Fecha)</td><td>@NombreTipo(m.Tipo)</td><td>@m.Numero</td><td>@m.Descripcion</td>
+                        <td>
+                            @foreach (var l in lineas)
+                            {
+                                <div class="cp-sub">@(S.ItemPorId.GetValueOrDefault(l.ItemPagoId)?.Codigo):
+                                    @if (l.CantidadDespues is not null) { <span> cant. @FormatoCostos.Num(l.CantidadAntes) → @FormatoCostos.Num(l.CantidadDespues)</span> }
+                                    @if (l.PrecioDespues is not null) { <span> precio @l.AnioPrecio @FormatoCostos.Dinero(l.PrecioAntes) → @FormatoCostos.Dinero(l.PrecioDespues)</span> }
+                                </div>
+                            }
+                        </td>
+                        <td><button type="button" class="btn btn-sm btn-link text-danger" title="Eliminar (Papelera)" @onclick="() => EliminarMod(m.Id)"><Ico Nombre="eliminar" /></button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="cp-mod-nueva">
+            <div class="d-flex flex-wrap gap-1 align-items-center">
+                <select class="form-select form-select-sm" style="width:auto" @bind="nueva.Tipo">
+                    @foreach (var t in Enum.GetValues<TipoModificacionContrato>()) { <option value="@t">@NombreTipo(t)</option> }
+                </select>
+                <input type="date" class="form-control form-control-sm" style="width:auto" @bind="nueva.Fecha" />
+                <input class="form-control form-control-sm" style="width:120px" placeholder="N.º / soporte" @bind="nueva.Numero" />
+                <input class="form-control form-control-sm flex-grow-1" placeholder="Descripción" @bind="nueva.Descripcion" />
+            </div>
+            @foreach (var l in nuevasLineas)
+            {
+                <div class="d-flex flex-wrap gap-1 align-items-center mt-1">
+                    <select class="form-select form-select-sm" style="width:260px" @bind="l.ItemId">
+                        <option value="0">Ítem…</option>
+                        @foreach (var it in S.Items.Where(i => !i.EsCapitulo)) { <option value="@it.Id">@it.Codigo · @Corto(it.Descripcion)</option> }
+                    </select>
+                    <input type="number" step="any" class="form-control form-control-sm" style="width:130px" placeholder="Cantidad nueva" @bind="l.Cantidad" />
+                    <input type="number" class="form-control form-control-sm" style="width:80px" placeholder="Año" @bind="l.Anio" />
+                    <input type="number" step="any" class="form-control form-control-sm" style="width:150px" placeholder="Precio nuevo (sin AIU)" @bind="l.Precio" />
+                    <button type="button" class="btn btn-sm btn-link" title="Quitar" @onclick="() => nuevasLineas.Remove(l)"><Ico Nombre="cancelar" /></button>
+                </div>
+            }
+            <div class="frm-pie frm-pie-plano">
+                <button type="button" class="btn btn-sm btn-outline-secondary frm-pie-izq" title="Agregar ítem a la modificación" @onclick="() => nuevasLineas.Add(new LineaEd { Anio = Corte.Year })"><Ico Nombre="agregar" /></button>
+                <button type="button" class="btn btn-sm btn-primary" title="Registrar modificación" disabled="@(string.IsNullOrWhiteSpace(nueva.Descripcion))" @onclick="GuardarMod"><Ico Nombre="guardar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="tabla-scroll tabla-auto cp-marco">
+    <table class="table table-sm cp-tabla cp-precios">
+        <thead>
+            <tr>
+                <th class="cp-fija">Ítem</th>
+                <th>Descripción</th>
+                <th>Unidad</th>
+                <th class="cp-num">Cant. contratada</th>
+                <th class="cp-num" title="Precio sin AIU del año base">Precio base</th>
+                @foreach (var a in Anios)
+                {
+                    <th class="cp-num" title="Precio sin AIU">@a</th>
+                }
+                <th class="cp-num">AIU</th>
+                <th class="cp-num" title="Con AIU, año @AnioVal">Precio @AnioVal</th>
+                <th class="cp-num">Valor contrato</th>
+                <th class="cp-num">Ejecutado</th>
+                <th class="cp-num" title="Ejecutado / cantidad vigente (rojo = mayor cantidad de obra)">% ejec.</th>
+                <th class="cp-num">Ejecutado $</th>
+                <th class="cp-num">Saldo</th>
+                <th class="cp-num">Facturado</th>
+                <th class="cp-num" title="Ejecutado − facturado (rojo = facturado de más)">Por facturar</th>
+                <th title="Overhead · Sostenimiento · Impuestos">OH · SOS · Imp</th>
+                <th>Ámbito</th>
+                <th>Actividad de obra</th>
+                <th>Cuadrilla</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var it in Filas())
+            {
+                var e = Editando ? ed.GetValueOrDefault(it.Id) : null;
+                if (it.EsCapitulo)
+                {
+                    <tr class="cp-cap"><td class="cp-fija">@it.Codigo.Replace("CAP-", "")</td><td colspan="@(19 + Anios.Count)">@it.Descripcion</td></tr>
+                    continue;
+                }
+                var cant = S.CantidadVigente(it);
+                var pv = S.PrecioConAiu(it, AnioVal);
+                var ej = ejecItem.GetValueOrDefault(it.Id);
+                var ejv = valorItem.GetValueOrDefault(it.Id);
+                var fac = factItem.GetValueOrDefault(it.Id);
+                var pe = cant > 0 ? ej / cant : (decimal?)null;
+                <tr class="@(cant > 0 && ej > cant ? "cp-sobre" : "")">
+                    <td class="cp-fija">@if (e is null) { @it.Codigo } else { <input class="form-control form-control-sm cp-in-cod" @bind="e.Codigo" /> }</td>
+                    <td class="cp-desc" title="@it.Descripcion">@if (e is null) { @it.Descripcion } else { <input class="form-control form-control-sm" @bind="e.Descripcion" /> }</td>
+                    <td>@if (e is null) { @it.Unidad } else { <input class="form-control form-control-sm cp-in-corto" @bind="e.Unidad" /> }</td>
+                    <td class="cp-num" title="@(cant != it.CantidadContratada ? $"Original {FormatoCostos.Num(it.CantidadContratada)}" : null)">
+                        @if (e is null) { @FormatoCostos.Num(cant) @(cant != it.CantidadContratada ? "*" : "") } else { <input type="number" step="any" class="form-control form-control-sm cp-in-num" @bind="e.Cantidad" /> }
+                    </td>
+                    <td class="cp-num">@if (e is null) { @FormatoCostos.Num(it.PrecioBase) <span class="cp-sub">@it.AnioBase</span> } else { <input type="number" step="any" class="form-control form-control-sm cp-in-num" @bind="e.PrecioBase" /><input type="number" class="form-control form-control-sm cp-in-corto" @bind="e.AnioBase" /> }</td>
+                    @foreach (var a in Anios)
+                    {
+                        var man = S.PreciosManuales.FirstOrDefault(p => p.ItemPagoId == it.Id && p.Anio == a);
+                        <td class="cp-num @(man is not null ? "cp-manual" : "")" title="@(man is not null ? "Fijado a mano" + (man.Motivo is null ? "" : ": " + man.Motivo) : "Calculado con el ajuste del año")">
+                            @if (e is null) { @FormatoCostos.Num(S.Precio(it, a)) }
+                            else { <input type="number" step="any" class="form-control form-control-sm cp-in-num" placeholder="@FormatoCostos.Num(S.Precio(it, a))" value="@(e.Manuales.TryGetValue(a, out var mv) ? mv?.ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" @onchange="ev => e.Manuales[a] = Dec(ev.Value)" /> }
+                        </td>
+                    }
+                    <td class="cp-num">@if (e is null) { @FormatoCostos.Pct(it.AiuPct, 0) } else { <input type="number" step="any" class="form-control form-control-sm cp-in-corto" @bind="e.AiuPct" /> }</td>
+                    <td class="cp-num">@FormatoCostos.Num(pv)</td>
+                    <td class="cp-num">@FormatoCostos.Num(cant * pv, 0)</td>
+                    <td class="cp-num">@FormatoCostos.Num(ej)</td>
+                    <td class="cp-num">@if (pe is decimal pp) { <span class="cp-pct-barra @(pp > 1.0001m ? "alto" : pp >= 0.999m ? "lleno" : "")" style="--p:@((int)Math.Round(Math.Min(1m, pp) * 100))%">@FormatoCostos.Pct(pp, 0)</span> }</td>
+                    <td class="cp-num">@FormatoCostos.Num(ejv, 0)</td>
+                    <td class="cp-num @(cant - ej < 0 ? "text-danger" : "")">@FormatoCostos.Num(cant - ej)</td>
+                    <td class="cp-num">@FormatoCostos.Num(fac)</td>
+                    <td class="cp-num @(ej - fac < 0 ? "cp-sobre" : "")" title="Ejecutado − facturado">@FormatoCostos.Num(ej - fac)</td>
+                    <td class="text-center">
+                        @if (e is null)
+                        {
+                            <span class="cp-flag @(it.AplicaOverhead ? "si" : "")" title="Overhead">OH</span>
+                            <span class="cp-flag @(it.AplicaSostenimiento ? "si" : "")" title="Sostenimiento">SOS</span>
+                            <span class="cp-flag @(it.AplicaImpuestos ? "si" : "")" title="Impuestos y financiación">Imp</span>
+                        }
+                        else
+                        {
+                            <label class="cp-check" title="Overhead"><input type="checkbox" @bind="e.Oh" />OH</label>
+                            <label class="cp-check" title="Sostenimiento"><input type="checkbox" @bind="e.Sos" />SOS</label>
+                            <label class="cp-check" title="Impuestos y financiación"><input type="checkbox" @bind="e.Imp" />Imp</label>
+                        }
+                    </td>
+                    <td>
+                        @if (e is null) { @it.Ambito }
+                        else
+                        {
+                            <select class="form-select form-select-sm" @bind="e.Ambito">
+                                @foreach (var x in Enum.GetValues<AmbitoItemPago>()) { <option value="@x">@x</option> }
+                            </select>
+                        }
+                    </td>
+                    <td>
+                        @if (e is null) { @(S.ActividadesObra.FirstOrDefault(a => a.Id == it.ActividadObraId)?.Nombre) }
+                        else
+                        {
+                            <select class="form-select form-select-sm" @bind="e.ActividadObraId">
+                                <option value="0">—</option>
+                                @foreach (var a in S.ActividadesObra) { <option value="@a.Id">@a.Grupo · @a.Nombre</option> }
+                            </select>
+                        }
+                    </td>
+                    <td>
+                        @if (e is null) { @it.CuadrillaPorDefecto }
+                        else
+                        {
+                            <select class="form-select form-select-sm" @bind="e.Cuadrilla">
+                                <option value="">—</option>
+                                @foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }
+                            </select>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private int? cap;
+    private string buscar = "";
+    private bool soloEjecutados, verAjustes, verMods;
+    private Dictionary<int, ItemEd> ed = new();
+    private List<AjusteEd> ajustes = new();
+    private ModificacionContrato nueva = new() { Fecha = DateTime.Today };
+    private List<LineaEd> nuevasLineas = new();
+
+    public override string? SelectorExportar => "table.cp-precios";
+
+    private int AnioVal => S.AnioValor(Corte, Corte);
+    private List<int> Anios => S.Ajustes.Select(a => a.Anio).Concat(S.PreciosManuales.Select(p => p.Anio)).Distinct().OrderBy(a => a).ToList();
+
+    private sealed class ItemEd
+    {
+        public int Id; public string Codigo = ""; public string Descripcion = ""; public string? Unidad; public decimal Cantidad; public decimal? PrecioBase;
+        public int AnioBase; public decimal AiuPct; public bool Oh, Sos, Imp; public AmbitoItemPago Ambito; public int ActividadObraId; public string? Cuadrilla;
+        public int? CapituloId; public Dictionary<int, decimal?> Manuales = new();
+    }
+    private sealed class AjusteEd { public int Id; public int Anio; public string Nombre = ""; public string? Soporte; public List<CompEd> Comps = new(); }
+    private sealed class CompEd { public string Nombre = ""; public decimal Peso; public decimal IndicePct; }
+    private sealed class LineaEd { public int ItemId; public decimal? Cantidad; public int Anio; public decimal? Precio; }
+
+    // Ejecutado, valor y facturado por ítem: una pasada por los registros (no por fila en el render).
+    private Dictionary<int, decimal> ejecItem = new(), valorItem = new(), factItem = new();
+
+    protected override void OnParametersSet()
+    {
+        if (!DatosNuevos()) return;
+        ajustes = S.Ajustes.Select(a => new AjusteEd
+        {
+            Id = a.Id, Anio = a.Anio, Nombre = a.Nombre, Soporte = a.Soporte,
+            Comps = S.Componentes.Where(c => c.AjustePrecioId == a.Id).Select(c => new CompEd { Nombre = c.Nombre, Peso = c.Peso, IndicePct = c.Indice * 100m }).ToList()
+        }).ToList();
+        var regs = S.RegistrosHasta(Corte).ToList();
+        ejecItem = regs.GroupBy(r => r.ItemPagoId).ToDictionary(g => g.Key, g => g.Sum(r => r.Cantidad));
+        valorItem = regs.GroupBy(r => r.ItemPagoId).ToDictionary(g => g.Key, g => g.Sum(r => S.Valor(r, Corte)));
+        var actas = S.Actas.Where(a => a.Fecha.Date <= Corte.Date).Select(a => a.Id).ToHashSet();
+        factItem = S.LineasActa.Where(l => actas.Contains(l.ActaFacturacionId)).GroupBy(l => l.ItemPagoId).ToDictionary(g => g.Key, g => g.Sum(l => l.Cantidad));
+    }
+
+    private static string Corto(string t) => t.Length > 50 ? t[..50] + "…" : t;
+
+    private static string NombreTipo(TipoModificacionContrato t) => t switch
+    {
+        TipoModificacionContrato.Otrosi => "Otrosí",
+        TipoModificacionContrato.CambioCantidad => "Cambio de cantidad",
+        TipoModificacionContrato.ItemNuevo => "Ítem nuevo",
+        TipoModificacionContrato.PrecioPactado => "Precio pactado",
+        _ => "Otro"
+    };
+
+    private decimal ValorCapitulo(int capId)
+    {
+        var ids = Descendientes(capId);
+        return S.Items.Where(i => !i.EsCapitulo && ids.Contains(i.Id)).Sum(i => S.CantidadVigente(i) * S.PrecioConAiu(i, AnioVal));
+    }
+
+    private HashSet<int> Descendientes(int capId)
+    {
+        var r = new HashSet<int> { capId };
+        bool cambio = true;
+        while (cambio)
+        {
+            cambio = false;
+            foreach (var i in S.Items) if (i.CapituloId is int p && r.Contains(p) && r.Add(i.Id)) cambio = true;
+        }
+        return r;
+    }
+
+    private IEnumerable<ItemPago> Filas()
+    {
+        IEnumerable<ItemPago> q = S.Items;
+        if (cap is int c) { var ids = Descendientes(c); q = q.Where(i => ids.Contains(i.Id)); }
+        if (!string.IsNullOrWhiteSpace(buscar))
+        {
+            var b = buscar.Trim().ToLowerInvariant();
+            q = q.Where(i => i.Codigo.ToLowerInvariant().Contains(b) || i.Descripcion.ToLowerInvariant().Contains(b));
+        }
+        if (soloEjecutados)
+        {
+            var conEj = S.Registros.Select(r => r.ItemPagoId).ToHashSet();
+            q = q.Where(i => !i.EsCapitulo && conEj.Contains(i.Id));
+        }
+        var lista = q.ToList();
+        if (Editando) lista.AddRange(ed.Values.Where(x => x.Id < 0).Select(x => new ItemPago { Id = x.Id, Codigo = x.Codigo, CapituloId = cap }));
+        return lista;
+    }
+
+    public override Task EditarAsync()
+    {
+        ed = S.Items.Where(i => !i.EsCapitulo).ToDictionary(i => i.Id, i => new ItemEd
+        {
+            Id = i.Id, Codigo = i.Codigo, Descripcion = i.Descripcion, Unidad = i.Unidad, Cantidad = i.CantidadContratada, PrecioBase = i.PrecioBase,
+            AnioBase = i.AnioBase, AiuPct = i.AiuPct, Oh = i.AplicaOverhead, Sos = i.AplicaSostenimiento, Imp = i.AplicaImpuestos, Ambito = i.Ambito,
+            ActividadObraId = i.ActividadObraId ?? 0, Cuadrilla = i.CuadrillaPorDefecto, CapituloId = i.CapituloId,
+            Manuales = S.PreciosManuales.Where(p => p.ItemPagoId == i.Id).ToDictionary(p => p.Anio, p => (decimal?)p.Precio)
+        });
+        return base.EditarAsync();
+    }
+
+    public override async Task AgregarAsync()
+    {
+        if (!Editando) await EditarAsync();
+        var id = ed.Keys.Where(k => k < 0).DefaultIfEmpty(0).Min() - 1;
+        ed[id] = new ItemEd { Id = id, Codigo = "", AnioBase = Corte.Year, AiuPct = 0.33m, Oh = true, Sos = true, Imp = true, CapituloId = cap };
+        await Avisar();
+    }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        var items = await Db.ItemsPago.ToDictionaryAsync(i => i.Id);
+        var manuales = await Db.PreciosManuales.ToListAsync();
+        int orden = S.Items.Count == 0 ? 0 : S.Items.Max(i => i.Orden);
+        foreach (var e in ed.Values)
+        {
+            if (e.Id < 0 && string.IsNullOrWhiteSpace(e.Codigo)) continue;
+            ItemPago it;
+            if (e.Id < 0) { it = new ItemPago { Orden = ++orden, CapituloId = e.CapituloId }; Db.ItemsPago.Add(it); }
+            else if (!items.TryGetValue(e.Id, out it!)) continue;
+            it.Codigo = e.Codigo.Trim(); it.Descripcion = e.Descripcion.Trim(); it.Unidad = e.Unidad; it.CantidadContratada = e.Cantidad;
+            it.PrecioBase = e.PrecioBase; it.AnioBase = e.AnioBase; it.AiuPct = e.AiuPct; it.AplicaOverhead = e.Oh; it.AplicaSostenimiento = e.Sos;
+            it.AplicaImpuestos = e.Imp; it.Ambito = e.Ambito; it.ActividadObraId = e.ActividadObraId == 0 ? null : e.ActividadObraId;
+            it.CuadrillaPorDefecto = string.IsNullOrWhiteSpace(e.Cuadrilla) ? null : e.Cuadrilla;
+            if (e.Id < 0) await Db.SaveChangesAsync();
+            foreach (var (anio, precio) in e.Manuales)
+            {
+                var m = manuales.FirstOrDefault(p => p.ItemPagoId == it.Id && p.Anio == anio);
+                if (precio is null) { if (m is not null) Db.PreciosManuales.Remove(m); }
+                else if (m is null) Db.PreciosManuales.Add(new PrecioManual { ItemPagoId = it.Id, Anio = anio, Precio = precio.Value, Motivo = "Editado en Precios" });
+                else m.Precio = precio.Value;
+            }
+        }
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        ed.Clear();
+    }
+
+    private void NuevoAjuste()
+    {
+        var anio = ajustes.Count == 0 ? Corte.Year : ajustes.Max(a => a.Anio) + 1;
+        ajustes.Add(new AjusteEd { Anio = anio, Nombre = $"IPC {anio}", Comps = new() { new CompEd { Nombre = "IPC", Peso = 1 } } });
+    }
+
+    private async Task GuardarAjustes()
+    {
+        // Fórmula de reajuste P1 = P0 × Σ peso × (1 + índice): los pesos deben sumar 1 o el factor queda mal.
+        if (ajustes.FirstOrDefault(x => x.Comps.Count > 0 && Math.Abs(x.Comps.Sum(c => c.Peso) - 1m) > 0.001m) is { } malo)
+        {
+            await OnError.InvokeAsync($"Los pesos de {malo.Nombre} ({malo.Anio}) suman {FormatoCostos.Num(malo.Comps.Sum(c => c.Peso), 3)}: deben sumar 1.");
+            return;
+        }
+        try
+        {
+            var todos = await Db.AjustesPrecio.ToListAsync();
+            var ahora = DateTime.Now;
+            foreach (var a in todos.Where(a => ajustes.All(x => x.Id != a.Id))) { a.Eliminado = true; a.FechaEliminacion = ahora; }
+            foreach (var x in ajustes)
+            {
+                var a = todos.FirstOrDefault(t => t.Id == x.Id && x.Id > 0);
+                if (a is null) { a = new AjustePrecio(); Db.AjustesPrecio.Add(a); }
+                a.Anio = x.Anio; a.Nombre = x.Nombre; a.Soporte = x.Soporte;
+                await Db.SaveChangesAsync();
+                Db.ComponentesAjustePrecio.RemoveRange(Db.ComponentesAjustePrecio.Where(c => c.AjustePrecioId == a.Id));
+                foreach (var c in x.Comps) Db.ComponentesAjustePrecio.Add(new ComponenteAjustePrecio { AjustePrecioId = a.Id, Nombre = c.Nombre, Peso = c.Peso, Indice = c.IndicePct / 100m });
+                x.Id = a.Id;
+            }
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            ajustes.Clear();
+            verAjustes = false;
+            await OnCambio.InvokeAsync();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); await OnError.InvokeAsync("No se pudieron guardar los ajustes: " + (ex.InnerException?.Message ?? ex.Message)); }
+    }
+
+    private async Task GuardarMod()
+    {
+        try
+        {
+            Db.ModificacionesContrato.Add(nueva);
+            await Db.SaveChangesAsync();
+            foreach (var l in nuevasLineas.Where(l => l.ItemId > 0 && (l.Cantidad is not null || l.Precio is not null)))
+            {
+                var it = S.ItemPorId[l.ItemId];
+                Db.LineasModificacionContrato.Add(new LineaModificacionContrato
+                {
+                    ModificacionContratoId = nueva.Id, ItemPagoId = l.ItemId,
+                    CantidadAntes = l.Cantidad is null ? null : S.CantidadVigente(it), CantidadDespues = l.Cantidad,
+                    PrecioAntes = l.Precio is null ? null : S.Precio(it, l.Anio), PrecioDespues = l.Precio, AnioPrecio = l.Precio is null ? null : l.Anio
+                });
+                // Un precio nuevo queda como precio fijado para ese año.
+                if (l.Precio is decimal p)
+                {
+                    var m = await Db.PreciosManuales.FirstOrDefaultAsync(x => x.ItemPagoId == l.ItemId && x.Anio == l.Anio);
+                    if (m is null) Db.PreciosManuales.Add(new PrecioManual { ItemPagoId = l.ItemId, Anio = l.Anio, Precio = p, Motivo = $"{NombreTipo(nueva.Tipo)} {nueva.Numero}".Trim() });
+                    else { m.Precio = p; m.Motivo = $"{NombreTipo(nueva.Tipo)} {nueva.Numero}".Trim(); }
+                }
+            }
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            nueva = new() { Fecha = DateTime.Today };
+            nuevasLineas.Clear();
+            verMods = false;
+            await OnCambio.InvokeAsync();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); await OnError.InvokeAsync("No se pudo registrar la modificación: " + (ex.InnerException?.Message ?? ex.Message)); }
+    }
+
+    private async Task EliminarMod(int id)
+    {
+        var m = await Db.ModificacionesContrato.FirstOrDefaultAsync(x => x.Id == id);
+        if (m is null) return;
+        m.Eliminado = true; m.FechaEliminacion = DateTime.Now;
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        await OnCambio.InvokeAsync();
+    }
+}

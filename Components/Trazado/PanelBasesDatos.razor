@@ -1,0 +1,197 @@
+@namespace SigWeb.Components.CargasTrazado
+@using Microsoft.AspNetCore.Components.Forms
+@using SigWeb.Data.Trazado
+
+@* Trazado › Bases de datos: una sola entrada para cargar el trazado (KMZ), la tabla de torres (Excel; trae las coordenadas
+   de cada torre y de cada pata) y elementos desde DWG/DXF, más lo ya cargado. El archivo se lee UNA vez aquí (mientras el InputFile existe) y se
+   entrega a Trazado con su tipo (OnCargar); cada flujo abre luego su propia configuración (columnas, sistema, capas…).
+   Un Excel suelto es siempre la tabla de torres: ya no hay carga aparte de coordenadas. *@
+
+<div class="bd-panel">
+    <div class="bd-cab">
+        <div>
+            <h5 class="mb-0">Bases de datos</h5>
+            <div class="bd-sub">Trazado, tabla de torres (con coordenadas) y elementos desde DWG/DXF</div>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cerrar" title="Cerrar" @onclick="OnCerrar"></button>
+    </div>
+
+    @* Mientras se lee, el aviso va ENCIMA: los <InputFile> deben seguir en pantalla hasta terminar de leer el archivo
+       (si se quitan, el navegador pierde el archivo: "_blazorFilesById" de null). *@
+    @if (leyendo)
+    {
+        <div class="bd-leyendo"><span class="spinner-border spinner-border-sm"></span> Leyendo @nombreLeyendo…</div>
+    }
+    @if (pendiente is not null)
+    {
+        @* Elegir qué es el archivo (Excel o DWG/DXF) *@
+        <div class="bd-pregunta">
+            <div class="bd-pregunta-tit"><Ico Nombre="@(pendiente.Extension is ".dwg" or ".dxf" ? "importar-cad" : "excel")" /> <strong>@pendiente.Nombre</strong></div>
+            <div class="bd-sub mb-2">¿Qué contiene?</div>
+            <div class="bd-opciones">
+                @foreach (var o in OpcionesPendiente())
+                {
+                    var op = o;
+                    <button type="button" class="bd-opcion @(op.Tipo == sugerido ? "bd-sugerida" : "")" @onclick="() => Entregar(pendiente, op.Tipo)">
+                        <Ico Nombre="@op.Icono" />
+                        <span class="bd-opcion-tit">@op.Titulo</span>
+                        <span class="bd-opcion-txt">@op.Texto</span>
+                        @if (op.Tipo == sugerido) { <span class="bd-etq">Sugerido</span> }
+                    </button>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(motivoSugerencia)) { <div class="bd-sub mt-2">@motivoSugerencia</div> }
+            <div class="mt-2"><button type="button" class="btn btn-sm btn-link p-0" @onclick="() => pendiente = null" title="Elegir otro archivo"><Ico Nombre="importar" /></button></div>
+        </div>
+    }
+    else
+    {
+        <label class="bd-zona">
+            <InputFile OnChange="ArchivoSuelto" accept=".kmz,.xlsx,.dwg,.dxf" class="bd-zona-input" />
+            <Ico Nombre="importar" />
+            <span class="bd-zona-tit">Arrastra aquí un archivo o haz clic para elegirlo</span>
+            <span class="bd-sub">KMZ · Excel (.xlsx) · DWG · DXF</span>
+        </label>
+
+        <div class="bd-tarjetas">
+            @foreach (var t in Tarjetas)
+            {
+                var tarjeta = t;
+                <label class="bd-tarjeta" title="@tarjeta.Texto">
+                    <InputFile OnChange="e => ArchivoDeTarjeta(e, tarjeta.Tipo)" accept="@tarjeta.Acepta" class="bd-zona-input" />
+                    <Ico Nombre="@tarjeta.Icono" />
+                    <span class="bd-opcion-tit">@tarjeta.Titulo</span>
+                    <span class="bd-opcion-txt">@tarjeta.Texto</span>
+                </label>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorLocal))
+    {
+        <div class="alert alert-warning py-1 small mt-2 mb-0">@errorLocal</div>
+    }
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div class="alert @(Error ? "alert-danger" : "alert-success") py-1 small mt-2 mb-0">@Mensaje</div>
+    }
+
+    @if (Historial is not null)
+    {
+        <div class="bd-historial">
+            <div class="bd-historial-tit">Cargado</div>
+            @Historial
+        </div>
+    }
+</div>
+
+<style>
+    .bd-panel { border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 12px; background: var(--bs-body-bg, #fff); padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+    .bd-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+    .bd-sub { font-size: .8rem; color: var(--bs-secondary-color, #6c757d); }
+    .bd-zona { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+               border: 2px dashed var(--bs-border-color, #ced4da); border-radius: 12px; padding: 22px 12px; cursor: pointer; margin: 0 0 12px;
+               background: var(--bs-tertiary-bg, #f8f9fa); transition: border-color .15s, background .15s; }
+    .bd-zona:hover, .bd-zona:focus-within { border-color: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+    .bd-zona > svg, .bd-zona > img { width: 30px; height: 30px; opacity: .7; }
+    .bd-zona-tit { font-weight: 600; }
+    .bd-zona-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .bd-tarjetas, .bd-opciones { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    .bd-tarjeta, .bd-opcion { position: relative; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 2px;
+               align-items: center; text-align: left; margin: 0; cursor: pointer; border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 10px;
+               padding: 10px 12px; background: var(--bs-body-bg, #fff); color: inherit; font: inherit; transition: border-color .15s, box-shadow .15s; }
+    .bd-tarjeta:hover, .bd-opcion:hover, .bd-tarjeta:focus-within { border-color: var(--t-acento, var(--sig-rojo, #EC1C24)); box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+    .bd-tarjeta > svg, .bd-tarjeta > img, .bd-opcion > svg, .bd-opcion > img { grid-row: 1 / span 2; width: 24px; height: 24px; opacity: .8; }
+    /* Ubicación explícita: ícono a la izquierda (dos filas), título y texto a la derecha alineados a la izquierda. */
+    .bd-tarjeta > :not(.bd-zona-input):not(.bd-opcion-tit):not(.bd-opcion-txt):not(.bd-etq), .bd-opcion > :is(svg, img, .ico) { grid-column: 1; grid-row: 1 / span 2; }
+    .bd-tarjeta > .bd-opcion-tit, .bd-opcion > .bd-opcion-tit { grid-column: 2; grid-row: 1; justify-self: start; text-align: left; }
+    .bd-tarjeta > .bd-opcion-txt, .bd-opcion > .bd-opcion-txt { grid-column: 2; grid-row: 2; justify-self: start; text-align: left; }
+    .bd-opcion-tit { font-weight: 600; font-size: .9rem; }
+    .bd-opcion-txt { font-size: .76rem; color: var(--bs-secondary-color, #6c757d); line-height: 1.25; }
+    .bd-sugerida { border-color: var(--t-acento, var(--sig-rojo, #EC1C24)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--t-acento, #EC1C24) 18%, transparent); }
+    .bd-etq { position: absolute; top: 6px; right: 8px; font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+    .bd-pregunta { border: 1px solid var(--bs-border-color, #dee2e6); border-left: 4px solid var(--t-acento, var(--sig-rojo, #EC1C24)); border-radius: 10px; padding: 12px; margin-bottom: 4px; }
+    .bd-pregunta-tit { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+    .bd-panel { position: relative; }
+    .bd-leyendo { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; gap: 8px; justify-content: center; border-radius: 12px;
+                  background: color-mix(in srgb, var(--bs-body-bg, #fff) 85%, transparent); font-weight: 600; }
+    .bd-historial { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--bs-border-color-translucent, rgba(0,0,0,.08)); }
+    .bd-historial-tit { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--bs-secondary-color, #6c757d); margin-bottom: 6px; }
+    .bd-hist { display: flex; flex-direction: column; gap: 6px; }
+    .bd-hist-fila { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 8px; font-size: .88rem; }
+    .bd-hist-fila > svg, .bd-hist-fila > img { width: 18px; height: 18px; opacity: .75; }
+</style>
+
+@code {
+    [Parameter] public EventCallback<(ArchivoCarga Archivo, TipoCargaTrazado Tipo)> OnCargar { get; set; }
+    [Parameter] public EventCallback OnCerrar { get; set; }
+    [Parameter] public RenderFragment? Historial { get; set; }
+    [Parameter] public string? Mensaje { get; set; }
+    [Parameter] public bool Error { get; set; }
+
+    private const long MaxBytes = 150L * 1024 * 1024;
+    private bool leyendo;
+    private string nombreLeyendo = "";
+    private string? errorLocal;
+    private ArchivoCarga? pendiente;
+    private TipoCargaTrazado? sugerido;
+    private string? motivoSugerencia;
+
+    private sealed record Opcion(TipoCargaTrazado Tipo, string Icono, string Titulo, string Texto, string Acepta = "");
+
+    private static readonly Opcion[] Tarjetas =
+    {
+        new(TipoCargaTrazado.TrazadoKmz, "mapa", "Trazado (KMZ)", "Puntos del KMZ: eliges cuáles son torres", ".kmz"),
+        new(TipoCargaTrazado.TablaTorres, "tabla", "Tabla de torres (Excel)", "Coordenadas de torre y patas, tipo, cotas, alturas…", ".xlsx"),
+        new(TipoCargaTrazado.ElementosCad, "importar-cad", "Elementos (DWG/DXF)", "Cunetas, trinchos, obras junto a la torre", ".dwg,.dxf"),
+    };
+
+    private IEnumerable<Opcion> OpcionesPendiente() => pendiente?.Extension is ".dwg" or ".dxf"
+        ? new[]
+        {
+            new Opcion(TipoCargaTrazado.ElementosCad, "importar-cad", "Importar elementos", "Elegir capas y ubicarlas junto a una torre"),
+            new Opcion(TipoCargaTrazado.InspeccionCad, "inspeccionar-cad", "Solo inspeccionar", "Ver capas y bloques sin guardar nada"),
+        }
+        : Array.Empty<Opcion>();
+
+    private async Task<ArchivoCarga?> Leer(IBrowserFile f)
+    {
+        errorLocal = null;
+        if (f.Size > MaxBytes) { errorLocal = $"«{f.Name}» pesa {f.Size / 1048576.0:0.#} MB (máx. 150 MB)."; return null; }
+        leyendo = true; nombreLeyendo = f.Name; StateHasChanged();
+        try
+        {
+            await using var s = f.OpenReadStream(MaxBytes);
+            using var ms = new MemoryStream();
+            await s.CopyToAsync(ms);
+            return new ArchivoCarga(f.Name, ms.ToArray());
+        }
+        catch (Exception ex) { errorLocal = $"No se pudo leer «{f.Name}»: {ex.Message}"; return null; }
+        finally { leyendo = false; }
+    }
+
+    private async Task ArchivoSuelto(InputFileChangeEventArgs e)
+    {
+        var a = await Leer(e.File);
+        if (a is null) return;
+        switch (a.Extension)
+        {
+            case ".kmz": await Entregar(a, TipoCargaTrazado.TrazadoKmz); break;
+            case ".dwg" or ".dxf": pendiente = a; sugerido = TipoCargaTrazado.ElementosCad; motivoSugerencia = null; break;
+            case ".xlsx": await Entregar(a, TipoCargaTrazado.TablaTorres); break;
+            default: errorLocal = "Formato no reconocido: usa KMZ, Excel (.xlsx), DWG o DXF."; break;
+        }
+    }
+
+    private async Task ArchivoDeTarjeta(InputFileChangeEventArgs e, TipoCargaTrazado tipo)
+    {
+        var a = await Leer(e.File);
+        if (a is not null) await Entregar(a, tipo);
+    }
+
+    private async Task Entregar(ArchivoCarga a, TipoCargaTrazado tipo)
+    {
+        pendiente = null;
+        await OnCargar.InvokeAsync((a, tipo));
+    }
+}

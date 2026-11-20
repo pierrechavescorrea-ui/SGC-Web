@@ -1,0 +1,88 @@
+@* Campos de un hallazgo de auditoría: requisito + evidencia + declaración (ISO 19011 6.4.8).
+   Los anexos se suben al disco de una vez y se registran al guardar el hallazgo. *@
+@using SigWeb.Models
+@using SigWeb.Data.Auditorias
+@inject IWebHostEnvironment Env
+
+<DisenoFormulario Clave="hallazgos-auditoria" Fila="Modelo.Hallazgo.Id">
+<SeccionFormulario Titulo="Clasificación">
+    <CampoFormulario Etiqueta="Fecha" Ancho="col-md-2" Obligatorio="true">
+        <input type="date" class="form-control" @bind="H.Fecha" required />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Tipo de hallazgo" Ancho="col-md-3" Obligatorio="true">
+        <select class="form-select" @bind="H.Tipo" required>
+            <option value=""></option>
+            @foreach (var o in OpcionesAuditoria.ConActual(Op.TiposHallazgo, H.Tipo)) { <option value="@o">@o</option> }
+        </select>
+    </CampoFormulario>
+    @if (ServicioAuditorias.EsNoConformidad(H.Tipo))
+    {
+        <CampoFormulario Etiqueta="Grado" Ancho="col-md-2">
+            <select class="form-select" @bind="H.Grado">
+                <option value=""></option>
+                @foreach (var o in OpcionesAuditoria.ConActual(Op.Grados, H.Grado)) { <option value="@o">@o</option> }
+            </select>
+        </CampoFormulario>
+    }
+    <CampoFormulario Etiqueta="Auditor" Ancho="col-md-3">
+        <input class="form-control" list="dl-au-hall-aud" @bind="H.Auditor" />
+        <datalist id="dl-au-hall-aud">@foreach (var o in Auditores.Concat(Op.Personas).Distinct(StringComparer.OrdinalIgnoreCase)) { <option value="@o"></option> }</datalist>
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Aceptación del auditado" Ancho="col-md-2">
+        <select class="form-select" @bind="H.Aceptacion">
+            @foreach (var a in Enum.GetValues<AceptacionHallazgo>()) { <option value="@a">@EscalaAuditoria.Nombre(a)</option> }
+        </select>
+    </CampoFormulario>
+    @if (H.Aceptacion == AceptacionHallazgo.EnDiscusion)
+    {
+        <CampoFormulario Etiqueta="Nota de la discusión" Ancho="col-md-12">
+            <input class="form-control" @bind="H.NotaAceptacion" />
+        </CampoFormulario>
+    }
+</SeccionFormulario>
+
+<SeccionFormulario Titulo="Requisito, evidencia y declaración">
+    <CampoFormulario Etiqueta="Normas" Ancho="col-md-5">
+        <SelectorMultiple Valores="Modelo.Normas" Opciones="Op.Normas" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Numerales" Ancho="col-md-3">
+        <input class="form-control" @bind="H.Numerales" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Documento interno (procedimiento, plan de calidad…)" Ancho="col-md-4">
+        <input class="form-control" @bind="H.Documento" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Requisito" Ancho="col-md-6">
+        <textarea class="form-control" rows="3" @bind="H.Requisito"></textarea>
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Evidencia objetiva" Ancho="col-md-6" Obligatorio="@ServicioAuditorias.EsNoConformidad(H.Tipo)">
+        <textarea class="form-control" rows="3" @bind="H.Evidencia"></textarea>
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Declaración del hallazgo" Ancho="col-md-12" Obligatorio="true" Destacado="true">
+        <textarea class="form-control" rows="3" @bind="H.Descripcion" required></textarea>
+    </CampoFormulario>
+</SeccionFormulario>
+
+<SeccionFormulario Titulo="Dónde">
+    <CampoFormulario Etiqueta="Procesos" Ancho="col-md-6">
+        <SelectorMultiple Valores="Modelo.Procesos" Opciones="Op.Procesos" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Lugares" Ancho="col-md-6">
+        <SelectorLugares Lugares="Modelo.Lugares" Torres="Op.Torres" Componentes="Op.Componentes" Localizaciones="Op.Localizaciones" Tiros="Op.Tiros" />
+    </CampoFormulario>
+</SeccionFormulario>
+
+<SeccionFormulario Titulo="Fotos y anexos" SinFila="true">
+    <AdjuntosDescritos T="ArchivoHallazgoAuditoria" Items="Modelo.Anexos" Quitados="Modelo.AnexosQuitados" Carpeta="auditorias" OnError="OnError" />
+</SeccionFormulario>
+
+</DisenoFormulario>
+@code {
+    [Parameter, EditorRequired] public ServicioAuditorias.HallazgoEditable Modelo { get; set; } = default!;
+    [Parameter, EditorRequired] public OpcionesAuditoria Op { get; set; } = default!;
+    // Equipo de la auditoría: primeras sugerencias para "Auditor".
+    [Parameter] public List<string> Auditores { get; set; } = new();
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    private HallazgoAuditoria H => Modelo.Hallazgo;
+
+}

@@ -1,0 +1,211 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Presupuesto por código (hoja Presupuesto): inicial, vigente (revisiones con historial), causado al corte,
+   comprometido, disponible, valor ganado, CPI y pronóstico al cierre (InstantaneaCostos.Evm); indirectos
+   sobre producción con su vigencia. *@
+
+<div class="cp-kpis">
+    <div class="cp-kpi"><span class="cp-kpi-tit">Presupuesto vigente (BAC)</span><span class="cp-kpi-val">@FormatoCostos.Millones(evm.Bac)</span><span class="cp-kpi-sub">inicial @FormatoCostos.Millones(filas.Where(f => f.EsTotal).Sum(f => f.Inicial))</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit">Avance físico</span><span class="cp-kpi-val">@FormatoCostos.Pct(evm.AvanceFisico)</span><span class="cp-kpi-sub">@(evm.AvanceProgramado is decimal ap ? "programado " + FormatoCostos.Pct(ap) : "sin PDT con valores")</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit">Costo causado (AC)</span><span class="cp-kpi-val">@FormatoCostos.Millones(evm.Ac)</span><span class="cp-kpi-sub">valor ganado @FormatoCostos.Millones(evm.Ev)</span></div>
+    <div class="cp-kpi @(evm.Cpi < 1 ? "cp-neg" : "")"><span class="cp-kpi-tit" title="Índice de desempeño del costo = valor ganado / costo causado">CPI</span><span class="cp-kpi-val">@FormatoCostos.Num(evm.Cpi, 2)</span><span class="cp-kpi-sub">TCPI @FormatoCostos.Num(evm.Tcpi, 2)</span></div>
+    <div class="cp-kpi @(evm.Spi < 1 ? "cp-neg" : "")"><span class="cp-kpi-tit" title="Índice de desempeño del cronograma = valor ganado / valor planeado (PDT)">SPI</span><span class="cp-kpi-val">@(evm.Spi is null ? "—" : FormatoCostos.Num(evm.Spi, 2))</span><span class="cp-kpi-sub">@(evm.Sv is decimal sv ? "SV " + FormatoCostos.Millones(sv) : "")</span></div>
+    <div class="cp-kpi @(evm.Vac < 0 ? "cp-neg" : "")"><span class="cp-kpi-tit" title="Pronóstico al cierre = AC + (BAC − EV) / CPI">Pronóstico al cierre (EAC)</span><span class="cp-kpi-val">@FormatoCostos.Millones(evm.Eac)</span><span class="cp-kpi-sub">variación @FormatoCostos.Millones(evm.Vac)</span></div>
+</div>
+
+@if (avisoAlcance is not null) { <div class="cp-aviso">@avisoAlcance</div> }
+<div class="cp-tablero">
+    <div class="cp-caja cp-caja-ancha">
+        <div class="tabla-scroll tabla-auto cp-marco">
+            <table class="table table-sm cp-tabla cp-presupuesto">
+                <thead class="tabla-pin">
+                    <tr>
+                        <th class="cp-fija">Código</th><th>Nombre</th><th class="cp-num">Inicial</th><th class="cp-num">Vigente</th>
+                        <th class="cp-num">Causado</th><th class="cp-num" title="Causado / vigente">% consumido</th><th class="cp-num" title="Órdenes + personal causado">Comprometido</th><th class="cp-num" title="Vigente − mayor entre comprometido y causado">Disponible</th>
+                        <th class="cp-num" title="Vigente × avance físico">Valor ganado</th><th class="cp-num" title="Valor ganado / causado">CPI</th><th class="cp-num" title="Causado + (vigente − valor ganado) / CPI">EAC</th><th class="cp-num" title="Vigente − EAC">Variación</th><th class="cp-num">Costo día</th>
+                        @if (Editando) { <th>Motivo del cambio</th><th></th> }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var n in nuevos)
+                    {
+                        <tr class="cp-nueva">
+                            <td class="cp-fija"><input class="form-control form-control-sm cp-in-cod" @bind="n.Codigo" placeholder="Código" /></td>
+                            <td class="d-flex gap-1">
+                                <input class="form-control form-control-sm" @bind="n.Nombre" placeholder="Nombre" />
+                                <select class="form-select form-select-sm" style="width:auto" @bind="n.Grupo">
+                                    @foreach (var g in Enum.GetValues<GrupoPresupuesto>()) { <option value="@g">@InstantaneaCostos.NombreGrupo(g)</option> }
+                                </select>
+                            </td>
+                            <td><input class="form-control form-control-sm cp-in-num" @bind="n.PresupuestoInicial" /></td>
+                            <td colspan="10"></td><td></td>
+                            <td><button type="button" class="btn btn-sm btn-link p-0" title="Quitar" @onclick="() => nuevos.Remove(n)"><Ico Nombre="cancelar" /></button></td>
+                        </tr>
+                    }
+                    @foreach (var f in filas)
+                    {
+                        var e = f.Codigo is { } c && Editando ? ed.GetValueOrDefault(c.Id) : null;
+                        var p = f.Actual > 0 ? f.Acumulado / f.Actual : (decimal?)null;
+                        <tr class="@(f.EsTotal ? "cp-total" : "") @(e?.Borrar == true ? "cp-borrar" : "")">
+                            <td class="cp-fija">
+                                @if (f.Codigo is { } cod)
+                                {
+                                    <button type="button" class="btn btn-link btn-sm p-0" title="Historial del presupuesto" @onclick="() => historial = historial == cod.Id ? null : cod.Id">@cod.Codigo</button>
+                                }
+                            </td>
+                            <td>@f.Nombre</td>
+                            <td class="cp-num">@FormatoCostos.Dinero(f.Inicial)</td>
+                            <td class="cp-num">
+                                @if (e is not null) { <input class="form-control form-control-sm cp-in-num" @bind="e.Actual" /> }
+                                else { @FormatoCostos.Dinero(f.Actual) }
+                            </td>
+                            <td class="cp-num">@FormatoCostos.Dinero(f.Acumulado)</td>
+                            <td class="cp-num"><span class="cp-pct-barra @(p > evm.AvanceFisico + 0.05m ? "alto" : "")" style="--p:@((int)Math.Round(Math.Min(1m, p ?? 0) * 100))%">@FormatoCostos.Pct(p, 0)</span></td>
+                            <td class="cp-num">@FormatoCostos.Dinero(f.Comprometido)</td>
+                            <td class="cp-num @(f.Disponible < 0 ? "cp-sobre" : "")">@FormatoCostos.Dinero(f.Disponible)</td>
+                            <td class="cp-num">@FormatoCostos.Dinero(f.Ev)</td>
+                            <td class="cp-num @(f.Cpi < 1 ? "cp-sobre" : "")">@FormatoCostos.Num(f.Cpi, 2)</td>
+                            <td class="cp-num">@FormatoCostos.Dinero(f.Eac)</td>
+                            <td class="cp-num @(f.Vac < 0 ? "cp-sobre" : "")">@FormatoCostos.Dinero(f.Vac)</td>
+                            <td class="cp-num">@FormatoCostos.Dinero(f.CostoDia)</td>
+                            @if (Editando)
+                            {
+                                <td>@if (e is not null) { <input class="form-control form-control-sm" @bind="e.Motivo" /> }</td>
+                                <td>
+                                    @if (e is not null)
+                                    {
+                                        <button type="button" class="btn btn-sm btn-link p-0" title="@(e.Borrar ? "No eliminar" : "Eliminar (a la Papelera al guardar)")" @onclick="() => e.Borrar = !e.Borrar"><Ico Nombre="@(e.Borrar ? "restaurar" : "eliminar")" /></button>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                        @if (f.Codigo is { } hc && historial == hc.Id)
+                        {
+                            <tr class="cp-hist"><td></td><td colspan="12">
+                                @foreach (var v in S.ValoresPresupuesto.Where(v => v.CodigoPresupuestoId == hc.Id).OrderBy(v => v.Fecha).ThenBy(v => v.Id))
+                                {
+                                    <div>@FormatoCostos.Fecha(v.Fecha) · @FormatoCostos.Dinero(v.Valor) <span class="cp-sub">@v.Motivo</span></div>
+                                }
+                            </td></tr>
+                        }
+                    }
+                    <tr class="cp-total">
+                        <td class="cp-fija"></td><td>Total</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(filas.Where(f => f.EsTotal).Sum(f => f.Inicial))</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(filas.Where(f => f.EsTotal).Sum(f => f.Actual))</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(filas.Where(f => f.EsTotal).Sum(f => f.Acumulado))</td><td></td>
+                        <td class="cp-num">@FormatoCostos.Dinero(filas.Where(f => f.EsTotal).Sum(f => f.Comprometido))</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(filas.Where(f => f.EsTotal).Sum(f => f.Disponible))</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(evm.Ev)</td>
+                        <td class="cp-num">@FormatoCostos.Num(evm.Cpi, 2)</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(evm.Eac)</td>
+                        <td class="cp-num @(evm.Vac < 0 ? "cp-sobre" : "")">@FormatoCostos.Dinero(evm.Vac)</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(filas.Where(f => f.EsTotal).Sum(f => f.CostoDia))</td>
+                        @if (Editando) { <td></td><td></td> }
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="cp-caja">
+        <div class="cp-panel-tit">Indirectos sobre la producción <span class="cp-sub">solo ítems marcados (Formulario de precios)</span></div>
+        <table class="table table-sm cp-tabla mb-0">
+            <thead><tr><th>Concepto</th><th>Desde</th><th class="cp-num">%</th><th>Nota</th></tr></thead>
+            <tbody>
+                @foreach (var i in S.Indirectos.OrderBy(i => i.Concepto).ThenBy(i => i.Desde))
+                {
+                    <tr class="@(S.Porcentaje(i.Concepto, Corte) == i.Porcentaje && S.Indirectos.Where(x => x.Concepto == i.Concepto && x.Desde <= Corte).OrderByDescending(x => x.Desde).FirstOrDefault() == i ? "cp-vigente" : "")">
+                        <td>@NombreConcepto(i.Concepto)</td><td>@FormatoCostos.Fecha(i.Desde)</td><td class="cp-num">@FormatoCostos.Pct(i.Porcentaje, 4)</td><td class="cp-sub">@i.Nota</td>
+                    </tr>
+                }
+                @if (Editando)
+                {
+                    <tr class="cp-nueva">
+                        <td>
+                            <select class="form-select form-select-sm" @bind="ind.Concepto">
+                                @foreach (var c in Enum.GetValues<ConceptoIndirecto>()) { <option value="@c">@NombreConcepto(c)</option> }
+                            </select>
+                        </td>
+                        <td><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(ind.Desde)" @onchange="e => ind.Desde = Fec(e.Value) ?? ind.Desde" /></td>
+                        <td><input class="form-control form-control-sm cp-in-num" @bind="indPct" placeholder="%" /></td>
+                        <td><input class="form-control form-control-sm" @bind="ind.Nota" /></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="cp-sub mt-1">Al corte: @string.Join(" · ", Enum.GetValues<ConceptoIndirecto>().Select(c => $"{NombreConcepto(c)} {FormatoCostos.Pct(S.Porcentaje(c, Corte), 4)}"))</div>
+    </div>
+</div>
+
+@code {
+    private List<InstantaneaCostos.FilaPresupuesto> filas = new();
+    private string? avisoAlcance;
+    private InstantaneaCostos.Evm evm = new(0, 0, null, 0, null, 0);
+    private Dictionary<int, CodEd> ed = new();
+    private List<CodigoPresupuesto> nuevos = new();
+    private PorcentajeIndirecto ind = new();
+    private decimal? indPct;
+    private int? historial;
+
+    public override string? SelectorExportar => "table.cp-presupuesto";
+
+    private sealed class CodEd { public decimal Original; public decimal Actual; public string? Motivo; public bool Borrar; }
+
+    protected override void OnParametersSet() { if (DatosNuevos()) { filas = S.Presupuesto(Corte); evm = S.ValorGanado(Corte); avisoAlcance = S.AvisoAlcance(Corte); } }
+
+    public static string NombreConcepto(ConceptoIndirecto c) => c switch
+    {
+        ConceptoIndirecto.Overhead => "Overhead",
+        ConceptoIndirecto.Sostenimiento => "Sostenimiento",
+        _ => "Impuestos y financiación"
+    };
+
+    public override Task EditarAsync()
+    {
+        ed = filas.Where(f => f.Codigo is not null).ToDictionary(f => f.Codigo!.Id, f => new CodEd { Original = f.Actual, Actual = f.Actual });
+        ind = new PorcentajeIndirecto { Desde = Corte.Date };
+        indPct = null;
+        return base.EditarAsync();
+    }
+
+    public override async Task AgregarAsync()
+    {
+        if (!Editando) await EditarAsync();
+        nuevos.Insert(0, new CodigoPresupuesto { Grupo = GrupoPresupuesto.Otros, Orden = S.Codigos.Count + nuevos.Count + 1 });
+        await Avisar();
+    }
+
+    public override void Cancelar() { nuevos.Clear(); ed.Clear(); base.Cancelar(); }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        if (nuevos.Any(n => string.IsNullOrWhiteSpace(n.Codigo) || string.IsNullOrWhiteSpace(n.Nombre)))
+            throw new InvalidOperationException("Cada código nuevo necesita código y nombre.");
+        var existentes = S.Codigos.Select(c => c.Codigo.Trim().ToUpperInvariant()).ToHashSet();
+        foreach (var n in nuevos)
+        {
+            n.Codigo = n.Codigo.Trim().ToUpperInvariant();
+            if (!existentes.Add(n.Codigo)) throw new InvalidOperationException($"El código {n.Codigo} ya existe.");
+            Db.CodigosPresupuesto.Add(n);
+        }
+        var ahora = DateTime.Now;
+        foreach (var (id, e) in ed)
+        {
+            if (e.Borrar)
+            {
+                var c = await Db.CodigosPresupuesto.FirstAsync(x => x.Id == id);
+                c.Eliminado = true; c.FechaEliminacion = ahora;
+            }
+            else if (e.Actual != e.Original)
+                Db.ValoresPresupuesto.Add(new ValorPresupuesto { CodigoPresupuestoId = id, Fecha = Corte.Date, Valor = e.Actual, Motivo = e.Motivo });
+        }
+        if (indPct is decimal pct)
+            Db.PorcentajesIndirectos.Add(new PorcentajeIndirecto { Concepto = ind.Concepto, Desde = ind.Desde.Date, Porcentaje = pct / 100m, Nota = ind.Nota });
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        nuevos.Clear(); ed.Clear();
+    }
+}

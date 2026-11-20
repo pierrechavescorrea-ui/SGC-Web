@@ -1,0 +1,162 @@
+[
+ {
+  "codigo": "S-01",
+  "lat": 5.45,
+  "lon": -73.35,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "0.00",
+   "Cota CG": "2093.22",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "San Isidro",
+   "Vano — Adelante (m)": "451.31",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "2.5427"
+  }
+ },
+ {
+  "codigo": "S-02",
+  "lat": 5.4462172,
+  "lon": -73.3485351,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "451.31",
+   "Cota CG": "2069.33",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "San Isidro",
+   "Vano — Adelante (m)": "381.83",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "2.8073"
+  }
+ },
+ {
+  "codigo": "S-03",
+  "lat": 5.4429862,
+  "lon": -73.3473786,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "833.14",
+   "Cota CG": "2128.90",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "San Isidro",
+   "Vano — Adelante (m)": "340.00",
+   "Condición del suelo": "Húmedo",
+   "Ángulo de Deflexión (deg)": "2.9165"
+  }
+ },
+ {
+  "codigo": "S-04",
+  "lat": 5.4401604,
+  "lon": -73.3462141,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "1173.14",
+   "Cota CG": "2178.53",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "San Isidro",
+   "Vano — Adelante (m)": "383.12",
+   "Condición del suelo": "Húmedo",
+   "Ángulo de Deflexión (deg)": "2.7526"
+  }
+ },
+ {
+  "codigo": "S-05",
+  "lat": 5.4370299,
+  "lon": -73.3447778,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "1556.26",
+   "Cota CG": "2147.56",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "El Mirador",
+   "Vano — Adelante (m)": "375.40",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "0.9162"
+  }
+ },
+ {
+  "codigo": "S-06",
+  "lat": 5.4340605,
+  "lon": -73.3431722,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "1931.66",
+   "Cota CG": "2077.48",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "El Mirador",
+   "Vano — Adelante (m)": "374.16",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "3.6525"
+  }
+ },
+ {
+  "codigo": "S-07",
+  "lat": 5.4310861,
+  "lon": -73.3415999,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "2305.82",
+   "Cota CG": "2069.77",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "El Mirador",
+   "Vano — Adelante (m)": "430.51",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "1.5825"
+  }
+ },
+ {
+  "codigo": "S-08",
+  "lat": 5.4275652,
+  "lon": -73.3399928,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "2736.33",
+   "Cota CG": "2077.08",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "El Mirador",
+   "Vano — Adelante (m)": "394.24",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "2.9800"
+  }
+ },
+ {
+  "codigo": "S-09",
+  "lat": 5.4243331,
+  "lon": -73.3385387,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "3130.57",
+   "Cota CG": "2099.98",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "Santa Rosa",
+   "Vano — Adelante (m)": "434.58",
+   "Condición del suelo": "Húmedo",
+   "Ángulo de Deflexión (deg)": "1.5976"
+  }
+ },
+ {
+  "codigo": "S-10",
+  "lat": 5.4208355,
+  "lon": -73.3367968,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "3565.15",
+   "Cota CG": "2111.33",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Sur Demo",
+   "Vereda": "Santa Rosa",
+   "Vano — Adelante (m)": "469.66",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "3.0231"
+  }
+ }
+]

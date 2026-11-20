@@ -1,0 +1,46 @@
+<div class="sig-espera sig-espera-@tipo" role="status" aria-live="polite" aria-busy="true" data-sig-esqueleto>
+    <span class="visually-hidden">@Etiqueta</span>
+    <div class="sig-espera-contenido" aria-hidden="true">
+        @if (tipo == "tabla")
+        {
+            <div class="sig-espera-fila sig-espera-cabecera">
+                @for (var columna = 0; columna < 4; columna++)
+                {
+                    <span class="sig-esqueleto"></span>
+                }
+            </div>
+        }
+        @for (var fila = 0; fila < Math.Clamp(Filas, 1, 20); fila++)
+        {
+            @if (tipo == "tabla")
+            {
+                <div class="sig-espera-fila">
+                    @for (var columna = 0; columna < 4; columna++)
+                    {
+                        <span class="sig-esqueleto"></span>
+                    }
+                </div>
+            }
+            else if (tipo == "tarjetas")
+            {
+                <div class="sig-espera-tarjeta">
+                    <span class="sig-esqueleto sig-espera-icono"></span>
+                    <span class="sig-esqueleto sig-espera-titulo"></span>
+                    <span class="sig-esqueleto"></span>
+                    <span class="sig-esqueleto sig-espera-corto"></span>
+                </div>
+            }
+            else
+            {
+                <span class="sig-esqueleto"></span>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Tipo { get; set; } = "texto";
+    [Parameter] public int Filas { get; set; } = 4;
+    [Parameter] public string Etiqueta { get; set; } = "Cargando contenido…";
+    private string tipo => Tipo is "tabla" or "tarjetas" ? Tipo : "texto";
+}

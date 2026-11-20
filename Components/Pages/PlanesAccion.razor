@@ -1,0 +1,2451 @@
+@page "/planes-accion"
+@page "/planes-accion/nuevo"
+@page "/planes-accion/{PlanId:int}"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Riesgos
+@using SigWeb.Models
+@using SigWeb.Data.Tablas
+@using SigWeb.Data.Documentos
+@inject IServiceScopeFactory Scopes
+@inject AppDbContext Db
+@inject SigWeb.Data.Impacto.AnalizadorImpacto Analizador
+@inject SigWeb.Data.Planes.PlanesAccionServicio Servicio
+@inject NavigationManager Nav
+@inject IWebHostEnvironment Env
+@inject IJSRuntime JS
+@inject SigWeb.Data.Navegacion.MenuIcono MenuIco
+@inject SigWeb.Data.Formularios.ServicioFormularios ServicioForm
+@using SigWeb.Data.Vistas
+@using SigWeb.Data.Formularios
+@implements IDisposable
+
+<PageTitle>Planes de acción</PageTitle>
+
+@if (verAdjuntosDe is int vaPlan && planes.FirstOrDefault(p => p.Id == vaPlan) is { } planAdj)
+{
+    @* ---------- Ver todos los adjuntos de un plan: todas sus carpetas con todos sus archivos ---------- *@
+    <EncabezadoPagina Titulo="@planAdj.Codigo" Icono="plan-accion" Subtitulo="@($"Adjuntos · {CarpetasVista(vaPlan).Count} carpeta(s), {TotalAdjuntos(vaPlan)} archivo(s)")"
+                      OnAtras="CerrarVerAdjuntos" />
+    if (!string.IsNullOrEmpty(mensajeAdj)) { <div class="alert alert-warning py-1 small">@mensajeAdj</div> }
+    <div class="doc-menu adj-nueva mb-2">@NuevaCarpetaFila(vaPlan)</div>
+    <div class="adj-carpetas">
+        @foreach (var c in CarpetasVista(vaPlan))
+        {
+            <div class="adj-carpeta">@SeccionCarpeta(c, false)</div>
+        }
+    </div>
+}
+else
+{
+<div class="@(pantallaCompleta && form is null ? "ens-pantalla" : "")">
+<EncabezadoPagina Titulo="@Titulo" Icono="plan-accion" Subtitulo="@Subtitulo" OnAtras="AtrasCb">
+    <Acciones>
+        @if (form is null)
+        {
+            <button type="button" class="pg-btn @(pantallaCompleta ? "activo" : "")" title="@(pantallaCompleta ? "Salir de pantalla completa" : "Pantalla completa")" @onclick="() => pantallaCompleta = !pantallaCompleta"><Ico Nombre="pantalla-completa" /></button>
+            @if (!disenandoVista)
+            {
+            <span class="pg-vistas">
+                <button type="button" class="pg-btn @(vistaPlanes == "plan" ? "activo" : "")" title="Plan por plan" disabled="@modoEdicion" @onclick='() => vistaPlanes = "plan"'><Ico Nombre="indicador" /></button>
+                <button type="button" class="pg-btn @(vistaPlanes == "tablero" ? "activo" : "")" title="Tablero por estado" disabled="@modoEdicion" @onclick='() => vistaPlanes = "tablero"'><Ico Nombre="tablero" /></button>
+                <button type="button" class="pg-btn @(vistaPlanes == "lista" ? "activo" : "")" title="Lista" disabled="@modoEdicion" @onclick='() => vistaPlanes = "lista"'><Ico Nombre="listado" /></button>
+            </span>
+            @* La vista del detalle (vistas configurables) se elige en el ícono del encabezado (MenuIcono, SincronizarMenuVista). *@
+            @if (!modoEdicion && PlanAEditar is int idAviso && planes.FirstOrDefault(p => p.Id == idAviso) is { } planAviso)
+            {
+                <BotonNotificar Modulo="planes-accion" Asunto="@($"Plan de acción {planAviso.Codigo}")" Enlace="@($"planes-accion?plan={planAviso.Id}")"
+                                Mensaje="@planAviso.DescripcionHallazgo" />
+            }
+            <BotonBaseDatos Activo="verCargas" Cantidad="cargasPlanes.Count" Deshabilitado="modoEdicion" OnClick="AlternarCargas" />
+            <span class="pg-sep"></span>
+            <BotonCampos Activo="verCampos" Deshabilitado="motor is null || modoEdicion" OnClick="() => verCampos = true" />
+            <button type="button" class="pg-btn @(mostrarImportar ? "activo" : "")" title="Importar planes (Excel)" disabled="@modoEdicion" @onclick="AlternarImportar"><Ico Nombre="cargar-excel" /></button>
+            <BotonExportar Titulo="Planes de acción" Motor="motor" Filas="() => Mostrados.Select(p => p.Id)" Deshabilitado="motor is null" />
+            <span class="pg-sep"></span>
+            @if (!modoEdicion)
+            {
+                <button type="button" class="pg-btn pg-btn-peligro" title="Eliminar plan seleccionado" disabled="@(selId is null)" @onclick="PedirEliminarSeleccionado"><Ico Nombre="eliminar" /></button>
+                @if (vistaPlanes == "lista")
+                {
+                    <button type="button" class="pg-btn" title="Editar en la tabla" disabled="@(motor is null)" @onclick="EntrarEdicion"><Ico Nombre="tabla" /></button>
+                }
+                <button type="button" class="pg-btn" title="Editar plan (formulario completo)" disabled="@(PlanAEditar is null)" @onclick="EditarPlan"><Ico Nombre="editar" /></button>
+                <button type="button" class="pg-btn pg-btn-primario" title="Nuevo plan de acción" @onclick='() => Nav.NavigateTo("planes-accion/nuevo")'><Ico Nombre="agregar" /></button>
+            }
+            else
+            {
+                <button type="button" class="pg-btn" title="Descartar cambios y salir de edición" @onclick="SalirEdicion"><Ico Nombre="cancelar" /></button>
+                <AvisoCambios Pendientes="cambios.Count" />
+                <button type="button" class="pg-btn pg-btn-primario" title="Guardar cambios" disabled="@(cambios.Count == 0 || guardando)" @onclick="GuardarEdicion"><Ico Nombre="guardar" />@(cambios.Count > 0 ? $" {cambios.Count}" : "")</button>
+            }
+            }
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@if (verCampos && motor is not null && form is null)
+{
+    <PanelCampos Motor="motor" OnCerrar="() => verCampos = false" OnCambio="StateHasChanged" />
+}
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert @(error ? "alert-warning" : "alert-success") py-1 px-2 small d-flex align-items-center gap-2">
+        <span class="flex-grow-1">@mensaje</span>
+        <button type="button" class="btn-close btn-sm" @onclick='() => mensaje = ""'></button>
+    </div>
+}
+
+@if (elimPlan is not null || elimAccion is not null)
+{
+    <div class="card panel-formulario mb-3 border-danger">
+        <div class="card-body">
+            <div class="mb-2"><Ico Nombre="eliminar" /> <strong>@(elimPlan is not null ? $"{elimPlan.Codigo} — {elimPlan.DescripcionHallazgo}" : elimAccion!.Accion.Descripcion)</strong></div>
+            <PanelImpacto Informe="impacto" OnEntendido="@(v => impactoOk = v)" />
+            <div class="frm-pie frm-pie-plano">
+                <button class="btn btn-secondary btn-sm" type="button" title="Cancelar" @onclick="CancelarEliminar"><Ico Nombre="cancelar" /></button>
+                <button data-texto="Eliminar" class="btn btn-danger btn-sm" type="button" title="Eliminar (va a la Papelera)" disabled="@BloqueadoPorImpacto" @onclick="ConfirmarEliminar"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ---------- Cargas (bases de datos Excel) ---------- *@
+@if (form is null && verCargas)
+{
+    <div class="card panel-formulario mb-3">
+        <div class="card-body">
+            @if (cargasPlanes.Count == 0) { <div class="text-muted small">—</div> }
+            else
+            {
+                <div class="tabla-scroll mb-2" style="max-height:280px;">
+                    <table class="table table-sm table-bordered align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:32px;"><input type="checkbox" class="form-check-input" title="Todas" checked="@(cargasSel.Count == cargasPlanes.Count)" @onchange="@(e => { cargasSel = (bool)e.Value! ? cargasPlanes.Select(c => c.Id).ToHashSet() : new(); elimCargas = null; })" /></th>
+                                <th>Archivo</th><th>Hoja</th><th>Fecha</th><th title="Planes de esta carga">Planes</th><th title="Acciones creadas">Acc.</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in cargasPlanes)
+                            {
+                                var id = c.Id;
+                                <tr class="@(cargaFiltro == id ? "table-active" : "")">
+                                    <td><input type="checkbox" class="form-check-input" checked="@cargasSel.Contains(id)" @onchange="@(e => { if ((bool)e.Value!) cargasSel.Add(id); else cargasSel.Remove(id); elimCargas = null; })" /></td>
+                                    <td class="small">@c.NombreArchivo</td>
+                                    <td class="small">@c.Hoja</td>
+                                    <td class="small text-nowrap">@c.Fecha.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="small text-end">@(planesPorCarga.TryGetValue(id, out var n) ? n : 0)</td>
+                                    <td class="small text-end">@c.AccionesCreadas</td>
+                                    <td><button type="button" class="ens-mini @(cargaFiltro == id ? "activo" : "")" title="Ver solo esta carga" @onclick="() => cargaFiltro = cargaFiltro == id ? null : id"><Ico Nombre="ubicar" /></button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-end">
+                    <button type="button" class="btn btn-danger btn-sm" title="@($"Eliminar cargas seleccionadas ({cargasSel.Count})")" disabled="@(cargasSel.Count == 0)" @onclick="PedirEliminarCargas"><Ico Nombre="eliminar" /> @cargasSel.Count</button>
+                </div>
+            }
+            @if (elimCargas is not null)
+            {
+                <div class="border border-danger rounded p-2 mt-2">
+                    <PanelImpacto Informe="impactoCargas" OnEntendido="@(v => impactoCargasOk = v)" />
+                    <div class="frm-pie frm-pie-plano">
+                        <button class="btn btn-secondary btn-sm" type="button" title="Cancelar" @onclick="() => elimCargas = null"><Ico Nombre="cancelar" /></button>
+                        <button data-texto="Eliminar" class="btn btn-danger btn-sm" type="button" title="Eliminar (va a la Papelera)" disabled="@(impactoCargas is null || (impactoCargas.RequiereEntender && !impactoCargasOk))" @onclick="ConfirmarEliminarCargas"><Ico Nombre="eliminar" /></button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (form is null && mostrarImportar)
+{
+    <PanelImportarExcel Destinos="DestinosImportacion" Importando="importando" OnImportar="ImportarExcel" OnCancelar="() => mostrarImportar = false" />
+}
+
+@* ======================= LISTA ======================= *@
+@if (form is null)
+{
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <input class="form-control form-control-sm" style="max-width:280px;" placeholder="Buscar..." @bind="filtro" @bind:event="oninput" />
+        <select class="form-select form-select-sm" style="max-width:170px;" @bind="filtroEstado">
+            <option value="">Todos los estados</option>
+            <option value="0">Abierta</option>
+            <option value="1">En ejecución</option>
+            <option value="2">Cerrada</option>
+        </select>
+        <select class="form-select form-select-sm" style="max-width:190px;" @bind="filtroOrigen">
+            <option value="">Todos los orígenes</option>
+            @foreach (var o in Opciones(SembradorCatalogosRiesgo.OrigenHallazgo, null)) { <option value="@o">@o</option> }
+        </select>
+        <select class="form-select form-select-sm" style="max-width:200px;" @bind="filtroTipo">
+            <option value="">Todos los tipos</option>
+            @foreach (var o in Opciones(SembradorCatalogosRiesgo.TipoHallazgo, null)) { <option value="@o">@o</option> }
+        </select>
+        <select class="form-select form-select-sm" style="max-width:220px;" @bind="filtroProceso">
+            <option value="">Todos los procesos</option>
+            @foreach (var p in planes.SelectMany(p => SelectorMultiple.Leer(p.Proceso)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(p => p))
+            {
+                <option value="@p">@p</option>
+            }
+        </select>
+        @if (cargaFiltro is int cf && cargasPlanes.FirstOrDefault(c => c.Id == cf) is { } cg)
+        {
+            <span class="rg-chip"><Ico Nombre="cargas" /> @cg.NombreArchivo <button type="button" class="rg-chip-x" title="Quitar" @onclick="() => cargaFiltro = null">✕</button></span>
+        }
+        <div class="ms-auto d-flex gap-1 align-items-center small">
+            @foreach (var e in new[] { EstadoAccionPlan.Abierta, EstadoAccionPlan.EnEjecucion, EstadoAccionPlan.Cerrada })
+            {
+                <span class="d-inline-flex align-items-center gap-1"><EstadoAccion Estado="e" />@planes.Count(p => EstadoDe(p.Id) == e)</span>
+            }
+        </div>
+    </div>
+
+    @if (vistaPlanes == "plan" && !modoEdicion)
+    {
+        @VistaPlan()
+    }
+    else if (vistaPlanes == "tablero" && !modoEdicion)
+    {
+        @VistaTablero()
+    }
+    else
+    {
+    <div class="tabla-scroll tabla-auto"><table class="table table-sm table-bordered @(modoEdicion ? "" : "table-hover") tabla-compacta align-middle mb-0 tabla-pin tabla-planes @(modoEdicion ? "doc-editando" : "")">
+        <thead>
+            <tr>
+                @foreach (var c in Columnas)
+                {
+                    <th class="th-ordenable" style="@AnchoColumna(c)" @onclick="() => OrdenarPor(c.Clave)">@c.Nombre@(Flecha(c.Clave))</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @if (motor is not null)
+            {
+                @foreach (var p in Mostrados)
+                {
+                    var plan = p;
+                    var id = p.Id;
+                    <tr class="@(!modoEdicion && selId == id ? "table-active" : "")" @onclick="() => { if (!modoEdicion) selId = id; }" @ondblclick="() => AbrirPlan(id)">
+                        @foreach (var c in Columnas)
+                        {
+                            var campo = c;
+                            var nat = campo.Origen == OrigenCampoTabla.Nativo;
+                            if (modoEdicion && EsEditable(campo))
+                            {
+                                <td class="small p-0 @(cambios.ContainsKey((id, ClaveCambio(campo))) ? "doc-cambio" : "")">
+                                    @if (nat && campo.Clave is "Origen" or "Tipo")
+                                    {
+                                        var actual = ValorEdicion(plan, campo);
+                                        <select class="form-select form-select-sm cc-input" value="@actual" @onchange="@(e => Cambiar(plan, campo, e.Value?.ToString()))">
+                                            <option value=""></option>
+                                            @foreach (var o in Opciones(campo.Clave == "Origen" ? SembradorCatalogosRiesgo.OrigenHallazgo : SembradorCatalogosRiesgo.TipoHallazgo, actual)) { <option value="@o">@o</option> }
+                                        </select>
+                                    }
+                                    else if (nat && campo.Clave is "Descripcion" or "Analisis")
+                                    {
+                                        <textarea class="form-control form-control-sm cc-input" rows="2" @onchange="@(e => Cambiar(plan, campo, e.Value?.ToString()))">@ValorEdicion(plan, campo)</textarea>
+                                    }
+                                    else
+                                    {
+                                        <text>@EntradaCampo(campo, ValorEdicion(plan, campo), val => Cambiar(plan, campo, val), "cc-input")</text>
+                                    }
+                                </td>
+                            }
+                            else if (nat && campo.Clave == "Codigo")
+                            {
+                                <td class="fw-bold"><button type="button" class="doc-vinculo" title="Abrir plan" disabled="@modoEdicion" @onclick:stopPropagation="true" @onclick="() => AbrirPlan(id)">@plan.Codigo</button></td>
+                            }
+                            else if (nat && campo.Clave == "Acciones" && Motor.Estilo(id, campo) is null)
+                            {
+                                <td>
+                                    <div class="pa-acciones">
+                                        @foreach (var a in acciones.Where(a => a.PlanAccionId == id).OrderBy(a => a.Orden))
+                                        {
+                                            var acc = a;
+                                            <button type="button" class="pa-accion pa-accion-btn" title="@($"{EscalaAccion.Nombre(acc.Tipo)} · {acc.Fecha:dd/MM/yyyy}")"
+                                                    disabled="@modoEdicion" @onclick:stopPropagation="true" @onclick="() => AbrirAcciones(id, acc.Id)">
+                                                <EstadoAccion Estado="acc.Estado" />
+                                                <span class="pa-accion-txt">@acc.Descripcion</span>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            }
+                            else if (nat && campo.Clave == "Adjuntos")
+                            {
+                                <td class="text-center">@CeldaAdjuntos(id)</td>
+                            }
+                            else if (nat && campo.Clave == "Analisis" && !string.IsNullOrWhiteSpace(plan.AnalisisCausaSvg) && Motor.Estilo(id, campo) is null)
+                            {
+                                <td><CampoAnalisisCausa Svg="@plan.AnalisisCausaSvg" Titulo="@plan.Codigo" SoloLectura="true" Compacto="true" /></td>
+                            }
+                            else if (nat && campo.Clave == "Estado" && Motor.Estilo(id, campo) is null)
+                            {
+                                <td><EstadoAccion Estado="EstadoDe(id)" /></td>
+                            }
+                            else
+                            {
+                                <CeldaCampo Motor="Motor" Campo="campo" Fila="id" SoloLectura="true" Clase="@(nat && campo.Clave is "Descripcion" or "Procesos" or "Lugares" or "Analisis" or "Riesgo" or "Adjuntos" ? "rg-multi" : null)" OnCambio="StateHasChanged" />
+                            }
+                        }
+                    </tr>
+                }
+                @if (!Mostrados.Any())
+                {
+                    <tr><td colspan="@Math.Max(1, Columnas.Count())" class="text-muted small text-center py-2"><em>Sin planes de acción.</em></td></tr>
+                }
+            }
+        </tbody>
+    </table></div>
+    }
+    <text>@MenuAdjuntos()</text>
+}
+</div>
+
+@* ======================= PLAN (formulario) ======================= *@
+if (form is not null)
+{
+    <div class="card panel-formulario frm mb-2">
+        <div class="card-body frm-cuerpo">
+            <EditorPlanAccion Modelo="form" Origenes="Opciones(SembradorCatalogosRiesgo.OrigenHallazgo, null)" Tipos="Opciones(SembradorCatalogosRiesgo.TipoHallazgo, null)"
+                              Procesos="Opciones(SembradorCatalogosRiesgo.ProcesoPlan, null)" Responsables="sugResponsables"
+                              ReportoNombres="sugReportoNombres" ReportoCargos="sugReportoCargos" ReportoEmpresas="sugReportoEmpresas"
+                              Torres="torres" Componentes="componentesPorId" Localizaciones="localizaciones" Tiros="tiros"
+                              Origen="OrigenFichas" OnEliminarGuardada="PedirEliminarAccion" OnError="m => { mensaje = m; error = true; }"
+                              SoloAcciones="soloAcciones" AccionFoco="accionFoco"
+                              RiesgosOpciones="riesgosOpciones" EtiquetasRiesgo="etiquetasRiesgo" />
+        </div>
+        <div class="frm-pie">
+            @if (form.Plan.Id > 0)
+            {
+                <button type="button" class="btn btn-outline-danger btn-sm" title="Eliminar plan" @onclick="PedirEliminarPlan"><Ico Nombre="eliminar" /></button>
+            }
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="Atras"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@guardando" @onclick="GuardarAsync">
+                @if (guardando) { <span class="spinner-border spinner-border-sm" role="status"></span> } else { <Ico Nombre="guardar" /> }
+            </button>
+        </div>
+    </div>
+}
+
+}
+
+@code {
+    [Parameter] public int? PlanId { get; set; }
+    // ?riesgo=ID: el plan se abrió desde ese riesgo (Atrás vuelve a él) y,
+    // si es nuevo, nace ligado a él. ?seguimiento=ID: nace de ese seguimiento.
+    [SupplyParameterFromQuery(Name = "riesgo")] public int? RiesgoQ { get; set; }
+    [SupplyParameterFromQuery(Name = "seguimiento")] public int? SeguimientoQ { get; set; }
+    // ?seguimientoParte=ID: nace de un seguimiento de Partes interesadas (Atrás vuelve allá).
+    [SupplyParameterFromQuery(Name = "seguimientoParte")] public int? SeguimientoParteQ { get; set; }
+    // ?hallazgos=ID,ID: nace de uno o varios hallazgos de auditoría (Atrás vuelve a la auditoría).
+    [SupplyParameterFromQuery(Name = "hallazgos")] public string? HallazgosQ { get; set; }
+    // ?auditoria=ID: nace directamente de una auditoría (sin hallazgo); queda ligado a ella (PlanAccion.AuditoriaId).
+    [SupplyParameterFromQuery(Name = "auditoria")] public int? AuditoriaQ { get; set; }
+
+    // Igual que en Riesgos: el DbContext es uno por circuito y el cálculo de
+    // impacto corre sin await; el semáforo evita dos operaciones a la vez, y
+    // el render nunca consulta Db (todo se precarga).
+    private readonly SemaphoreSlim _dbLock = new(1, 1);
+
+    private string mensaje = "";
+    private bool error, guardando;
+
+    private List<PlanAccion> planes = new();
+    private List<AccionPlan> acciones = new();
+    private List<ItemCatalogo> localizaciones = new();
+    private Dictionary<int, RiesgoRef> riesgosPorId = new();
+    private Dictionary<int, List<int>> riesgosDePlan = new();          // plan → riesgos asociados
+    private Dictionary<int, string> codigosAuditoria = new();          // auditoría → código (origen del plan)
+    private string CodigoAuditoria(PlanAccion? p) => p?.AuditoriaId is int a && codigosAuditoria.TryGetValue(a, out var c) ? c : "";
+    private List<(int Id, string Etiqueta)> riesgosOpciones = new();   // riesgos que se pueden asociar
+    private Dictionary<int, string> etiquetasRiesgo = new();
+    private List<string> sugResponsables = new();
+    private List<string> sugReportoNombres = new(), sugReportoCargos = new(), sugReportoEmpresas = new();
+    private Dictionary<string, List<string>> catalogos = new();
+
+    // Opciones de un catálogo, más el valor actual si ya no está en él.
+    private List<string> Opciones(string tipo, string? actual)
+    {
+        var l = catalogos.TryGetValue(tipo, out var v) ? v.ToList() : new();
+        if (!string.IsNullOrWhiteSpace(actual) && !l.Contains(actual, StringComparer.OrdinalIgnoreCase)) l.Insert(0, actual);
+        return l;
+    }
+
+    private SigWeb.Data.Planes.PlanesAccionServicio.PlanEditable? form;
+
+    private List<ElementoTrazado> torres = new();
+    private Dictionary<int, Componente> componentesPorId = new();
+    private List<Tiro> tiros = new();
+    private List<LugarPlan> lugaresTodos = new();
+    private List<ArchivoAccionPlan> anexosTodos = new();
+
+    private IEnumerable<string> LugaresDe(int planId) => lugaresTodos.Where(l => l.PlanAccionId == planId)
+        .Select(l => SelectorLugares.Texto(l, torres, componentesPorId, localizaciones, tiros));
+    private SeguimientoRiesgo? seguimientoOrigen;
+    private (SeguimientoParteInteresada Seg, string Parte)? seguimientoParteOrigen;
+    private sealed record HallazgoOrigen(int Id, string Codigo, int AuditoriaId, string Auditoria);
+    private List<HallazgoOrigen> hallazgosOrigen = new();
+    private (int Id, string Codigo)? auditoriaOrigen;
+
+    private (int Id, string Codigo)? CargarAuditoriaOrigen(int? id) =>
+        id is int a && Db.Auditorias.IgnoreQueryFilters().AsNoTracking().Where(x => x.Id == a).Select(x => new { x.Id, x.Codigo }).FirstOrDefault() is { } r
+            ? (r.Id, r.Codigo) : null;
+
+    private List<HallazgoOrigen> CargarHallazgosOrigen(IEnumerable<int> ids)
+    {
+        var l = ids.Distinct().ToList();
+        if (l.Count == 0) return new();
+        var hs = Db.HallazgosAuditoria.AsNoTracking().Where(h => l.Contains(h.Id)).ToList();
+        var idsA = hs.Select(h => h.AuditoriaId).Distinct().ToList();
+        var auds = Db.Auditorias.IgnoreQueryFilters().AsNoTracking().Where(a => idsA.Contains(a.Id)).ToDictionary(a => a.Id, a => a.Codigo);
+        return hs.OrderBy(h => h.Codigo).Select(h => new HallazgoOrigen(h.Id, h.Codigo, h.AuditoriaId, auds.TryGetValue(h.AuditoriaId, out var c) ? c : "")).ToList();
+    }
+
+    private static List<int> IdsDe(string? texto) =>
+        (texto ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(t => int.TryParse(t, out var n) ? n : 0).Where(n => n > 0).Distinct().ToList();
+
+    private (SeguimientoParteInteresada, string)? CargarSeguimientoParte(int id)
+    {
+        var seg = Db.SeguimientosParteInteresada.IgnoreQueryFilters().AsNoTracking().FirstOrDefault(x => x.Id == id);
+        if (seg is null) return null;
+        var parte = Db.PartesInteresadas.IgnoreQueryFilters().AsNoTracking().Where(p => p.Clave == seg.ParteClave)
+            .OrderByDescending(p => p.Id == seg.ParteInteresadaId).ThenByDescending(p => p.Id).Select(p => p.Nombre).FirstOrDefault() ?? "Parte interesada";
+        return (seg, parte);
+    }
+
+    private string filtro = "", filtroEstado = "", filtroProceso = "", filtroOrigen = "", filtroTipo = "";
+
+    private record RiesgoRef(int Id, string Codigo, string Descripcion, string Version, int VersionId, bool Eliminado)
+    {
+        public string Etiqueta => $"{Codigo} ({Version}) — {Descripcion}";
+    }
+
+    private string Titulo => form is null ? "Planes de acción" : (form.Plan.Id > 0 ? form.Plan.Codigo + (soloAcciones ? " · Acciones" : "") : "Nuevo plan de acción");
+    private string? Subtitulo => form is null ? $"{planes.Count} plan(es)" : (string.IsNullOrWhiteSpace(form.Plan.DescripcionHallazgo) ? null : form.Plan.DescripcionHallazgo);
+
+    // Atrás va a la pantalla anterior: la lista si el plan se abrió desde ella (cada plan es su propia
+    // dirección), o el riesgo / la torre desde donde se abrió. Sin historial: al riesgo o a la lista.
+    private EventCallback AtrasCb => form is null && !pantallaCompleta ? default : EventCallback.Factory.Create(this, Atras);
+    private string RespaldoAtras => RiesgoQ is int r ? $"riesgos/{r}" : SeguimientoParteQ is not null ? "partes-interesadas"
+        : hallazgosOrigen.Count > 0 ? $"auditoria-interna/{hallazgosOrigen[0].AuditoriaId}"
+        : auditoriaOrigen is { } ao ? $"auditoria-interna/{ao.Id}?vista=planes" : "planes-accion";
+    private async Task Atras()
+    {
+        if (form is null && pantallaCompleta) { pantallaCompleta = false; return; }
+        await JS.VolverAsync(form is null ? "/" : RespaldoAtras);
+    }
+
+    protected override Task OnParametersSetAsync() => AplicarRutaAsync();
+
+    // Entre /planes-accion, /planes-accion/nuevo y /planes-accion/{id} es el mismo componente: Blazor
+    // no vuelve a pasar parámetros si no cambian (lista ↔ nuevo), así que la ruta se aplica también al
+    // cambiar la dirección. La ruta se lee de la URL (los parámetros pueden ir un paso atrás).
+    protected override void OnInitialized() => Nav.LocationChanged += AlCambiarDireccion;
+    public void Dispose() { Nav.LocationChanged -= AlCambiarDireccion; yoVista?.Dispose(); MenuIco.Quitar(this); }
+
+    private void AlCambiarDireccion(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        var ruta = Nav.ToBaseRelativePath(e.Location).Split('?')[0].TrimEnd('/');
+        if (!ruta.StartsWith("planes-accion", StringComparison.OrdinalIgnoreCase)) return;
+        _ = InvokeAsync(async () => { await AplicarRutaAsync(); StateHasChanged(); });
+    }
+
+    private string? rutaAplicada;
+
+    private async Task AplicarRutaAsync()
+    {
+        await _dbLock.WaitAsync();
+        try
+        {
+            // La navegación puede haber terminado mientras esperábamos el guardado. Leer la URL
+            // aquí y aceptar solo nuestras rutas: /auditoria-interna/12 no es el plan 12.
+            var rel = Nav.ToBaseRelativePath(Nav.Uri);
+            var ruta = rel.Split('?')[0].TrimEnd('/');
+            var partes = ruta.Split('/');
+            var esDetalle = partes.Length == 2 && int.TryParse(partes[1], out _);
+            if (!string.Equals(partes[0], "planes-accion", StringComparison.OrdinalIgnoreCase)
+                || !(partes.Length == 1 || (partes.Length == 2
+                    && (esDetalle || string.Equals(partes[1], "nuevo", StringComparison.OrdinalIgnoreCase))))) return;
+            var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(rel.Contains('?') ? rel[rel.IndexOf('?')..] : "");
+            var foco = q.TryGetValue("acciones", out var fv) && int.TryParse(fv.ToString(), out var fa) ? fa : (int?)null;
+            if (rel == rutaAplicada) return;   // OnParametersSet y LocationChanged llegan juntos
+            rutaAplicada = rel;
+            soloAcciones = foco is not null; accionFoco = foco; irAFoco = foco is not null;
+            Cargar();
+            await CargarMotorAsync();
+            await CargarNombresCarpetasAsync();
+            await CargarVistasAsync(q);
+            if (esDetalle && int.TryParse(partes[1], out var id)) AbrirExistente(id);
+            else if (ruta.EndsWith("planes-accion/nuevo", StringComparison.OrdinalIgnoreCase)) AbrirNuevo();
+            else
+            {
+                form = null;
+                // ?plan=ID (desde la hoja de vida u otro módulo): ese plan a la vista en "Plan por plan".
+                if (q.TryGetValue("plan", out var pv) && int.TryParse(pv.ToString(), out var pid) && planes.Any(p => p.Id == pid))
+                { selId = pid; vistaPlanes = "plan"; }
+            }
+        }
+        finally { _dbLock.Release(); }
+    }
+
+    private void Cargar()
+    {
+        planes = Db.PlanesAccion.AsNoTracking().OrderByDescending(p => p.Fecha).ThenByDescending(p => p.Id).ToList();
+        acciones = Db.AccionesPlan.AsNoTracking().ToList();
+        localizaciones = Db.Catalogos.AsNoTracking().Where(c => c.Tipo == "Localización" && c.Activo).OrderBy(c => c.Nombre).ToList();
+        torres = Db.ElementosTrazado.AsNoTracking().Where(t => !t.Eliminado).OrderBy(t => t.Codigo).ToList();
+        componentesPorId = Db.Componentes.IgnoreQueryFilters().AsNoTracking().ToList().ToDictionary(c => c.Id);
+        tiros = Db.Tiros.AsNoTracking().Where(t => !t.Eliminado).OrderBy(t => t.Nombre).ToList();
+        lugaresTodos = Db.LugaresPlan.AsNoTracking().ToList();
+        anexosTodos = Db.ArchivosAccionPlan.AsNoTracking().ToList();
+        try { cargasPlanes = Db.CargasPlanesAccion.AsNoTracking().OrderByDescending(c => c.Fecha).ToList(); }
+        catch { cargasPlanes = new(); }   // sin la migración aplicada
+        planesPorCarga = planes.Where(p => p.CargaPlanesAccionId != null).GroupBy(p => p.CargaPlanesAccionId!.Value).ToDictionary(g => g.Key, g => g.Count());
+        cargasSel.RemoveWhere(id => cargasPlanes.All(c => c.Id != id));
+        if (cargaFiltro is int cf && cargasPlanes.All(c => c.Id != cf)) cargaFiltro = null;
+        if (selId is int sid && planes.All(p => p.Id != sid)) selId = null;
+        var versiones = Db.VersionesMatrizRiesgos.IgnoreQueryFilters().AsNoTracking().ToDictionary(v => v.Id);
+        riesgosPorId = Db.Riesgos.IgnoreQueryFilters().AsNoTracking()
+            .Select(r => new { r.Id, r.Codigo, r.Descripcion, r.VersionMatrizRiesgosId, r.Eliminado }).ToList()
+            .ToDictionary(r => r.Id, r => new RiesgoRef(r.Id, r.Codigo, r.Descripcion,
+                versiones.TryGetValue(r.VersionMatrizRiesgosId, out var v) ? v.Codigo : "?", r.VersionMatrizRiesgosId,
+                r.Eliminado || (versiones.TryGetValue(r.VersionMatrizRiesgosId, out var v2) && v2.Eliminado)));
+        codigosAuditoria = Db.Auditorias.IgnoreQueryFilters().AsNoTracking().Select(a => new { a.Id, a.Codigo }).ToDictionary(a => a.Id, a => a.Codigo);
+        try { riesgosDePlan = SigWeb.Data.Planes.PlanesAccionServicio.RiesgosDePlanes(Db, planes); }
+        catch { riesgosDePlan = planes.Where(p => p.RiesgoId != null).ToDictionary(p => p.Id, p => new List<int> { p.RiesgoId!.Value }); }   // sin la migración aplicada
+        etiquetasRiesgo = riesgosPorId.Values.ToDictionary(r => r.Id, r => r.Etiqueta + (r.Eliminado ? " · en Papelera" : ""));
+        riesgosOpciones = riesgosPorId.Values.Where(r => !r.Eliminado).OrderBy(r => r.Codigo).ThenByDescending(r => r.VersionId)
+            .Select(r => (r.Id, r.Etiqueta)).ToList();
+        CargarCarpetas();
+        catalogos = new[] { SembradorCatalogosRiesgo.ProcesoPlan, SembradorCatalogosRiesgo.OrigenHallazgo, SembradorCatalogosRiesgo.TipoHallazgo }
+            .ToDictionary(t => t, t => SembradorCatalogosRiesgo.Valores(Db, t));
+        // "Reportó": valores ya usados en otros planes.
+        List<string> Usados(Func<PlanAccion, string> f) => planes.Select(f).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).ToList();
+        sugReportoNombres = Usados(p => p.ReportoNombre);
+        sugReportoCargos = Usados(p => p.ReportoCargo);
+        sugReportoEmpresas = Usados(p => p.ReportoEmpresa);
+        // Responsable de una acción: los cargos del catálogo de riesgos más los nombres ya usados.
+        sugResponsables = SembradorCatalogosRiesgo.Valores(Db, SembradorCatalogosRiesgo.Cargo)
+            .Concat(acciones.Select(a => a.Responsable)).Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).ToList();
+    }
+
+    private void AbrirExistente(int id)
+    {
+        form = Servicio.Cargar(id);
+        if (form is null) { mensaje = "El plan no existe o está en la Papelera."; error = true; return; }
+        seguimientoOrigen = form.Plan.SeguimientoRiesgoId is int s ? Db.SeguimientosRiesgo.IgnoreQueryFilters().AsNoTracking().FirstOrDefault(x => x.Id == s) : null;
+        seguimientoParteOrigen = form.Plan.SeguimientoParteInteresadaId is int sp ? CargarSeguimientoParte(sp) : null;
+        hallazgosOrigen = CargarHallazgosOrigen(form.HallazgosAuditoria);
+        auditoriaOrigen = CargarAuditoriaOrigen(form.Plan.AuditoriaId);
+    }
+
+    private void AbrirNuevo()
+    {
+        form = new() { Plan = new PlanAccion { Codigo = Servicio.SiguienteCodigo(), Fecha = DateTime.Today } };
+        seguimientoOrigen = null;
+        seguimientoParteOrigen = null;
+        hallazgosOrigen = new();
+        auditoriaOrigen = null;
+        if (IdsDe(HallazgosQ) is { Count: > 0 } idsHq)
+        {
+            // Nace de hallazgos de auditoría: origen Auditoría, tipo, declaración + evidencia, procesos,
+            // lugares, fecha y auditor (Reportó) del primero; todos quedan ligados al plan.
+            var hs = Db.HallazgosAuditoria.AsNoTracking().Where(h => idsHq.Contains(h.Id)).OrderBy(h => h.Codigo).ToList();
+            if (hs.Count > 0)
+            {
+                hallazgosOrigen = CargarHallazgosOrigen(hs.Select(h => h.Id));
+                form.Plan.AuditoriaId = hs[0].AuditoriaId;
+                auditoriaOrigen = CargarAuditoriaOrigen(hs[0].AuditoriaId);
+                form.HallazgosAuditoria = hs.Select(h => h.Id).ToList();
+                form.Plan.OrigenHallazgo = Opciones(SembradorCatalogosRiesgo.OrigenHallazgo, null)
+                    .FirstOrDefault(o => string.Equals(o, "Auditoría", StringComparison.OrdinalIgnoreCase)) ?? "Auditoría";
+                form.Plan.TipoHallazgo = hs[0].Tipo;
+                form.Plan.Fecha = hs[0].Fecha;
+                form.Plan.ReportoNombre = hs[0].Auditor ?? "";
+                form.Plan.ReportoCargo = string.IsNullOrWhiteSpace(hs[0].Auditor) ? "" : "Auditor";
+                form.Plan.DescripcionHallazgo = string.Join("\n\n", hs.Select(h =>
+                    string.Join(" — ", new[] { $"[{h.Codigo}]" + (string.IsNullOrWhiteSpace(h.Grado) ? "" : $" NC {h.Grado.ToLowerInvariant()}"), h.Descripcion,
+                        string.IsNullOrWhiteSpace(h.Numerales) ? null : "Numerales: " + h.Numerales,
+                        string.IsNullOrWhiteSpace(h.Evidencia) ? null : "Evidencia: " + h.Evidencia }.Where(x => !string.IsNullOrWhiteSpace(x)))));
+                form.Procesos = hs.SelectMany(h => SigWeb.Data.Auditorias.ServicioAuditorias.Lista(h.Procesos)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                var idsHs = hs.Select(h => h.Id).ToList();
+                foreach (var l in Db.LugaresHallazgoAuditoria.AsNoTracking().Where(l => idsHs.Contains(l.HallazgoAuditoriaId)).ToList())
+                    if (!form.Lugares.Any(x => x.ElementoTrazadoId == l.ElementoTrazadoId && x.ComponenteId == l.ComponenteId && x.ItemCatalogoId == l.ItemCatalogoId && x.TiroId == l.TiroId))
+                        form.Lugares.Add(new LugarPlan { ElementoTrazadoId = l.ElementoTrazadoId, ComponenteId = l.ComponenteId, ItemCatalogoId = l.ItemCatalogoId, TiroId = l.TiroId });
+            }
+        }
+        if (hallazgosOrigen.Count == 0 && AuditoriaQ is int audId && Db.Auditorias.AsNoTracking().FirstOrDefault(a => a.Id == audId) is { } aud)
+        {
+            // Nace directamente de una auditoría: origen Auditoría, su código, procesos, lugares, fecha y auditor líder.
+            form.Plan.AuditoriaId = aud.Id;
+            auditoriaOrigen = (aud.Id, aud.Codigo);
+            form.Plan.OrigenHallazgo = Opciones(SembradorCatalogosRiesgo.OrigenHallazgo, null)
+                .FirstOrDefault(o => string.Equals(o, "Auditoría", StringComparison.OrdinalIgnoreCase)) ?? "Auditoría";
+            form.Plan.Fecha = aud.FechaInicio ?? DateTime.Today;
+            form.Plan.ReportoNombre = aud.AuditorLider ?? "";
+            form.Plan.ReportoCargo = string.IsNullOrWhiteSpace(aud.AuditorLider) ? "" : "Auditor líder";
+            form.Plan.DescripcionHallazgo = $"[{aud.Codigo}] ";
+            form.Procesos = SigWeb.Data.Auditorias.ServicioAuditorias.Lista(aud.Procesos).ToList();
+            foreach (var l in Db.LugaresAuditoria.AsNoTracking().Where(l => l.AuditoriaId == aud.Id).ToList())
+                form.Lugares.Add(new LugarPlan { ElementoTrazadoId = l.ElementoTrazadoId, ComponenteId = l.ComponenteId, ItemCatalogoId = l.ItemCatalogoId, TiroId = l.TiroId });
+        }
+        if (SeguimientoParteQ is int spid && CargarSeguimientoParte(spid) is { } sp)
+        {
+            // Nace de un seguimiento a una parte interesada: su fecha, la parte y lo observado.
+            seguimientoParteOrigen = sp;
+            var (segP, parteP) = sp;
+            form.Plan.SeguimientoParteInteresadaId = segP.Id;
+            form.Plan.OrigenHallazgo = SembradorCatalogosRiesgo.OrigenParte(Opciones(SembradorCatalogosRiesgo.OrigenHallazgo, null));
+            form.Plan.Fecha = segP.Fecha;
+            form.Plan.DescripcionHallazgo = string.Join(" — ", new[] { $"Parte interesada «{parteP}»", segP.DescripcionHallazgo, segP.Resultado, segP.Observacion }
+                .Where(x => !string.IsNullOrWhiteSpace(x)));
+        }
+        if (RiesgoQ is int rid && riesgosPorId.ContainsKey(rid))
+        {
+            // Plan creado desde un riesgo de la matriz: su origen es el seguimiento a la matriz de riesgos y, si el
+            // catálogo de tipos tiene ese mismo concepto, también el tipo de hallazgo.
+            form.Plan.RiesgoId = rid; form.Riesgos.Add(rid);
+            form.Plan.OrigenHallazgo = SembradorCatalogosRiesgo.OrigenRiesgo(Opciones(SembradorCatalogosRiesgo.OrigenHallazgo, null));
+            var tipoRiesgo = SembradorCatalogosRiesgo.Elegir(Opciones(SembradorCatalogosRiesgo.TipoHallazgo, null), "", new[] { "matriz", "riesgo" });
+            if (tipoRiesgo != "") form.Plan.TipoHallazgo = tipoRiesgo;
+        }
+        if (SeguimientoQ is int sid && Db.SeguimientosRiesgo.AsNoTracking().FirstOrDefault(s => s.Id == sid) is { } seg)
+        {
+            // Nace de un seguimiento: toma su riesgo, su fecha, su observación y,
+            // como lugares, los de los hallazgos que registró.
+            seguimientoOrigen = seg;
+            form.Plan.SeguimientoRiesgoId = seg.Id;
+            form.Plan.OrigenHallazgo = SembradorCatalogosRiesgo.OrigenRiesgo(Opciones(SembradorCatalogosRiesgo.OrigenHallazgo, null));
+            var tipoSeg = SembradorCatalogosRiesgo.Elegir(Opciones(SembradorCatalogosRiesgo.TipoHallazgo, null), "", new[] { "matriz", "riesgo" });
+            if (tipoSeg != "") form.Plan.TipoHallazgo = tipoSeg;
+            form.Plan.RiesgoId = seg.RiesgoId;
+            if (!form.Riesgos.Contains(seg.RiesgoId)) form.Riesgos.Insert(0, seg.RiesgoId);
+            form.Plan.Fecha = seg.Fecha;
+            var hallazgosSeg = Db.HallazgosRiesgo.AsNoTracking().Where(x => x.SeguimientoRiesgoId == seg.Id).ToList();
+            form.Plan.DescripcionHallazgo = string.Join("\n", hallazgosSeg.Select(h => h.Descripcion).Prepend(seg.Observacion).Where(x => !string.IsNullOrWhiteSpace(x)));
+            var idsH = hallazgosSeg.Select(x => x.Id).ToList();
+            foreach (var l in Db.LugaresHallazgo.AsNoTracking().Where(l => idsH.Contains(l.HallazgoRiesgoId)).ToList())
+                if (!form.Lugares.Any(x => x.ElementoTrazadoId == l.ElementoTrazadoId && x.ComponenteId == l.ComponenteId && x.ItemCatalogoId == l.ItemCatalogoId && x.TiroId == l.TiroId))
+                    form.Lugares.Add(new LugarPlan { ElementoTrazadoId = l.ElementoTrazadoId, ComponenteId = l.ComponenteId, ItemCatalogoId = l.ItemCatalogoId, TiroId = l.TiroId });
+        }
+    }
+
+    // Ficha del seguimiento de origen (se muestra, no se cambia aquí). Los riesgos se eligen en el editor.
+    private RenderFragment? OrigenFichas => seguimientoOrigen is null && seguimientoParteOrigen is null && hallazgosOrigen.Count == 0 && auditoriaOrigen is null ? null : __b =>
+    {
+        if (hallazgosOrigen.Count == 0 && auditoriaOrigen is { } ao)
+        {
+            __b.OpenElement(20, "a"); __b.AddAttribute(21, "class", "rg-chip text-decoration-none"); __b.AddAttribute(22, "title", "Auditoría de origen");
+            __b.AddAttribute(23, "href", $"auditoria-interna/{ao.Id}?vista=planes");
+            __b.AddContent(24, ao.Codigo);
+            __b.CloseElement();
+        }
+        foreach (var h in hallazgosOrigen)
+        {
+            __b.OpenElement(10, "a"); __b.AddAttribute(11, "class", "rg-chip text-decoration-none"); __b.AddAttribute(12, "title", "Hallazgo de auditoría de origen");
+            __b.AddAttribute(13, "href", $"auditoria-interna/{h.AuditoriaId}?hallazgo={h.Id}");
+            __b.AddContent(14, $"{h.Codigo} · {h.Auditoria}");
+            __b.CloseElement();
+        }
+        if (seguimientoOrigen is not null)
+        {
+            __b.OpenElement(0, "span"); __b.AddAttribute(1, "class", "rg-chip"); __b.AddAttribute(2, "title", "Seguimiento de origen");
+            __b.AddContent(3, $"Seguimiento {seguimientoOrigen.Fecha:dd/MM/yyyy} · {string.Join(", ", SelectorMultiple.Leer(seguimientoOrigen.Responsable))}");
+            __b.CloseElement();
+        }
+        if (seguimientoParteOrigen is { } sp)
+        {
+            __b.OpenElement(4, "span"); __b.AddAttribute(5, "class", "rg-chip"); __b.AddAttribute(6, "title", "Seguimiento de origen (Partes interesadas)");
+            __b.AddContent(7, $"{sp.Parte} · seguimiento {sp.Seg.Fecha:dd/MM/yyyy}");
+            __b.CloseElement();
+        }
+    };
+
+    // ---------- Lista ----------
+    private EstadoAccionPlan EstadoDe(int planId) => EscalaAccion.EstadoPlan(acciones.Where(a => a.PlanAccionId == planId));
+
+    private string NombreRiesgo(int? id) =>
+        id is int i && riesgosPorId.TryGetValue(i, out var r) ? $"{r.Codigo} ({r.Version})" + (r.Eliminado ? " · en Papelera" : "") : "";
+
+    private string RiesgosTexto(int planId) =>
+        riesgosDePlan.TryGetValue(planId, out var l) ? string.Join("\n", l.Select(r => NombreRiesgo(r)).Where(x => x.Length > 0)) : "";
+
+    private IEnumerable<PlanAccion> Mostrados => Ordenar(planes.Where(p =>
+        (cargaFiltro is null || p.CargaPlanesAccionId == cargaFiltro) &&
+        (filtroEstado == "" || ((int)EstadoDe(p.Id)).ToString() == filtroEstado) &&
+        (filtroProceso == "" || SelectorMultiple.Leer(p.Proceso).Contains(filtroProceso, StringComparer.OrdinalIgnoreCase)) &&
+        (filtroOrigen == "" || string.Equals(p.OrigenHallazgo, filtroOrigen, StringComparison.OrdinalIgnoreCase)) &&
+        (filtroTipo == "" || string.Equals(p.TipoHallazgo, filtroTipo, StringComparison.OrdinalIgnoreCase)) &&
+        (filtro.Length == 0 ||
+         (p.Codigo + " " + p.DescripcionHallazgo + " " + p.OrigenHallazgo + " " + p.TipoHallazgo + " " + p.Proceso + " " + p.AnalisisCausa + " " + string.Join(" ", LugaresDe(p.Id)) + " " + RiesgosTexto(p.Id) + " " + CodigoAuditoria(p))
+            .Contains(filtro, StringComparison.OrdinalIgnoreCase)
+         || (motor is not null && motor.TextoBusqueda(p.Id).Contains(filtro, StringComparison.OrdinalIgnoreCase)))));
+
+    private static int? Int(ChangeEventArgs e) => int.TryParse(e.Value?.ToString(), out var n) && n > 0 ? n : null;
+
+    // ---------- Formulario ----------
+    private async Task GuardarAsync()
+    {
+        if (form is null) return;
+        guardando = true;
+        await _dbLock.WaitAsync();
+        try
+        {
+            var nuevo = form.Plan.Id == 0;
+            var auditoriaId = form.Plan.AuditoriaId;
+            var id = await Servicio.GuardarAsync(form);
+            mensaje = nuevo
+                ? $"El plan {form.Plan.Codigo.Trim()} se creó correctamente y está en el módulo Planes de acción."
+                : "Plan guardado.";
+            error = false;
+            if (nuevo && auditoriaId is int aid)
+                await JS.InvokeVoidAsync("sessionStorage.setItem", $"sigweb.auditoria.{aid}.planCreado", mensaje);
+            // Guardar cierra el formulario y vuelve a la pantalla de donde se abrió (lista, hoja de vida,
+            // riesgo, auditoría…), con su vista y selección (regla general de formularios).
+            await JS.VolverAsync(RespaldoAtras);
+        }
+        catch (InvalidOperationException ex) { Db.ChangeTracker.Clear(); mensaje = ex.Message; error = true; }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            mensaje = "No se pudo guardar el plan: inténtalo de nuevo. (" + ex.Message + ")"; error = true;
+        }
+        finally { guardando = false; _dbLock.Release(); }
+    }
+
+    // ---------- Lista: pantalla completa, Campos, selección, orden ----------
+    private const string Tabla = SigWeb.Data.Planes.ImportadorPlanesAccion.Tabla;
+    private bool pantallaCompleta, verCampos;
+    private MotorTabla? motor;
+    private MotorTabla Motor => motor!;
+    private int? selId;
+    private string? colOrden;
+    private bool ordenAsc = true;
+
+    private IEnumerable<CampoTabla> Columnas => motor?.Visibles ?? Enumerable.Empty<CampoTabla>();
+
+    private IEnumerable<ColumnaNativa> ColumnasNativas()
+    {
+        var porId = planes.ToDictionary(p => p.Id);
+        var nombreCarga = cargasPlanes.ToDictionary(c => c.Id, c => c.NombreArchivo + (string.IsNullOrWhiteSpace(c.Hoja) ? "" : " › " + c.Hoja));
+        PlanAccion? P(int id) => porId.TryGetValue(id, out var p) ? p : null;
+        return new[]
+        {
+            new ColumnaNativa("Codigo", "Código", TipoCampoTabla.Texto, id => P(id)?.Codigo),
+            new ColumnaNativa("Fecha", "Fecha", TipoCampoTabla.Fecha, id => P(id)?.Fecha),
+            new ColumnaNativa("Origen", "Origen", TipoCampoTabla.Texto, id => P(id)?.OrigenHallazgo),
+            new ColumnaNativa("Auditoria", "Auditoría", TipoCampoTabla.Texto, id => CodigoAuditoria(P(id))),
+            new ColumnaNativa("Tipo", "Tipo de hallazgo", TipoCampoTabla.Texto, id => P(id)?.TipoHallazgo),
+            new ColumnaNativa("Descripcion", "Descripción del hallazgo", TipoCampoTabla.Texto, id => P(id)?.DescripcionHallazgo),
+            new ColumnaNativa("Procesos", "Procesos", TipoCampoTabla.Texto, id => P(id)?.Proceso),
+            new ColumnaNativa("Lugares", "Lugares", TipoCampoTabla.Texto, id => string.Join("\n", LugaresDe(id))),
+            new ColumnaNativa("Riesgo", "Riesgos", TipoCampoTabla.Texto, id => RiesgosTexto(id)),
+            new ColumnaNativa("Acciones", "Acciones", TipoCampoTabla.Texto, id => string.Join("\n", acciones.Where(a => a.PlanAccionId == id).OrderBy(a => a.Orden).Select(a => $"[{EscalaAccion.Nombre(a.Estado)}] {a.Descripcion}"))),
+            new ColumnaNativa("Estado", "Estado del plan", TipoCampoTabla.Texto, id => EscalaAccion.Nombre(EstadoDe(id))),
+            new ColumnaNativa("Adjuntos", "Adjuntos", TipoCampoTabla.Texto, id => string.Join("\n", CarpetasVista(id).Where(c => c.Archivos.Count > 0).Select(c => $"{c.Nombre} ({c.Archivos.Count})"))),
+            new ColumnaNativa("Analisis", "Análisis de causa", TipoCampoTabla.Texto, id => P(id)?.AnalisisCausa),
+            new ColumnaNativa("Reporto", "Reportó", TipoCampoTabla.Texto, id => P(id) is { } p ? string.Join(" · ", new[] { p.ReportoNombre, p.ReportoCargo, p.ReportoEmpresa }.Where(x => !string.IsNullOrWhiteSpace(x))) : null),
+            new ColumnaNativa("Carga", "Carga", TipoCampoTabla.Texto, id => P(id)?.CargaPlanesAccionId is int c && nombreCarga.TryGetValue(c, out var n) ? n : null, visiblePorDefecto: false),
+        };
+    }
+
+    private async Task CargarMotorAsync()
+    {
+        try { motor = await MotorTabla.CargarAsync(Db, Tabla, ColumnasNativas(), planes.Select(p => (p.Id, p.Codigo))); }
+        catch { motor = null; }
+    }
+
+    private static string AnchoColumna(CampoTabla c) => c.Origen != OrigenCampoTabla.Nativo ? "" : c.Clave switch
+    {
+        "Codigo" => "width:90px;", "Fecha" => "width:95px;", "Origen" => "width:130px;", "Tipo" => "width:150px;",
+        "Procesos" or "Lugares" => "width:160px;", "Riesgo" => "width:120px;", "Adjuntos" => "width:80px;", "Analisis" => "width:170px;", "Acciones" => "width:340px;", "Estado" => "width:115px;", _ => ""
+    };
+
+    private IEnumerable<PlanAccion> Ordenar(IEnumerable<PlanAccion> q) =>
+        motor is not null && colOrden is not null ? motor.Ordenar(q, p => p.Id, colOrden, ordenAsc) : q;
+
+    private void OrdenarPor(string clave) { if (colOrden == clave) ordenAsc = !ordenAsc; else { colOrden = clave; ordenAsc = true; } }
+    private string Flecha(string clave) => colOrden == clave ? (ordenAsc ? " ▲" : " ▼") : "";
+
+    private void AbrirPlan(int id) { if (!modoEdicion) Nav.NavigateTo($"planes-accion/{id}"); }
+
+    // Editar = formulario completo del plan seleccionado (en la vista plan, el que está a la vista).
+    private int? PlanAEditar => selId is int s && planes.Any(p => p.Id == s) ? s
+        : vistaPlanes == "plan" ? Mostrados.FirstOrDefault()?.Id : null;
+    private void EditarPlan() { if (PlanAEditar is int id) AbrirPlan(id); }
+
+    // ======================= Vistas "plan por plan" y "tablero" (solo presentación) =======================
+    private string vistaPlanes = "plan";   // plan | tablero | lista
+
+    private List<AccionPlan> AccionesDe(int planId) => acciones.Where(a => a.PlanAccionId == planId).OrderBy(a => a.Orden).ThenBy(a => a.Id).ToList();
+    private int AnexosDe(int accionId) => anexosTodos.Count(x => x.AccionPlanId == accionId && x.SeguimientoAccionId == null);
+    private static bool Vencida(AccionPlan a) => a.Estado != EstadoAccionPlan.Cerrada && a.Fecha.Date < DateTime.Today;
+    private static string ClaseEstado(EstadoAccionPlan e) => e switch { EstadoAccionPlan.Abierta => "pv-abierta", EstadoAccionPlan.EnEjecucion => "pv-ejecucion", _ => "pv-cerrada" };
+
+    // Avance del plan: % de acciones cerradas (0 si no tiene acciones).
+    private (int Cerradas, int Total, int Pct) Avance(int planId)
+    {
+        var l = acciones.Where(a => a.PlanAccionId == planId).ToList();
+        var c = l.Count(a => a.Estado == EstadoAccionPlan.Cerrada);
+        return (c, l.Count, l.Count == 0 ? 0 : (int)Math.Round(c * 100.0 / l.Count));
+    }
+
+    private AccionPlan? ProximaAccion(int planId) => acciones.Where(a => a.PlanAccionId == planId && a.Estado != EstadoAccionPlan.Cerrada)
+        .OrderBy(a => a.Fecha).FirstOrDefault();
+
+    private RenderFragment VistaPlan() => __builder =>
+    {
+        var lista = Mostrados.ToList();
+        var foco = lista.FirstOrDefault(x => x.Id == selId) ?? lista.FirstOrDefault();
+        <div class="ind-foco pv-foco">
+            <nav class="ind-rail">
+                @foreach (var pl in lista)
+                {
+                    var p = pl;
+                    var av = Avance(p.Id);
+                    var est = EstadoDe(p.Id);
+                    <button type="button" class="ind-rail-item pv-rail @ClaseEstado(est) @(foco?.Id == p.Id ? "activo" : "")" @onclick="() => selId = p.Id" @ondblclick="() => AbrirPlan(p.Id)">
+                        <span class="pv-rail-cab">
+                            <span class="pv-cod">@p.Codigo</span>
+                            <span class="pv-punto" title="@EscalaAccion.Nombre(est)"></span>
+                            <span class="pv-fecha">@p.Fecha.ToString("dd/MM/yyyy")</span>
+                        </span>
+                        <span class="ind-rail-nom">@p.DescripcionHallazgo</span>
+                        <span class="pv-avance"><span style="width:@(av.Pct)%;"></span></span>
+                        <span class="pv-rail-pie">@av.Cerradas/@av.Total acciones · @p.TipoHallazgo</span>
+                    </button>
+                }
+                @if (lista.Count == 0)
+                {
+                    <span class="text-muted small p-2">Sin planes de acción.</span>
+                }
+            </nav>
+            @if (foco is not null)
+            {
+                var p = foco;
+                var pos = lista.FindIndex(x => x.Id == p.Id);
+                var av = Avance(p.Id);
+                var est = EstadoDe(p.Id);
+                var prox = ProximaAccion(p.Id);
+                var dias = (DateTime.Today - p.Fecha.Date).Days;
+                var accs = AccionesDe(p.Id);
+                @if (vistaPlanId != VistasModelo.IdClasica || disenandoVista)
+                {
+                    <section class="ind-det vr-det">@SelectorVista() @PanelVista(p, lista, pos)</section>
+                }
+                else
+                {
+                <section class="ind-det">
+                    @SelectorVista()
+                    <div class="ind-det-cab">
+                        <button type="button" class="ind-nav" title="Anterior" disabled="@(pos <= 0)" @onclick="() => selId = lista[pos - 1].Id">‹</button>
+                        <div class="ind-det-tits">
+                            <h2 class="ind-det-nom"><button type="button" class="doc-vinculo pv-titulo" title="Abrir plan" @onclick="() => AbrirPlan(p.Id)">@p.Codigo</button> <span class="pv-desc-tit">@p.DescripcionHallazgo</span></h2>
+                            <div class="ind-chips">
+                                @if (!string.IsNullOrWhiteSpace(p.TipoHallazgo)) { <span class="ind-chip pv-chip-fuerte">@p.TipoHallazgo</span> }
+                                @if (!string.IsNullOrWhiteSpace(p.OrigenHallazgo)) { <span class="ind-chip">@p.OrigenHallazgo</span> }
+                                @if (CodigoAuditoria(p) is { Length: > 0 } codAud) { <a class="ind-chip text-decoration-none" href="auditoria-interna/@p.AuditoriaId?vista=planes" title="Auditoría de origen">@codAud</a> }
+                                @foreach (var pr in SelectorMultiple.Leer(p.Proceso)) { <span class="ind-chip">@pr</span> }
+                                <span class="ind-chip">@p.Fecha.ToString("dd/MM/yyyy")</span>
+                                @if (!string.IsNullOrWhiteSpace(p.ReportoNombre)) { <span class="ind-chip" title="Reportó">@p.ReportoNombre</span> }
+                            </div>
+                        </div>
+                        <span class="ind-det-pos">@(pos + 1) / @lista.Count</span>
+                        <button type="button" class="ind-nav" title="Siguiente" disabled="@(pos >= lista.Count - 1)" @onclick="() => selId = lista[pos + 1].Id">›</button>
+                    </div>
+
+                    <div class="ind-kpis">
+                        <div class="ind-kpi ind-kpi-grande pv-kpi-estado @ClaseEstado(est)">
+                            <span class="ind-kpi-tit">Estado del plan</span>
+                            <span class="ind-kpi-val">@EscalaAccion.Nombre(est)</span>
+                            <span class="ind-kpi-est">@(est == EstadoAccionPlan.Cerrada ? "Todas las acciones cerradas" : $"{av.Total - av.Cerradas} acción(es) por cerrar")</span>
+                        </div>
+                        <div class="ind-kpi pv-kpi-anillo">
+                            <span class="pv-anillo" style="--pct:@(av.Pct);"><span>@(av.Pct)%</span></span>
+                            <span class="pv-anillo-txt"><span class="ind-kpi-tit">Avance</span><span class="ind-kpi-sub">@av.Cerradas de @av.Total acciones cerradas</span></span>
+                        </div>
+                        <div class="ind-kpi @(prox is not null && Vencida(prox) ? "pv-kpi-vencida" : "")">
+                            <span class="ind-kpi-tit">Próxima acción</span>
+                            <span class="ind-kpi-val pv-kpi-fecha">@(prox?.Fecha.ToString("dd/MM/yyyy") ?? "—")</span>
+                            <span class="ind-kpi-sub">@(prox is null ? "Sin pendientes" : Vencida(prox) ? $"Vencida hace {(DateTime.Today - prox.Fecha.Date).Days} día(s)" : $"En {(prox.Fecha.Date - DateTime.Today).Days} día(s)")</span>
+                        </div>
+                        <div class="ind-kpi">
+                            <span class="ind-kpi-tit">Días desde el hallazgo</span>
+                            <span class="ind-kpi-val">@dias</span>
+                            <span class="ind-kpi-sub">@p.Fecha.ToString("dd/MM/yyyy")</span>
+                        </div>
+                    </div>
+
+                    <div class="pv-cuerpo">
+                        <div class="pv-col">
+                            <div class="pv-bloque-tit">Acciones (@accs.Count)</div>
+                            <ol class="pv-linea">
+                                @foreach (var a in accs)
+                                {
+                                    var acc = a;
+                                    var productos = (acc.Producto ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                                    var nAnexos = AnexosDe(acc.Id);
+                                    <li class="pv-paso @ClaseEstado(acc.Estado) @(Vencida(acc) ? "pv-vencida" : "")">
+                                        <span class="pv-paso-punto"></span>
+                                        <button type="button" class="pv-paso-tarjeta" title="Ver la acción en el plan" @onclick="() => AbrirAcciones(p.Id, acc.Id)">
+                                            <span class="pv-paso-cab">
+                                                <span class="pv-paso-tipo">@EscalaAccion.Nombre(acc.Tipo)</span>
+                                                <EstadoAccion Estado="acc.Estado" />
+                                                <span class="pv-paso-fecha">@acc.Fecha.ToString("dd/MM/yyyy")@(Vencida(acc) ? " · vencida" : "")</span>
+                                            </span>
+                                            <span class="pv-paso-desc">@acc.Descripcion</span>
+                                            <span class="pv-paso-pie">
+                                                @if (!string.IsNullOrWhiteSpace(acc.Responsable)) { <span class="ind-chip">@string.Join(", ", SelectorMultiple.Leer(acc.Responsable))</span> }
+                                                @foreach (var pr in productos) { <span class="ind-chip pv-producto">@pr</span> }
+                                                @if (nAnexos > 0) { <span class="ind-chip">📎 @nAnexos</span> }
+                                            </span>
+                                        </button>
+                                    </li>
+                                }
+                                @if (accs.Count == 0)
+                                {
+                                    <li class="text-muted small">Sin acciones.</li>
+                                }
+                            </ol>
+                        </div>
+                        <div class="pv-col pv-lateral">
+                            <dl class="ind-ficha pv-ficha">
+                                <dt>Descripción del hallazgo</dt><dd>@(string.IsNullOrWhiteSpace(p.DescripcionHallazgo) ? "—" : p.DescripcionHallazgo)</dd>
+                                <dt>Análisis de causa</dt><dd>@FragAnalisisCausa(p, false)</dd>
+                                <dt>Lugares</dt>
+                                <dd class="ind-chips">
+                                    @foreach (var l in LugaresDe(p.Id)) { <span class="ind-chip">@l</span> }
+                                    @if (!LugaresDe(p.Id).Any()) { <span>—</span> }
+                                </dd>
+                                <dt>Riesgos</dt>
+                                <dd class="ind-chips">
+                                    @if (riesgosDePlan.TryGetValue(p.Id, out var rs) && rs.Count > 0)
+                                    {
+                                        @foreach (var r in rs) { <a class="ind-chip pv-riesgo" href="@($"riesgos/{r}")">@NombreRiesgo(r)</a> }
+                                    }
+                                    else { <span>—</span> }
+                                </dd>
+                                <dt>Adjuntos</dt>
+                                <dd>@CeldaAdjuntos(p.Id)</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </section>
+                }
+            }
+        </div>
+    };
+
+
+    // =====================================================================
+    // Vistas configurables de "Plan por plan" (widgets como el panel de Inicio). La "Clásica" es la vista de siempre;
+    // las demás se guardan en VistasRegistro (Configuración › Catálogos › Vistas) y se diseñan aquí (?disenarVista=id|nueva)
+    // con el plan real a la vista. Cada navegador recuerda la vista elegida (localStorage).
+    // =====================================================================
+    private const string ModuloVista = "planes-accion", ClaveVistaLocal = "sigweb.vista.planes-accion";
+    private List<VistaRegistro> vistasPlan = new();
+    private int vistaPlanId = VistasModelo.IdClasica;
+    private bool vistaLeida, disenandoVista;
+    private int vistaEditId;
+    private string vistaEditNombre = "";
+    private List<Widget> vistaWidgets = new();
+    private string? widgetSel;
+    private ElementReference refPanelVista;
+    private DotNetObjectReference<PlanesAccion>? yoVista;
+    private string? mensajeVista;
+    // Formulario del plan (para los widgets de pasos y campos): estructura, diseño, pasos y ubicación de cada campo.
+    private Estructura estructuraPlan = new();
+    private Diseno? disenoPlan;
+    private List<(string Clave, string Titulo, bool Bloque, bool Nueva)> pasosPlan = new();
+    private Dictionary<string, (string Seccion, Ubicacion U)> camposPlan = new();
+
+    private bool MostrandoPanelVista => vistaPlanes == "plan" && !modoEdicion && (vistaPlanId != VistasModelo.IdClasica || disenandoVista) && Mostrados.Any();
+
+    private List<Widget> VistaActual() =>
+        disenandoVista ? vistaWidgets
+        : vistasPlan.FirstOrDefault(v => v.Id == vistaPlanId) is { } v ? VistasModelo.Leer(v.Json) : VistasModelo.InicialPlan();
+
+    private string VistaJson() => System.Text.Json.JsonSerializer.Serialize(VistaActual().Select(w => new { id = w.Id, x = w.X, y = w.Y, w = w.W, h = w.H }));
+
+    private async Task CargarVistasAsync(Dictionary<string, Microsoft.Extensions.Primitives.StringValues> q)
+    {
+        yoVista ??= DotNetObjectReference.Create(this);
+        vistasPlan = await VistasModelo.ListarAsync(Db, ModuloVista);
+        try
+        {
+            estructuraPlan = await ServicioForm.EstructuraAsync("planes-accion") ?? new Estructura();
+            disenoPlan = await ServicioForm.DisenoAsync("planes-accion");
+            pasosPlan = DisenoModelo.Pasos(estructuraPlan, disenoPlan);
+            camposPlan = DisenoModelo.Disponer(estructuraPlan, disenoPlan);
+        }
+        catch { }
+        if (q.TryGetValue("disenarVista", out var dv))
+        {
+            var val = dv.ToString();
+            disenandoVista = true; vistaPlanes = "plan"; widgetSel = null; mensajeVista = null;
+            if (int.TryParse(val, out var id) && vistasPlan.FirstOrDefault(v => v.Id == id) is { } v)
+            { vistaEditId = v.Id; vistaEditNombre = v.Nombre; vistaWidgets = VistasModelo.Leer(v.Json); }
+            else
+            { vistaEditId = 0; vistaEditNombre = "Vista nueva"; vistaWidgets = VistasModelo.InicialPlan(); }
+        }
+        else disenandoVista = false;
+    }
+
+    private async Task LeerVistaElegidaAsync()
+    {
+        string? guardada = null;
+        try { guardada = await JS.InvokeAsync<string?>("localStorage.getItem", ClaveVistaLocal); } catch { }
+        var id = int.TryParse(guardada, out var g) && (g == VistasModelo.IdClasica || vistasPlan.Any(v => v.Id == g)) ? g
+            : vistasPlan.FirstOrDefault(v => v.Predeterminada)?.Id ?? VistasModelo.IdClasica;
+        if (id != vistaPlanId) { vistaPlanId = id; StateHasChanged(); }
+    }
+
+    private async Task CambiarVistaAsync(int id)
+    {
+        vistaPlanId = id;
+        try { await JS.InvokeVoidAsync("localStorage.setItem", ClaveVistaLocal, vistaPlanId.ToString()); } catch { }
+        StateHasChanged();
+    }
+
+    // Vistas del detalle en el menú del ícono del encabezado: solo en la vista Plan, fuera de edición y de diseño.
+    private string? firmaMenuVista;
+    private void SincronizarMenuVista()
+    {
+        var mostrar = vistaPlanes == "plan" && !modoEdicion && !disenandoVista && form is null;
+        var firma = mostrar ? $"{vistaPlanId}|{string.Join(",", vistasPlan.Select(v => v.Id + v.Nombre + v.Predeterminada))}" : null;
+        if (firma == firmaMenuVista) return;
+        firmaMenuVista = firma;
+        if (!mostrar) { MenuIco.Quitar(this); return; }
+        MenuIco.Registrar(new SigWeb.Data.Navegacion.MenuIcono.Menu
+        {
+            Titulo = "Vista del plan", Dueno = this, Actual = vistaPlanId.ToString(),
+            Opciones = vistasPlan.Select(v => new SigWeb.Data.Navegacion.MenuIcono.Opcion(v.Id.ToString(), v.Nombre, null, v.Predeterminada))
+                .Prepend(new SigWeb.Data.Navegacion.MenuIcono.Opcion(VistasModelo.IdClasica.ToString(), VistasModelo.NombreClasica, "La pantalla de siempre")).ToList(),
+            Elegir = c => InvokeAsync(() => CambiarVistaAsync(int.TryParse(c, out var i) ? i : VistasModelo.IdClasica)),
+            EnlaceGestion = "editor?pestana=vistas", TituloGestion = "Crear y diseñar vistas",
+        });
+    }
+
+    // Movimientos y tamaños desde el motor de rejilla (modo diseño).
+    [JSInvokable]
+    public Task MovidaVista(string json)
+    {
+        if (!disenandoVista) return Task.CompletedTask;
+        foreach (var e in System.Text.Json.JsonDocument.Parse(json).RootElement.EnumerateArray())
+        {
+            var w = vistaWidgets.FirstOrDefault(x => x.Id == e.GetProperty("id").GetString());
+            if (w is null) continue;
+            w.X = e.GetProperty("x").GetInt32(); w.Y = e.GetProperty("y").GetInt32(); w.W = e.GetProperty("w").GetInt32(); w.H = e.GetProperty("h").GetInt32();
+        }
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private void AgregarWidget(TipoWidget t)
+    {
+        var (x, y) = DisenoModelo.Hueco(vistaWidgets.Select(o => (o.X, o.Y, o.W, o.H)).ToList(), t.W, t.H);
+        var w = new Widget { Tipo = t.Tipo, X = x, Y = y, W = t.W, H = t.H };
+        if (t.Tipo == "kpi") w.Kpi = "estado";
+        if (t.Tipo == "pasos") w.Pasos = pasosPlan.Where(pp => !pp.Bloque).Take(1).Select(pp => pp.Clave).ToList();
+        if (t.Tipo == "campo") w.Campo = camposPlan.Keys.FirstOrDefault();
+        if (t.Tipo == "nota") w.Texto = "Sin nota para este plan.";
+        vistaWidgets.Add(w);
+        widgetSel = w.Id;
+    }
+
+    private void QuitarWidget(string id) { vistaWidgets.RemoveAll(w => w.Id == id); if (widgetSel == id) widgetSel = null; }
+
+    private void AlternarPaso(Widget w, string clave, bool incluir)
+    {
+        w.Pasos.Remove(clave);
+        if (incluir) { var orden = pasosPlan.Select(pp => pp.Clave).ToList(); w.Pasos.Add(clave); w.Pasos = w.Pasos.OrderBy(orden.IndexOf).ToList(); }
+    }
+
+    private async Task GuardarVista()
+    {
+        mensajeVista = null;
+        await _dbLock.WaitAsync();
+        try
+        {
+            await CamposDeNotasAsync();
+            var id = await VistasModelo.GuardarAsync(Db, ModuloVista, vistaEditId, vistaEditNombre, vistaWidgets);
+            Db.ChangeTracker.Clear();
+            vistasPlan = await VistasModelo.ListarAsync(Db, ModuloVista);
+            vistaPlanId = id; vistaEditId = id;
+            try { await JS.InvokeVoidAsync("localStorage.setItem", ClaveVistaLocal, id.ToString()); } catch { }
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeVista = "No se pudo guardar la vista: " + ex.Message; return; }
+        finally { _dbLock.Release(); }
+        disenandoVista = false;
+        Nav.NavigateTo("editor?pestana=vistas");   // de vuelta a Configuración › Editor › Vistas
+    }
+
+    private void CancelarDisenoVista() { disenandoVista = false; Nav.NavigateTo("editor?pestana=vistas"); }
+
+    // ---------- Widget "nota": texto propio de cada plan ----------
+    // Cada widget de nota tiene su campo oculto en la tabla de Planes ("Nota · título", no es columna visible); el texto de cada
+    // plan se guarda ahí (también sale en Excel y el Dossier). Se crea al guardar la vista.
+    private async Task CamposDeNotasAsync()
+    {
+        if (motor is null) return;
+        foreach (var w in vistaWidgets.Where(w => w.Tipo == "nota" && (CampoNuevoPlan(w.Campo) is null)))
+        {
+            var baseNombre = "Nota · " + (string.IsNullOrWhiteSpace(w.Titulo) ? "Nota" : w.Titulo!.Trim());
+            var nombre = baseNombre; var k = 2;
+            while (motor.Campos.Any(c => string.Equals(c.Nombre, nombre, StringComparison.OrdinalIgnoreCase))) nombre = $"{baseNombre} {k++}";
+            var id = await motor.GuardarCampoAsync(Db, new CampoTabla { Nombre = nombre, Tipo = TipoCampoTabla.Texto });
+            var ent = await Db.CamposTabla.FirstAsync(c => c.Id == id);
+            ent.Visible = false;
+            await Db.SaveChangesAsync();
+            w.Campo = $"c:{id}";
+        }
+    }
+
+    private string? notaEditando;     // "{widget}:{plan}" en edición
+    private string notaTexto = "";
+
+    private async Task EditarNota(Widget w, PlanAccion p)
+    {
+        if (CampoNuevoPlan(w.Campo) is null) await CampoDeNotaGuardadaAsync(w);
+        notaEditando = $"{w.Id}:{p.Id}";
+        notaTexto = CampoNuevoPlan(w.Campo) is { } c && motor is not null ? motor.Texto(p.Id, c, out _) ?? "" : "";
+    }
+
+    // Vista guardada antes de que la nota fuera por plan: se le crea su campo ahora y se guarda la vista con él.
+    private async Task CampoDeNotaGuardadaAsync(Widget w)
+    {
+        if (vistasPlan.FirstOrDefault(v => v.Id == vistaPlanId) is not { } vista) return;
+        await _dbLock.WaitAsync();
+        try
+        {
+            vistaWidgets = VistasModelo.Leer(vista.Json);
+            await CamposDeNotasAsync();
+            await VistasModelo.GuardarAsync(Db, ModuloVista, vista.Id, vista.Nombre, vistaWidgets);
+            Db.ChangeTracker.Clear();
+            vistasPlan = await VistasModelo.ListarAsync(Db, ModuloVista);
+            if (vistaWidgets.FirstOrDefault(x => x.Id == w.Id) is { } nuevo) w.Campo = nuevo.Campo;
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeVista = "No se pudo preparar la nota: " + ex.Message; }
+        finally { _dbLock.Release(); }
+    }
+
+    private async Task GuardarNota(Widget w, PlanAccion p)
+    {
+        if (motor is null || CampoNuevoPlan(w.Campo) is not { } c) return;
+        await _dbLock.WaitAsync();
+        try
+        {
+            await motor.GuardarValorAsync(Db, p.Id, c, string.IsNullOrWhiteSpace(notaTexto) ? null : notaTexto.Trim());
+            notaEditando = null;
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeVista = "No se pudo guardar la nota: " + ex.Message; }
+        finally { _dbLock.Release(); }
+    }
+
+    private RenderFragment FragNota(Widget w, PlanAccion p) => __builder =>
+    {
+        var c = CampoNuevoPlan(w.Campo);
+        var texto = c is not null && motor is not null ? motor.Texto(p.Id, c, out _) : null;
+        if (notaEditando == $"{w.Id}:{p.Id}")
+        {
+            <div class="vr-nota vr-nota-edicion frm-linea">
+                <textarea class="form-control form-control-sm" rows="4" data-sin-flotante @bind="notaTexto" @bind:event="oninput" placeholder="@w.Texto"></textarea>
+                <div class="vr-nota-acc">
+                    <button type="button" class="ens-mini" title="Cancelar" @onclick="() => notaEditando = null"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="ens-mini" title="Guardar la nota de este plan" @onclick="() => GuardarNota(w, p)"><Ico Nombre="guardar" /></button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="vr-nota">
+                @if (string.IsNullOrWhiteSpace(texto)) { <span class="vr-nota-vacia">@w.Texto</span> }
+                else { <span class="rg-multi">@texto</span> }
+                @if (!disenandoVista)
+                {
+                    <button type="button" class="ens-mini vr-nota-editar" title="Editar la nota de este plan" @onclick:stopPropagation="true" @onclick="() => EditarNota(w, p)"><Ico Nombre="editar" /></button>
+                }
+            </div>
+        }
+    };
+
+    private void RestablecerVista() { vistaWidgets = VistasModelo.InicialPlan(); widgetSel = null; }
+
+    private string TituloWidget(Widget w) =>
+        !string.IsNullOrWhiteSpace(w.Titulo) ? w.Titulo!
+        : w.Tipo == "pasos" ? (w.Pasos.Count == 1 ? pasosPlan.FirstOrDefault(pp => pp.Clave == w.Pasos[0]).Titulo ?? "Paso" : "Pasos")
+        : w.Tipo == "campo" ? EtiquetaCampoPlan(w.Campo)
+        : w.Tipo == "kpi" ? VistasModelo.KpisPlan.FirstOrDefault(k => k.Clave == w.Kpi).Nombre ?? "Indicador"
+        : VistasModelo.TipoDe(w.Tipo)?.Nombre ?? w.Tipo;
+
+    // ---------- Barra: elegir vista o (en diseño) nombre y guardar ----------
+    private RenderFragment SelectorVista() => __builder =>
+    {
+        // Fuera del diseño, el selector de vista está en el encabezado (grupo aparte); aquí solo queda el aviso.
+        if (!disenandoVista && mensajeVista is null) return;
+        <div class="vr-barra">
+            @if (disenandoVista)
+            {
+                <span class="vr-dis-tit"><Ico Nombre="formularios" /> Diseñando vista</span>
+                <input class="form-control form-control-sm vr-nombre" @bind="vistaEditNombre" placeholder="Nombre de la vista" title="Nombre de la vista" />
+                <span class="text-muted small d-none d-xl-inline">Arrastre y estire los widgets; elija uno para sus opciones.</span>
+                <span class="ms-auto d-inline-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Volver a la disposición inicial (como la clásica)" @onclick="RestablecerVista"><Ico Nombre="restaurar" /></button>
+                    <button type="button" class="btn btn-sm btn-secondary" title="Cancelar" @onclick="CancelarDisenoVista"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="btn btn-sm btn-primary" title="Guardar la vista" @onclick="GuardarVista"><Ico Nombre="guardar" /></button>
+                </span>
+            }
+            @if (mensajeVista is not null) { <span class="small text-danger">@mensajeVista</span> }
+        </div>
+    };
+
+    // ---------- Panel de widgets ----------
+    private RenderFragment PanelVista(PlanAccion p, List<PlanAccion> lista, int pos) => __builder =>
+    {
+        var widgets = VistaActual();
+        <div class="vr-cuerpo @(disenandoVista ? "vr-disenando" : "")">
+            <div class="pw-panel vr-panel @(disenandoVista ? "pw-editando" : "")" @ref="refPanelVista">
+                @foreach (var wd in widgets)
+                {
+                    var w = wd;
+                    var tw = VistasModelo.TipoDe(w.Tipo);
+                    <div @key="w.Id" class="pw-w vr-w @(widgetSel == w.Id ? "vr-sel-w" : "")" data-w="@w.Id" data-ancho="@w.W" data-alto="@w.H"
+                         data-minw="@(tw?.MinW ?? 2)" data-minh="@(tw?.MinH ?? 2)" @onclick="() => { if (disenandoVista) widgetSel = w.Id; }">
+                        <div class="vr-tarjeta vr-t-@w.Tipo">
+                            @if (w.Tipo is not ("encabezado" or "kpi")) { <div class="vr-tit">@TituloWidget(w)</div> }
+                            <div class="vr-contenido">@WidgetPlan(w, p, lista, pos)</div>
+                        </div>
+                        @if (disenandoVista)
+                        {
+                            <button type="button" class="pw-quitar" title="Quitar" @onclick:stopPropagation="true" @onclick="() => QuitarWidget(w.Id)">×</button>
+                            <span class="pw-tirador" title="Tamaño"></span>
+                        }
+                    </div>
+                }
+            </div>
+            @if (disenandoVista)
+            {
+                <aside class="vr-paleta">
+                    @if (widgetSel is not null && vistaWidgets.FirstOrDefault(x => x.Id == widgetSel) is { } sw)
+                    {
+                        <h6>@(VistasModelo.TipoDe(sw.Tipo)?.Nombre ?? sw.Tipo)</h6>
+                        <div class="vr-props">
+                            <CampoFormulario Etiqueta="Título" Ancho=""><input class="form-control" value="@sw.Titulo" placeholder="@TituloWidget(new Widget { Tipo = sw.Tipo, Pasos = sw.Pasos, Kpi = sw.Kpi, Campo = sw.Campo })" @onchange="e => sw.Titulo = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString()" /></CampoFormulario>
+                            @if (sw.Tipo == "kpi")
+                            {
+                                <CampoFormulario Etiqueta="Indicador" Ancho="">
+                                    <select class="form-select" value="@sw.Kpi" @onchange="e => sw.Kpi = e.Value?.ToString()">
+                                        @foreach (var k in VistasModelo.KpisPlan) { <option value="@k.Clave">@k.Nombre</option> }
+                                    </select>
+                                </CampoFormulario>
+                            }
+                            @if (sw.Tipo == "pasos")
+                            {
+                                <div class="small fw-semibold mt-1">Pasos que muestra</div>
+                                @foreach (var pp in pasosPlan)
+                                {
+                                    var clave = pp.Clave;
+                                    <label class="form-check mb-0"><input type="checkbox" class="form-check-input" checked="@sw.Pasos.Contains(clave)" @onchange="e => AlternarPaso(sw, clave, e.Value is true)" /> <span class="form-check-label">@pp.Titulo@(pp.Bloque ? " (bloque)" : "")</span></label>
+                                }
+                            }
+                            @if (sw.Tipo == "campo")
+                            {
+                                <CampoFormulario Etiqueta="Campo" Ancho="">
+                                    <select class="form-select" value="@sw.Campo" @onchange="e => sw.Campo = e.Value?.ToString()">
+                                        @foreach (var pp in pasosPlan.Where(pp => !pp.Bloque))
+                                        {
+                                            <optgroup label="@pp.Titulo">
+                                                @foreach (var kv in camposPlan.Where(c => c.Value.Seccion == pp.Clave).OrderBy(c => c.Value.U.Y).ThenBy(c => c.Value.U.X))
+                                                { <option value="@kv.Key">@EtiquetaCampoPlan(kv.Key)</option> }
+                                            </optgroup>
+                                        }
+                                    </select>
+                                </CampoFormulario>
+                            }
+                            @if (sw.Tipo == "nota")
+                            {
+                                <CampoFormulario Etiqueta="Indicación (cuando el plan no tiene nota)" Ancho=""><textarea class="form-control" rows="3" @onchange="e => sw.Texto = e.Value?.ToString()">@sw.Texto</textarea></CampoFormulario>
+                            }
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1" title="Quitar el widget" @onclick="() => QuitarWidget(sw.Id)"><Ico Nombre="eliminar" /></button>
+                        </div>
+                    }
+                    <h6 class="mt-2">Agregar widget</h6>
+                    <div class="vr-lista-widgets">
+                        @foreach (var t in VistasModelo.WidgetsPlan)
+                        {
+                            var tipo = t;
+                            <button type="button" class="vr-item" title="@tipo.Descripcion" @onclick="() => AgregarWidget(tipo)">
+                                <span class="vr-item-ico"><Ico Nombre="@tipo.Icono" /></span>
+                                <span class="vr-item-txt"><span>@tipo.Nombre</span><small>@tipo.Descripcion</small></span>
+                            </button>
+                        }
+                    </div>
+                </aside>
+            }
+        </div>
+    };
+
+    // ---------- Contenido de cada widget ----------
+    private RenderFragment WidgetPlan(Widget w, PlanAccion p, List<PlanAccion> lista, int pos) => __builder =>
+    {
+        switch (w.Tipo)
+        {
+            case "encabezado": @FragEncabezado(p, lista, pos) break;
+            case "kpi": @FragKpi(w.Kpi ?? "estado", p) break;
+            case "acciones": @FragAcciones(p) break;
+            case "tabla-acciones": @FragTablaAcciones(p) break;
+            case "ficha": @FragFicha(p) break;
+            case "pasos": @FragPasos(w.Pasos.Count == 0 ? pasosPlan.Select(pp => pp.Clave).ToList() : w.Pasos, p) break;
+            case "campo": @FragValorCampo(w.Campo, p) break;
+            case "adjuntos": @FragAdjuntos(p) break;
+            case "etiquetas": @FragEtiquetas(p) break;
+            case "riesgos": @FragRiesgos(p) break;
+            case "lugares": @FragLugares(p) break;
+            case "eficacia": @FragEficacia(p) break;
+            case "nota": @FragNota(w, p) break;
+            case "analisis-causa": @FragAnalisisCausa(p, true) break;
+            default: <span class="text-muted small">Widget desconocido.</span> break;
+        }
+    };
+
+    private RenderFragment FragEncabezado(PlanAccion p, List<PlanAccion> lista, int pos) => __builder =>
+    {
+        <div class="ind-det-cab vr-encabezado">
+            <button type="button" class="ind-nav" title="Anterior" disabled="@(pos <= 0)" @onclick="() => selId = lista[pos - 1].Id">‹</button>
+            <div class="ind-det-tits">
+                <h2 class="ind-det-nom"><button type="button" class="doc-vinculo pv-titulo" title="Abrir plan" @onclick="() => AbrirPlan(p.Id)">@p.Codigo</button> <span class="pv-desc-tit">@p.DescripcionHallazgo</span></h2>
+                @FragEtiquetas(p)
+            </div>
+            <span class="ind-det-pos">@(pos + 1) / @lista.Count</span>
+            <button type="button" class="ind-nav" title="Siguiente" disabled="@(pos >= lista.Count - 1)" @onclick="() => selId = lista[pos + 1].Id">›</button>
+        </div>
+    };
+
+    private RenderFragment FragEtiquetas(PlanAccion p) => __builder =>
+    {
+        <div class="ind-chips">
+            @if (!string.IsNullOrWhiteSpace(p.TipoHallazgo)) { <span class="ind-chip pv-chip-fuerte">@p.TipoHallazgo</span> }
+            @if (!string.IsNullOrWhiteSpace(p.OrigenHallazgo)) { <span class="ind-chip">@p.OrigenHallazgo</span> }
+            @if (CodigoAuditoria(p) is { Length: > 0 } codAud) { <a class="ind-chip text-decoration-none" href="auditoria-interna/@p.AuditoriaId?vista=planes" title="Auditoría de origen">@codAud</a> }
+            @foreach (var pr in SelectorMultiple.Leer(p.Proceso)) { <span class="ind-chip">@pr</span> }
+            <span class="ind-chip">@p.Fecha.ToString("dd/MM/yyyy")</span>
+            @if (!string.IsNullOrWhiteSpace(p.ReportoNombre)) { <span class="ind-chip" title="Reportó">@p.ReportoNombre</span> }
+        </div>
+    };
+
+    private RenderFragment FragKpi(string kpi, PlanAccion p) => __builder =>
+    {
+        var av = Avance(p.Id);
+        var est = EstadoDe(p.Id);
+        var accs = AccionesDe(p.Id);
+        switch (kpi)
+        {
+            case "estado":
+                <div class="ind-kpi ind-kpi-grande pv-kpi-estado vr-kpi @ClaseEstado(est)">
+                    <span class="ind-kpi-tit">Estado del plan</span><span class="ind-kpi-val">@EscalaAccion.Nombre(est)</span>
+                    <span class="ind-kpi-est">@(est == EstadoAccionPlan.Cerrada ? "Todas las acciones cerradas" : $"{av.Total - av.Cerradas} acción(es) por cerrar")</span>
+                </div>
+                break;
+            case "avance":
+                <div class="ind-kpi pv-kpi-anillo vr-kpi">
+                    <span class="pv-anillo" style="--pct:@(av.Pct);"><span>@(av.Pct)%</span></span>
+                    <span class="pv-anillo-txt"><span class="ind-kpi-tit">Avance</span><span class="ind-kpi-sub">@av.Cerradas de @av.Total acciones cerradas</span></span>
+                </div>
+                break;
+            case "proxima":
+                var prox = ProximaAccion(p.Id);
+                <div class="ind-kpi vr-kpi @(prox is not null && Vencida(prox) ? "pv-kpi-vencida" : "")">
+                    <span class="ind-kpi-tit">Próxima acción</span><span class="ind-kpi-val pv-kpi-fecha">@(prox?.Fecha.ToString("dd/MM/yyyy") ?? "—")</span>
+                    <span class="ind-kpi-sub">@(prox is null ? "Sin pendientes" : Vencida(prox) ? $"Vencida hace {(DateTime.Today - prox.Fecha.Date).Days} día(s)" : $"En {(prox.Fecha.Date - DateTime.Today).Days} día(s)")</span>
+                </div>
+                break;
+            case "dias":
+                <div class="ind-kpi vr-kpi"><span class="ind-kpi-tit">Días desde el hallazgo</span><span class="ind-kpi-val">@((DateTime.Today - p.Fecha.Date).Days)</span><span class="ind-kpi-sub">@p.Fecha.ToString("dd/MM/yyyy")</span></div>
+                break;
+            case "abiertas":
+                <div class="ind-kpi vr-kpi"><span class="ind-kpi-tit">Acciones por cerrar</span><span class="ind-kpi-val">@(av.Total - av.Cerradas)</span><span class="ind-kpi-sub">de @av.Total acción(es)</span></div>
+                break;
+            case "vencidas":
+                var nv = accs.Count(Vencida);
+                <div class="ind-kpi vr-kpi @(nv > 0 ? "pv-kpi-vencida" : "")"><span class="ind-kpi-tit">Acciones vencidas</span><span class="ind-kpi-val">@nv</span><span class="ind-kpi-sub">@(nv == 0 ? "Al día" : "Con fecha ya pasada")</span></div>
+                break;
+            case "adjuntos":
+                <div class="ind-kpi vr-kpi"><span class="ind-kpi-tit">Adjuntos</span><span class="ind-kpi-val">@TotalAdjuntos(p.Id)</span><span class="ind-kpi-sub">en @CarpetasVista(p.Id).Count(c => c.Archivos.Count > 0) carpeta(s)</span></div>
+                break;
+            case "eficacia":
+                var efi = EscalaEficacia.De(p.Eficaz, p.FechaProgramadaEficacia, est);
+                <div class="ind-kpi vr-kpi"><span class="ind-kpi-tit">Eficacia</span><span class="ind-kpi-val vr-kpi-texto" style="color:@EscalaEficacia.Color(efi)">@EscalaEficacia.Nombre(efi, p.FechaProgramadaEficacia)</span><span class="ind-kpi-sub">@(p.FechaVerificacionEficacia?.ToString("dd/MM/yyyy") ?? (p.FechaProgramadaEficacia is DateTime fp ? $"Programada {fp:dd/MM/yyyy}" : "Sin fecha programada"))</span></div>
+                break;
+        }
+    };
+
+    private RenderFragment FragAcciones(PlanAccion p) => __builder =>
+    {
+        var accs = AccionesDe(p.Id);
+        <ol class="pv-linea">
+            @foreach (var a in accs)
+            {
+                var acc = a;
+                var productos = (acc.Producto ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var nAnexos = AnexosDe(acc.Id);
+                <li class="pv-paso @ClaseEstado(acc.Estado) @(Vencida(acc) ? "pv-vencida" : "")">
+                    <span class="pv-paso-punto"></span>
+                    <button type="button" class="pv-paso-tarjeta" title="Ver la acción en el plan" @onclick="() => AbrirAcciones(p.Id, acc.Id)">
+                        <span class="pv-paso-cab">
+                            <span class="pv-paso-tipo">@EscalaAccion.Nombre(acc.Tipo)</span>
+                            <EstadoAccion Estado="acc.Estado" />
+                            <span class="pv-paso-fecha">@acc.Fecha.ToString("dd/MM/yyyy")@(Vencida(acc) ? " · vencida" : "")</span>
+                        </span>
+                        <span class="pv-paso-desc">@acc.Descripcion</span>
+                        <span class="pv-paso-pie">
+                            @if (!string.IsNullOrWhiteSpace(acc.Responsable)) { <span class="ind-chip">@string.Join(", ", SelectorMultiple.Leer(acc.Responsable))</span> }
+                            @foreach (var pr in productos) { <span class="ind-chip pv-producto">@pr</span> }
+                            @if (nAnexos > 0) { <span class="ind-chip">📎 @nAnexos</span> }
+                        </span>
+                    </button>
+                </li>
+            }
+            @if (accs.Count == 0) { <li class="text-muted small">Sin acciones.</li> }
+        </ol>
+    };
+
+    private RenderFragment FragTablaAcciones(PlanAccion p) => __builder =>
+    {
+        var accs = AccionesDe(p.Id);
+        <table class="table table-sm vr-tabla mb-0">
+            <thead><tr><th>Tipo</th><th>Acción</th><th>Responsable</th><th>Fecha</th><th>Estado</th></tr></thead>
+            <tbody>
+                @foreach (var a in accs)
+                {
+                    var acc = a;
+                    <tr class="@(Vencida(acc) ? "pv-vencida" : "")" style="cursor:pointer" @onclick="() => AbrirAcciones(p.Id, acc.Id)">
+                        <td class="text-nowrap">@EscalaAccion.Nombre(acc.Tipo)</td><td>@acc.Descripcion</td>
+                        <td>@string.Join(", ", SelectorMultiple.Leer(acc.Responsable))</td>
+                        <td class="text-nowrap">@acc.Fecha.ToString("dd/MM/yyyy")</td><td><EstadoAccion Estado="acc.Estado" /></td>
+                    </tr>
+                }
+                @if (accs.Count == 0) { <tr><td colspan="5" class="text-muted small">Sin acciones.</td></tr> }
+            </tbody>
+        </table>
+    };
+
+    // Análisis de causa en las vistas: texto + diagrama (clic = maximizar). Fuera del diseño de vistas, + / editar abre el
+    // editor y se guarda al momento en el plan. grande = widget propio (la imagen llena el widget, el texto debajo).
+    private RenderFragment FragAnalisisCausa(PlanAccion p, bool grande) => __builder =>
+    {
+        var hayTexto = !string.IsNullOrWhiteSpace(p.AnalisisCausa);
+        var hayDiagrama = !string.IsNullOrWhiteSpace(p.AnalisisCausaSvg);
+        <div class="@(grande ? "vr-causa" : "")">
+            @if (hayDiagrama || !disenandoVista)
+            {
+                <CampoAnalisisCausa Json="@p.AnalisisCausaDiagrama" Svg="@p.AnalisisCausaSvg" Titulo="@p.Codigo" Grande="grande"
+                                    SoloLectura="disenandoVista" OnCambio="r => GuardarCausasVista(p, r)" />
+            }
+            @if (hayTexto)
+            {
+                <div class="rg-multi @(hayDiagrama ? "ac-texto-bajo" : "")">@p.AnalisisCausa</div>
+            }
+            else if (!hayDiagrama)
+            {
+                <span>—</span>
+            }
+        </div>
+    };
+
+    private async Task GuardarCausasVista(PlanAccion p, SigWeb.Data.Planes.ResultadoAnalisisCausa r)
+    {
+        await _dbLock.WaitAsync();
+        try
+        {
+            var ent = await Db.PlanesAccion.FirstAsync(x => x.Id == p.Id);
+            if (SigWeb.Data.Planes.AnalisisCausa.Aplicar(ent, r) is string error) { mensajeVista = error; return; }
+            await Db.SaveChangesAsync();
+            p.AnalisisCausaDiagrama = ent.AnalisisCausaDiagrama; p.AnalisisCausaSvg = ent.AnalisisCausaSvg; p.AnalisisCausa = ent.AnalisisCausa;
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeVista = "No se pudo guardar el análisis de causa: " + ex.Message; }
+        finally { _dbLock.Release(); }
+    }
+
+    private RenderFragment FragFicha(PlanAccion p) => __builder =>
+    {
+        <dl class="ind-ficha pv-ficha">
+            <dt>Descripción del hallazgo</dt><dd>@(string.IsNullOrWhiteSpace(p.DescripcionHallazgo) ? "—" : p.DescripcionHallazgo)</dd>
+            <dt>Análisis de causa</dt><dd>@FragAnalisisCausa(p, false)</dd>
+            <dt>Lugares</dt><dd>@FragLugares(p)</dd>
+            <dt>Riesgos</dt><dd>@FragRiesgos(p)</dd>
+            <dt>Adjuntos</dt><dd>@CeldaAdjuntos(p.Id)</dd>
+        </dl>
+    };
+
+    private RenderFragment FragLugares(PlanAccion p) => __builder =>
+    {
+        var l = LugaresDe(p.Id).ToList();
+        <div class="ind-chips">
+            @foreach (var x in l) { <span class="ind-chip">@x</span> }
+            @if (l.Count == 0) { <span>—</span> }
+        </div>
+    };
+
+    private RenderFragment FragRiesgos(PlanAccion p) => __builder =>
+    {
+        <div class="ind-chips">
+            @if (riesgosDePlan.TryGetValue(p.Id, out var rs) && rs.Count > 0)
+            {
+                @foreach (var r in rs) { <a class="ind-chip pv-riesgo" href="@($"riesgos/{r}")">@NombreRiesgo(r)</a> }
+            }
+            else { <span>—</span> }
+        </div>
+    };
+
+    private RenderFragment FragEficacia(PlanAccion p) => __builder =>
+    {
+        var efi = EscalaEficacia.De(p.Eficaz, p.FechaProgramadaEficacia, EstadoDe(p.Id));
+        var soportes = archivosEficacia.Where(x => x.PlanAccionId == p.Id).ToList();
+        <dl class="ind-ficha pv-ficha">
+            <dt>Estado</dt><dd><span class="rg-pill" style="background:@EscalaEficacia.Color(efi);color:#fff">@EscalaEficacia.Nombre(efi, p.FechaProgramadaEficacia)</span></dd>
+            <dt>Criterio</dt><dd class="rg-multi">@(string.IsNullOrWhiteSpace(p.CriterioEficacia) ? "—" : p.CriterioEficacia)</dd>
+            <dt>Fecha programada</dt><dd>@(p.FechaProgramadaEficacia?.ToString("dd/MM/yyyy") ?? "—")</dd>
+            @if (p.Eficaz is not null)
+            {
+                <dt>Verificó</dt><dd>@(p.VerificoEficacia ?? "—") · @(p.FechaVerificacionEficacia?.ToString("dd/MM/yyyy") ?? "")</dd>
+                <dt>Evidencia</dt><dd class="rg-multi">@(string.IsNullOrWhiteSpace(p.EvidenciaEficacia) ? "—" : p.EvidenciaEficacia)</dd>
+            }
+            <dt>Soportes</dt>
+            <dd>@foreach (var s in soportes) { <a class="vr-archivo" href="@s.RutaArchivo" target="_blank" rel="noopener">@IconoArchivo(s.NombreOriginal) @s.NombreOriginal</a> }@if (soportes.Count == 0) { <span>—</span> }</dd>
+        </dl>
+    };
+
+    // Todas las carpetas del plan con sus archivos, ícono según el tipo de archivo.
+    private RenderFragment FragAdjuntos(PlanAccion p) => __builder =>
+    {
+        var carpetas = CarpetasVista(p.Id).Where(c => c.Archivos.Count > 0).ToList();
+        @if (carpetas.Count == 0) { <span class="text-muted small">Sin adjuntos.</span> }
+        @foreach (var c in carpetas)
+        {
+            <div class="vr-carpeta">
+                <div class="vr-carpeta-tit"><Ico Nombre="@(c.AccionId is not null ? "plan-accion" : c.CampoId is not null ? "formularios" : c.Eficacia ? "aprobar" : "carpeta")" /> @c.Nombre <span class="text-muted">(@c.Archivos.Count)</span></div>
+                @foreach (var a in c.Archivos)
+                {
+                    <a class="vr-archivo" href="@a.Ruta" target="_blank" rel="noopener" title="@($"{a.Nombre} · {a.Fecha:dd/MM/yyyy}")">@IconoArchivo(a.Nombre) <span>@a.Nombre</span></a>
+                }
+            </div>
+        }
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" title="Ver y administrar todos los adjuntos" @onclick="() => { verAdjuntosDe = p.Id; LimpiarAdj(); }"><Ico Nombre="listado" /></button>
+    };
+
+    private static RenderFragment IconoArchivo(string nombre) => __builder =>
+    {
+        var ext = Path.GetExtension(nombre).ToLowerInvariant();
+        var (ico, clase) = ext switch
+        {
+            ".pdf" => ("PDF", "vr-ext-pdf"),
+            ".xls" or ".xlsx" or ".xlsm" or ".csv" => ("XLS", "vr-ext-xls"),
+            ".doc" or ".docx" or ".odt" or ".rtf" => ("DOC", "vr-ext-doc"),
+            ".ppt" or ".pptx" => ("PPT", "vr-ext-ppt"),
+            ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp" or ".bmp" or ".heic" => ("IMG", "vr-ext-img"),
+            ".dwg" or ".dxf" => ("CAD", "vr-ext-cad"),
+            ".zip" or ".rar" or ".7z" => ("ZIP", "vr-ext-zip"),
+            ".mp4" or ".mov" or ".avi" => ("VID", "vr-ext-vid"),
+            _ => (ext.Length > 1 ? ext[1..Math.Min(ext.Length, 4)].ToUpperInvariant() : "ARC", "vr-ext-otro")
+        };
+        <span class="vr-ext @clase">@ico</span>
+    };
+
+    // ---------- Pasos del formulario con sus campos y valores ----------
+    private RenderFragment FragPasos(List<string> pasos, PlanAccion p) => __builder =>
+    {
+        var varios = pasos.Count > 1;
+        foreach (var pp in pasosPlan.Where(x => pasos.Contains(x.Clave)))
+        {
+            var na = pasosNa.TryGetValue(p.Id, out var nas) && nas.Contains(pp.Clave);
+            <div class="vr-paso @(na ? "vr-paso-na" : "")">
+                @if (varios || na) { <div class="vr-paso-tit">@pp.Titulo @if (na) { <span class="frm-na-chip">No aplica</span> }</div> }
+                @if (na) { }
+                else if (pp.Bloque)
+                {
+                    if (pp.Clave.Contains("Acciones", StringComparison.OrdinalIgnoreCase)) { @FragAcciones(p) }
+                    else if (pp.Clave.Contains("eficacia", StringComparison.OrdinalIgnoreCase)) { @FragEficacia(p) }
+                }
+                else
+                {
+                    var campos = camposPlan.Where(c => c.Value.Seccion == pp.Clave && !c.Value.U.Oculto && CampoVisible(c.Key, p) && TieneValor(c.Key, p))
+                        .OrderBy(c => c.Value.U.Y).ThenBy(c => c.Value.U.X).ToList();
+                    <dl class="vr-campos">
+                        @foreach (var c in campos)
+                        {
+                            <div class="vr-campo" style="--vw:@c.Value.U.W"><dt>@EtiquetaCampoPlan(c.Key)</dt><dd>@FragValorCampo(c.Key, p)</dd></div>
+                        }
+                        @if (campos.Count == 0) { <span class="text-muted small">Sin datos diligenciados.</span> }
+                    </dl>
+                }
+            </div>
+        }
+    };
+
+    private CampoTabla? CampoNuevoPlan(string? clave) =>
+        clave is not null && clave.StartsWith("c:") && int.TryParse(clave[2..], out var id) ? motor?.Campos.FirstOrDefault(c => c.Id == id) : null;
+
+    private string EtiquetaCampoPlan(string? clave)
+    {
+        if (clave is null) return "Campo";
+        var d = disenoPlan?.Campos.FirstOrDefault(c => c.Clave == clave);
+        if (!string.IsNullOrWhiteSpace(d?.Etiqueta)) return d!.Etiqueta!;
+        if (CampoNuevoPlan(clave) is { } ct) return MotorTabla.EtiquetaCampo(ct);
+        return estructuraPlan.Campos.FirstOrDefault(c => c.Clave == clave)?.Etiqueta ?? clave;
+    }
+
+    // El widget de pasos muestra solo los campos diligenciados (muchos no aplican en cada plan).
+    private bool TieneValor(string clave, PlanAccion p)
+    {
+        if (CampoNuevoPlan(clave) is { } cp && SigWeb.Data.Formularios.CamposPorOpcion.EsPlantilla(cp))
+            return SigWeb.Data.Formularios.CamposPorOpcion.HijosDe(cp, motor!.Campos).Any(h => !string.IsNullOrWhiteSpace(motor.Texto(p.Id, h, out _)));
+        if (CampoNuevoPlan(clave) is { } ct)
+            return ct.Tipo == TipoCampoTabla.Archivos
+                ? archivosCampo.Any(a => a.CampoTablaId == ct.Id && a.FilaId == p.Id)
+                : !string.IsNullOrWhiteSpace(motor!.Texto(p.Id, ct, out _));
+        var etq = estructuraPlan.Campos.FirstOrDefault(c => c.Clave == clave)?.Etiqueta ?? "";
+        return etq switch
+        {
+            "Código" or "Fecha" => true,
+            "Origen del hallazgo" => !string.IsNullOrWhiteSpace(p.OrigenHallazgo),
+            "Tipo de hallazgo" => !string.IsNullOrWhiteSpace(p.TipoHallazgo),
+            "Descripción del hallazgo" => !string.IsNullOrWhiteSpace(p.DescripcionHallazgo),
+            "Análisis de causa" => !string.IsNullOrWhiteSpace(p.AnalisisCausa) || !string.IsNullOrWhiteSpace(p.AnalisisCausaSvg),
+            "Procesos" => SelectorMultiple.Leer(p.Proceso).Count > 0,
+            "Nombre" => !string.IsNullOrWhiteSpace(p.ReportoNombre),
+            "Cargo" => !string.IsNullOrWhiteSpace(p.ReportoCargo),
+            "Empresa" => !string.IsNullOrWhiteSpace(p.ReportoEmpresa),
+            "Lugares" => LugaresDe(p.Id).Any(),
+            "Riesgos" => riesgosDePlan.TryGetValue(p.Id, out var rs) && rs.Count > 0,
+            _ => false
+        };
+    }
+
+    // Campo ligado a una opción: solo se muestra si su campo padre tiene esa opción.
+    private bool CampoVisible(string clave, PlanAccion p)
+    {
+        if (CampoNuevoPlan(clave) is not { CampoPadreId: int padre } c || string.IsNullOrWhiteSpace(c.OpcionPadre) || motor is null) return true;
+        var cp = motor.Campos.FirstOrDefault(x => x.Id == padre);
+        if (cp is null) return true;
+        return MotorTabla.Partes(motor.Texto(p.Id, cp, out _)).Contains(c.OpcionPadre!, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private RenderFragment FragValorCampo(string? clave, PlanAccion p) => __builder =>
+    {
+        if (clave is null) { <span>—</span> return; }
+        if (CampoNuevoPlan(clave) is { } cpl && SigWeb.Data.Formularios.CamposPorOpcion.EsPlantilla(cpl))
+        {
+            // Un valor por opción ("Valor - Humanos"…): opción y valor de cada uno con dato.
+            var filasOp = SigWeb.Data.Formularios.CamposPorOpcion.HijosDe(cpl, motor!.Campos)
+                .Select(h => (Op: h.OpcionPadre, V: motor.Texto(p.Id, h, out _))).Where(x => !string.IsNullOrWhiteSpace(x.V)).ToList();
+            @if (filasOp.Count == 0) { <span>—</span> }
+            else { <span class="ind-chips">@foreach (var f in filasOp) { <span class="ind-chip">@f.Op: @f.V</span> }</span> }
+            return;
+        }
+        if (CampoNuevoPlan(clave) is { } ct)
+        {
+            if (ct.Tipo == TipoCampoTabla.Archivos)
+            {
+                var arch = archivosCampo.Where(a => a.CampoTablaId == ct.Id && a.FilaId == p.Id).ToList();
+                @foreach (var a in arch) { <a class="vr-archivo" href="@a.RutaArchivo" target="_blank" rel="noopener">@IconoArchivo(a.NombreOriginal) <span>@a.NombreOriginal</span></a> }
+                @if (arch.Count == 0) { <span>—</span> }
+                return;
+            }
+            var texto = motor!.Texto(p.Id, ct, out _);
+            if (string.IsNullOrWhiteSpace(texto)) { <span>—</span> return; }
+            if (ct.Tipo == TipoCampoTabla.Lista)
+            {
+                <span class="ind-chips">
+                    @foreach (var v in ct.Multiple ? MotorTabla.Partes(texto) : new List<string> { texto })
+                    {
+                        @if (ct.CatalogoTipo is not null) { <ValorCatalogo Tipo="@ct.CatalogoTipo" Valor="@v" ClaseSinFormato="ind-chip" /> }
+                        else { <span class="ind-chip">@v</span> }
+                    }
+                </span>
+                return;
+            }
+            <span class="rg-multi">@texto</span>
+            return;
+        }
+        var etq = estructuraPlan.Campos.FirstOrDefault(c => c.Clave == clave)?.Etiqueta ?? "";
+        switch (etq)
+        {
+            case "Código": <span>@p.Codigo</span> break;
+            case "Fecha": <span>@p.Fecha.ToString("dd/MM/yyyy")</span> break;
+            case "Origen del hallazgo": @if (string.IsNullOrWhiteSpace(p.OrigenHallazgo)) { <span>—</span> } else { <ValorCatalogo Tipo="@SembradorCatalogosRiesgo.OrigenHallazgo" Valor="@p.OrigenHallazgo" /> } break;
+            case "Tipo de hallazgo": @if (string.IsNullOrWhiteSpace(p.TipoHallazgo)) { <span>—</span> } else { <ValorCatalogo Tipo="@SembradorCatalogosRiesgo.TipoHallazgo" Valor="@p.TipoHallazgo" /> } break;
+            case "Descripción del hallazgo": <span class="rg-multi">@(string.IsNullOrWhiteSpace(p.DescripcionHallazgo) ? "—" : p.DescripcionHallazgo)</span> break;
+            case "Análisis de causa": @FragAnalisisCausa(p, false) break;
+            case "Procesos":
+                var procs = SelectorMultiple.Leer(p.Proceso);
+                <span class="ind-chips">@foreach (var pr in procs) { <span class="ind-chip">@pr</span> }@if (procs.Count == 0) { <span>—</span> }</span>
+                break;
+            case "Lugares": @FragLugares(p) break;
+            case "Riesgos": @FragRiesgos(p) break;
+            case "Nombre": <span>@(string.IsNullOrWhiteSpace(p.ReportoNombre) ? "—" : p.ReportoNombre)</span> break;
+            case "Cargo": <span>@(string.IsNullOrWhiteSpace(p.ReportoCargo) ? "—" : p.ReportoCargo)</span> break;
+            case "Empresa": <span>@(string.IsNullOrWhiteSpace(p.ReportoEmpresa) ? "—" : p.ReportoEmpresa)</span> break;
+            default: <span>—</span> break;
+        }
+    };
+
+    // Tablero: una columna por estado del plan (como un tablero Kanban), tarjetas con avance y próxima acción.
+    private RenderFragment VistaTablero() => __builder =>
+    {
+        var lista = Mostrados.ToList();
+        <div class="pv-tablero">
+            @foreach (var e in new[] { EstadoAccionPlan.Abierta, EstadoAccionPlan.EnEjecucion, EstadoAccionPlan.Cerrada })
+            {
+                var col = lista.Where(p => EstadoDe(p.Id) == e).ToList();
+                <div class="pv-columna @ClaseEstado(e)">
+                    <div class="pv-columna-cab"><span class="pv-punto"></span> @EscalaAccion.Nombre(e) <span class="pv-columna-n">@col.Count</span></div>
+                    <div class="pv-columna-cuerpo">
+                        @foreach (var pl in col)
+                        {
+                            var p = pl;
+                            var av = Avance(p.Id);
+                            var prox = ProximaAccion(p.Id);
+                            <div class="pv-tarjeta @(selId == p.Id ? "activo" : "")" @onclick='() => { selId = p.Id; vistaPlanes = "plan"; }'>
+                                <div class="pv-tarjeta-cab">
+                                    <span class="pv-cod">@p.Codigo</span>
+                                    @if (!string.IsNullOrWhiteSpace(p.TipoHallazgo)) { <span class="ind-chip pv-chip-fuerte">@p.TipoHallazgo</span> }
+                                </div>
+                                <div class="pv-tarjeta-desc">@p.DescripcionHallazgo</div>
+                                <div class="pv-avance"><span style="width:@(av.Pct)%;"></span></div>
+                                <div class="pv-tarjeta-pie">
+                                    <span>@av.Cerradas/@av.Total acciones</span>
+                                    @if (prox is not null)
+                                    {
+                                        <span class="@(Vencida(prox) ? "pv-txt-vencida" : "")">@(Vencida(prox) ? "Vencida " : "Próx. ")@prox.Fecha.ToString("dd/MM/yyyy")</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@p.Fecha.ToString("dd/MM/yyyy")</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        @if (col.Count == 0)
+                        {
+                            <div class="pv-vacio">—</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    private void PedirEliminarSeleccionado()
+    {
+        if (selId is not int id || planes.FirstOrDefault(p => p.Id == id) is not { } p) return;
+        elimAccion = null; elimPlan = p;
+        _ = CalcularImpacto(() => Analizador.PlanAccion(id));
+    }
+
+    // ---------- Edición de la tabla (solo con Editar; nada se guarda hasta Guardar) ----------
+    private bool modoEdicion;
+    private Dictionary<(int Fila, string Clave), string?> cambios = new();
+
+    private static bool EsEditable(CampoTabla c) =>
+        c.Origen == OrigenCampoTabla.Nativo ? c.Clave is "Fecha" or "Origen" or "Tipo" or "Descripcion" or "Analisis" : !c.Calculado;
+
+    private static string ClaveCambio(CampoTabla c) => c.Origen == OrigenCampoTabla.Nativo ? c.Clave : "c:" + c.Id;
+
+    private string? ValorActual(PlanAccion p, CampoTabla c) => c.Origen == OrigenCampoTabla.Nativo
+        ? c.Clave switch
+        {
+            "Fecha" => p.Fecha.ToString("yyyy-MM-dd"), "Origen" => p.OrigenHallazgo, "Tipo" => p.TipoHallazgo,
+            "Descripcion" => p.DescripcionHallazgo, "Analisis" => p.AnalisisCausa, _ => null
+        }
+        : motor?.Registro(p.Id, c)?.Valor;
+
+    private string? ValorEdicion(PlanAccion p, CampoTabla c) => cambios.TryGetValue((p.Id, ClaveCambio(c)), out var v) ? v : ValorActual(p, c);
+
+    private void Cambiar(PlanAccion p, CampoTabla c, string? valor)
+    {
+        valor = string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
+        var k = (p.Id, ClaveCambio(c));
+        if ((valor ?? "") == (ValorActual(p, c) ?? "")) cambios.Remove(k); else cambios[k] = valor;
+    }
+
+    private void EntrarEdicion() { vistaPlanes = "lista"; modoEdicion = true; cambios.Clear(); verCargas = false; mostrarImportar = false; verCampos = false; mensaje = ""; }
+    private void SalirEdicion() { modoEdicion = false; cambios.Clear(); }
+
+    private async Task GuardarEdicion()
+    {
+        if (motor is null || cambios.Count == 0) return;
+        if (cambios.Any(k => k.Key.Clave == "Descripcion" && string.IsNullOrWhiteSpace(k.Value)))
+        { mensaje = "La descripción del hallazgo no puede quedar vacía."; error = true; return; }
+        guardando = true;
+        await _dbLock.WaitAsync();
+        try
+        {
+            var filas = cambios.Keys.Select(k => k.Fila).Distinct().ToList();
+            var ents = await Db.PlanesAccion.Where(p => filas.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+            foreach (var ((fila, clave), valor) in cambios.Where(k => !k.Key.Clave.StartsWith("c:")))
+            {
+                if (!ents.TryGetValue(fila, out var e)) continue;
+                switch (clave)
+                {
+                    case "Fecha": if (FechaTexto.Parsear(valor) is DateTime f) e.Fecha = f; break;
+                    case "Origen": e.OrigenHallazgo = valor ?? ""; break;
+                    case "Tipo": e.TipoHallazgo = valor ?? ""; break;
+                    case "Descripcion": e.DescripcionHallazgo = valor ?? ""; break;
+                    case "Analisis": e.AnalisisCausa = valor ?? ""; break;
+                }
+            }
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            var porId = motor.Campos.ToDictionary(c => c.Id);
+            foreach (var ((fila, clave), valor) in cambios.Where(k => k.Key.Clave.StartsWith("c:")).ToList())
+                if (porId.TryGetValue(int.Parse(clave[2..]), out var campo)) await motor.GuardarValorAsync(Db, fila, campo, valor);
+            mensaje = $"{cambios.Count} cambio(s) guardado(s) en {filas.Count} plan(es)."; error = false;
+            modoEdicion = false; cambios.Clear();
+            Cargar();
+            await CargarMotorAsync();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensaje = "No se pudo guardar: " + ex.Message; error = true; }
+        finally { guardando = false; _dbLock.Release(); }
+    }
+
+    // Entrada según el tipo del campo (misma que Documentos/Materiales).
+    private RenderFragment EntradaCampo(CampoTabla c, string? valor, Action<string?> alCambiar, string clase = "") => __builder =>
+    {
+        switch (c.Tipo)
+        {
+            case TipoCampoTabla.Archivos:
+                <span class="small text-muted" title="Los archivos se cargan en el formulario o en Adjuntos">@(string.IsNullOrEmpty(valor) ? "—" : $"{valor} archivo(s)")</span>
+                break;
+            case TipoCampoTabla.Lista when c.Multiple:
+                <EntradaVarios Valor="@valor" Opciones="@Motor.OpcionesDe(c)" AlCambiar="alCambiar" />
+                break;
+            case TipoCampoTabla.Numero:
+                <input type="number" step="any" class="form-control form-control-sm @clase" value="@valor" @onchange="@(e => alCambiar(e.Value?.ToString()))" />
+                break;
+            case TipoCampoTabla.Fecha:
+                <input type="date" class="form-control form-control-sm @clase" value="@valor" @onchange="@(e => alCambiar(e.Value?.ToString()))" />
+                break;
+            case TipoCampoTabla.Lista:
+                <select class="form-select form-select-sm @clase" value="@valor" @onchange="@(e => alCambiar(e.Value?.ToString()))">
+                    <option value=""></option>
+                    @foreach (var o in motor!.OpcionesDe(c)) { <option value="@o">@o</option> }
+                </select>
+                break;
+            case TipoCampoTabla.SiNo:
+                <div class="text-center"><input type="checkbox" class="form-check-input" checked="@(valor == "1")" @onchange="@(e => alCambiar((bool)e.Value! ? "1" : "0"))" /></div>
+                break;
+            default:
+                <input class="form-control form-control-sm @clase" value="@valor" @onchange="@(e => alCambiar(e.Value?.ToString()))" />
+                break;
+        }
+    };
+
+    // ---------- Cargas (bases de datos Excel) e importación ----------
+    private bool verCargas, mostrarImportar, importando;
+    private List<CargaPlanesAccion> cargasPlanes = new();
+    private Dictionary<int, int> planesPorCarga = new();
+    private HashSet<int> cargasSel = new();
+    private int? cargaFiltro;
+    private List<int>? elimCargas;
+    private SigWeb.Data.Impacto.InformeImpacto? impactoCargas;
+    private bool impactoCargasOk;
+
+    private void AlternarCargas() { verCargas = !verCargas; mostrarImportar = false; elimCargas = null; }
+    private void AlternarImportar() { mostrarImportar = !mostrarImportar; verCargas = false; mensaje = ""; }
+
+    private void PedirEliminarCargas()
+    {
+        if (cargasSel.Count == 0) return;
+        elimCargas = cargasSel.ToList(); impactoCargas = null; impactoCargasOk = false;
+        _ = CalcularImpactoCargas(elimCargas);
+    }
+
+    private async Task CalcularImpactoCargas(List<int> ids)
+    {
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            impactoCargas = await scope.ServiceProvider.GetRequiredService<SigWeb.Data.Impacto.AnalizadorImpacto>().CargasPlanesAccion(ids);
+        }
+        catch { impactoCargas = new SigWeb.Data.Impacto.InformeImpacto { Elemento = "No se pudo calcular el impacto" }; }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ConfirmarEliminarCargas()
+    {
+        if (elimCargas is null) return;
+        var ids = elimCargas;
+        await _dbLock.WaitAsync();
+        try
+        {
+            // Misma marca de tiempo para la carga, sus planes y sus acciones: la Papelera los restaura juntos.
+            var ahora = DateTime.Now; ahora = new DateTime(ahora.Year, ahora.Month, ahora.Day, ahora.Hour, ahora.Minute, ahora.Second);
+            foreach (var c in await Db.CargasPlanesAccion.Where(c => ids.Contains(c.Id)).ToListAsync()) { c.Eliminado = true; c.FechaEliminacion = ahora; }
+            var ps = await Db.PlanesAccion.Where(p => p.CargaPlanesAccionId != null && ids.Contains(p.CargaPlanesAccionId.Value)).ToListAsync();
+            var idsP = ps.Select(p => p.Id).ToList();
+            foreach (var p in ps) { p.Eliminado = true; p.FechaEliminacion = ahora; }
+            foreach (var a in await Db.AccionesPlan.Where(a => idsP.Contains(a.PlanAccionId)).ToListAsync()) { a.Eliminado = true; a.FechaEliminacion = ahora; }
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            mensaje = $"{ids.Count} carga(s) y {ps.Count} plan(es) enviados a la Papelera."; error = false;
+            elimCargas = null; cargasSel.Clear();
+            Cargar();
+            await CargarMotorAsync();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensaje = "No se pudo eliminar: " + ex.Message; error = true; }
+        finally { _dbLock.Release(); }
+    }
+
+    // Columna del Excel → dato del plan, dato de la acción (una fila = una acción), Campo existente o nuevo.
+    private IReadOnlyList<DestinoColumna> DestinosImportacion =>
+        new List<DestinoColumna>
+        {
+            new("nat:Codigo", "Código", "codigo", "cod.", "no.", "consecutivo", "codigo del plan"),
+            new("nat:Fecha", "Fecha", "fecha del hallazgo", "fecha de apertura"),
+            new("nat:Origen", "Origen", "origen del hallazgo", "fuente"),
+            new("nat:Tipo", "Tipo de hallazgo", "tipo", "clasificacion"),
+            new("nat:Descripcion", "Descripción del hallazgo", "hallazgo", "descripcion", "descripcion del hallazgo"),
+            new("nat:Analisis", "Análisis de causa", "causa", "analisis de causa", "causa raiz"),
+            new("nat:Procesos", "Procesos", "proceso"),
+            new("nat:Lugares", "Lugares", "lugar", "localizacion", "ubicacion", "torre"),
+            new("acc:Descripcion", "Acción · descripción", "accion", "acciones", "accion propuesta", "descripcion de la accion"),
+            new("acc:Tipo", "Acción · tipo", "tipo de accion"),
+            new("acc:Fecha", "Acción · fecha", "fecha de la accion", "fecha compromiso", "fecha de cierre"),
+            new("acc:Producto", "Acción · producto", "producto", "evidencia"),
+            new("acc:Responsable", "Acción · responsable", "responsable", "responsables"),
+            new("acc:Estado", "Acción · estado", "estado", "estado de la accion"),
+        }.Concat((motor?.Ordenados ?? Enumerable.Empty<CampoTabla>()).Where(c => c.Origen != OrigenCampoTabla.Nativo && !c.Calculado)
+            .Select(c => new DestinoColumna($"c:{c.Id}", c.Nombre))).ToList();
+
+    private async Task ImportarExcel(ImportacionExcel imp)
+    {
+        mensaje = "";
+        if (imp.Filas.Count == 0) { mensaje = "No hay filas con datos para importar."; error = true; return; }
+        importando = true;
+        await _dbLock.WaitAsync();
+        try
+        {
+            var nombres = (motor?.Campos ?? new()).ToDictionary(c => c.Id, c => c.Nombre);
+            var r = await SigWeb.Data.Planes.ImportadorPlanesAccion.ImportarAsync(Db, imp, nombres);
+            mensaje = $"{r.Planes} plan(es) nuevo(s), {r.PlanesActualizados} existente(s) con acciones nuevas, {r.Acciones} acción(es)."
+                + (r.Avisos.Count > 0 ? " " + string.Join(" ", r.Avisos) : "");
+            error = r.Avisos.Count > 0;
+            mostrarImportar = false;
+            Cargar();
+            await CargarMotorAsync();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensaje = "No se pudo importar: " + ex.Message; error = true; }
+        finally { importando = false; _dbLock.Release(); }
+    }
+
+    // ---------- Acciones de un plan (clic en una acción de la lista) ----------
+    // Abre /planes-accion/{id}?acciones={accion}: todas las acciones del plan en la página, con la
+    // elegida resaltada; los datos del plan quedan arriba en una sola línea (se editan en el plan).
+    private bool soloAcciones;
+    private int? accionFoco;
+    private bool irAFoco;
+
+    private void AbrirAcciones(int planId, int accionId)
+    {
+        if (modoEdicion) return;
+        Nav.NavigateTo($"planes-accion/{planId}?acciones={accionId}");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !vistaLeida) { vistaLeida = true; await LeerVistaElegidaAsync(); }
+        SincronizarMenuVista();
+        if (MostrandoPanelVista && yoVista is not null)
+        {
+            try { await JS.InvokeVoidAsync("sigVistaReg.aplicar", refPanelVista, VistaJson(), disenandoVista, yoVista); } catch { }
+        }
+        if (!irAFoco || accionFoco is not int a) return;
+        irAFoco = false;
+        try { await JS.InvokeVoidAsync("sigIrA", $"pa-acc-{a}"); } catch { }
+    }
+
+    // ---------- Eliminar (a la Papelera, con aviso de impacto) ----------
+    private PlanAccion? elimPlan;
+    private SigWeb.Data.Planes.PlanesAccionServicio.AccionEditable? elimAccion;
+    private SigWeb.Data.Impacto.InformeImpacto? impacto;
+    private bool impactoOk;
+    private bool BloqueadoPorImpacto => impacto is null || (impacto.RequiereEntender && !impactoOk);
+
+    private async Task CalcularImpacto(Func<Task<SigWeb.Data.Impacto.InformeImpacto>> f)
+    {
+        impacto = null; impactoOk = false;
+        await _dbLock.WaitAsync();
+        try { impacto = await f(); }
+        catch { impacto = new SigWeb.Data.Impacto.InformeImpacto { Elemento = "No se pudo calcular el impacto" }; }
+        finally { _dbLock.Release(); }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void PedirEliminarPlan()
+    {
+        if (form is null || form.Plan.Id == 0) return;
+        elimAccion = null; elimPlan = form.Plan;
+        var id = form.Plan.Id;
+        _ = CalcularImpacto(() => Analizador.PlanAccion(id));
+    }
+
+    // Una acción ya guardada va a la Papelera con aviso (las nuevas las quita el editor).
+    private void PedirEliminarAccion(SigWeb.Data.Planes.PlanesAccionServicio.AccionEditable a)
+    {
+        elimPlan = null; elimAccion = a;
+        var id = a.Accion.Id;
+        _ = CalcularImpacto(() => Analizador.AccionPlan(id));
+    }
+
+    private void CancelarEliminar() { elimPlan = null; elimAccion = null; impacto = null; }
+
+    private async Task ConfirmarEliminar()
+    {
+        if (BloqueadoPorImpacto) return;
+        await _dbLock.WaitAsync();
+        try
+        {
+            var ahora = DateTime.Now;
+            if (elimPlan is not null)
+            {
+                var p = await Db.PlanesAccion.FirstOrDefaultAsync(x => x.Id == elimPlan.Id);
+                if (p is not null)
+                {
+                    p.Eliminado = true; p.FechaEliminacion = ahora;
+                    // Sus acciones se van con él (misma marca de tiempo, para restaurarlas juntas).
+                    foreach (var a in await Db.AccionesPlan.Where(a => a.PlanAccionId == p.Id).ToListAsync())
+                    { a.Eliminado = true; a.FechaEliminacion = ahora; }
+                    await Db.SaveChangesAsync();
+                }
+                Db.ChangeTracker.Clear();
+                elimPlan = null; impacto = null;
+                mensaje = "Plan enviado a la Papelera."; error = false;
+                if (form is null) { selId = null; Cargar(); await CargarMotorAsync(); return; }
+                await JS.VolverAsync(RespaldoAtras);
+                return;
+            }
+            if (elimAccion is not null)
+            {
+                var idA = elimAccion.Accion.Id;
+                var a = await Db.AccionesPlan.FirstOrDefaultAsync(x => x.Id == idA);
+                if (a is not null) { a.Eliminado = true; a.FechaEliminacion = ahora; await Db.SaveChangesAsync(); }
+                Db.ChangeTracker.Clear();
+                form?.Acciones.Remove(elimAccion);
+                acciones.RemoveAll(x => x.Id == idA);
+                elimAccion = null; impacto = null;
+                mensaje = "Acción enviada a la Papelera."; error = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            mensaje = "No se pudo eliminar: inténtalo de nuevo. (" + ex.Message + ")"; error = true;
+        }
+        finally { _dbLock.Release(); }
+    }
+
+    // ---------- Adjuntos del plan: carpetas con nombre, cada una con sus archivos ----------
+    // Columna "Adjuntos" → ícono que abre la ventanita: cada carpeta con hasta 3 archivos (editar =
+    // reemplazar, eliminar → Papelera), "+" para cargar en ella, renombrar/eliminar carpeta, carpeta
+    // nueva y "Ver todos" (pantalla aparte con todo).
+    private List<CarpetaPlan> carpetasTodas = new();
+    private Dictionary<int, List<ArchivoCarpetaPlan>> archivosPorCarpeta = new();
+    private int? menuAdj, verAdjuntosDe;
+    private double menuX, menuY;
+    private string nuevaCarpeta = "", nombreEdicion = "", mensajeAdj = "";
+    private int? carpetaRenombrar;
+    private (string Tipo, int Id)? archivoReemplazar;   // "archivo" (de carpeta) | "anexo" (de acción) | "campo" (de un campo de adjuntos) | "eficacia"
+    private (string Tipo, int Id, string Nombre, int Archivos)? confirmarElim;   // "carpeta" | "archivo" | "anexo" | "campo" | "eficacia"
+    private const int MaxMenu = 3;
+
+    private void CargarCarpetas()
+    {
+        try
+        {
+            carpetasTodas = Db.CarpetasPlan.AsNoTracking().OrderBy(c => c.Orden).ThenBy(c => c.Id).ToList();
+            var ids = carpetasTodas.Select(c => c.Id).ToList();
+            archivosPorCarpeta = Db.ArchivosCarpetaPlan.AsNoTracking().Where(a => ids.Contains(a.CarpetaPlanId)).ToList()
+                .GroupBy(a => a.CarpetaPlanId).ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.FechaCarga).ThenByDescending(a => a.Id).ToList());
+        }
+        catch { carpetasTodas = new(); archivosPorCarpeta = new(); }   // sin la migración aplicada
+        anexosTodos = Db.ArchivosAccionPlan.AsNoTracking().ToList();
+        productosTodos = Db.ProductosAccion.AsNoTracking().ToDictionary(p => p.Id);
+        // Campos "Archivos adjuntos" del formulario (diseñador) y soportes de la verificación de eficacia.
+        try
+        {
+            camposArchivos = Db.CamposTabla.AsNoTracking().Where(c => c.Tabla == "planes-accion" && !c.Eliminado && c.Tipo == TipoCampoTabla.Archivos).OrderBy(c => c.Orden).ToList();
+            var idsCampos = camposArchivos.Select(c => c.Id).ToList();
+            archivosCampo = Db.ArchivosCampoFormulario.AsNoTracking().Where(a => idsCampos.Contains(a.CampoTablaId)).ToList();
+        }
+        catch { camposArchivos = new(); archivosCampo = new(); }   // sin la migración aplicada
+        try
+        {
+            pasosNa = Db.PasosNoAplica.AsNoTracking().Where(x => x.Formulario == "planes-accion").ToList()
+                .GroupBy(x => x.FilaId).ToDictionary(g => g.Key, g => g.Select(x => x.Paso).ToHashSet(StringComparer.OrdinalIgnoreCase));
+        }
+        catch { pasosNa = new(); }   // sin la migración aplicada
+        try { archivosEficacia = Db.ArchivosEficaciaPlan.AsNoTracking().ToList(); } catch { archivosEficacia = new(); }
+    }
+
+    private Dictionary<int, ProductoAccion> productosTodos = new();
+
+    // Vista unificada de la ventanita: primero una carpeta automática por acción propuesta
+    // ("Corrección 1", "Acción correctiva 1"… según tipo y en orden) con los anexos de sus productos;
+    // luego las carpetas creadas a mano.
+    // Tipo: "anexo" (de acción) | "archivo" (carpeta hecha a mano) | "campo" (campo de adjuntos del formulario) | "eficacia".
+    private sealed record ArchivoVista(int Id, string Tipo, string Nombre, string Ruta, DateTime Fecha, string? Detalle);
+    private sealed record CarpetaVista(string Clave, string Nombre, int? CarpetaId, int? AccionId, List<ArchivoVista> Archivos,
+        int PlanId = 0, int? CampoId = null, bool Eficacia = false)
+    {
+        public bool Automatica => CarpetaId is null;
+    }
+
+    private List<CampoTabla> camposArchivos = new();
+    private List<ArchivoCampoFormulario> archivosCampo = new();
+    private Dictionary<int, HashSet<string>> pasosNa = new();   // pasos marcados N/A por plan
+    private List<ArchivoEficaciaPlan> archivosEficacia = new();
+    private Dictionary<int, string> nombreCarpetaCampo = new();
+    public const string CarpetaSoportesVerificacion = "Soportes de la verificación";
+
+    // Carpeta de cada campo de adjuntos = nombre del paso donde está en el formulario diseñado.
+    private async Task CargarNombresCarpetasAsync()
+    {
+        try { nombreCarpetaCampo = await SigWeb.Data.Formularios.ArchivosCampo.NombresCarpetaAsync(ServicioForm, "planes-accion", camposArchivos); }
+        catch { nombreCarpetaCampo = camposArchivos.ToDictionary(c => c.Id, c => c.Nombre); }
+    }
+
+    private List<CarpetaVista> CarpetasVista(int planId)
+    {
+        var l = new List<CarpetaVista>();
+        var cuenta = new Dictionary<TipoAccionPlan, int>();
+        foreach (var a in acciones.Where(a => a.PlanAccionId == planId).OrderBy(a => a.Orden).ThenBy(a => a.Id))
+        {
+            cuenta[a.Tipo] = cuenta.TryGetValue(a.Tipo, out var n) ? n + 1 : 1;
+            var archivos = anexosTodos.Where(x => x.AccionPlanId == a.Id && x.SeguimientoAccionId == null)
+                .OrderByDescending(x => x.FechaRegistro).ThenByDescending(x => x.Id)
+                .Select(x => new ArchivoVista(x.Id, "anexo", x.NombreOriginal, x.RutaArchivo, x.FechaRegistro,
+                    x.ProductoAccionId is int pid && productosTodos.TryGetValue(pid, out var pr) && !string.IsNullOrWhiteSpace(pr.Descripcion) ? pr.Descripcion : null))
+                .ToList();
+            l.Add(new CarpetaVista($"a{a.Id}", $"{EscalaAccion.Nombre(a.Tipo)} {cuenta[a.Tipo]}", null, a.Id, archivos, planId));
+        }
+        // Una carpeta por campo de adjuntos del formulario, con el nombre del paso donde está.
+        foreach (var c in camposArchivos)
+            l.Add(new CarpetaVista($"f{c.Id}", nombreCarpetaCampo.TryGetValue(c.Id, out var nc) ? nc : c.Nombre, null, null,
+                archivosCampo.Where(x => x.CampoTablaId == c.Id && x.FilaId == planId).OrderByDescending(x => x.FechaCarga).ThenByDescending(x => x.Id)
+                    .Select(x => new ArchivoVista(x.Id, "campo", x.NombreOriginal, x.RutaArchivo, x.FechaCarga, null)).ToList(), planId, c.Id));
+        // Soportes de la verificación de eficacia (bloque Verificación de eficacia del plan).
+        l.Add(new CarpetaVista("e", CarpetaSoportesVerificacion, null, null,
+            archivosEficacia.Where(x => x.PlanAccionId == planId).OrderByDescending(x => x.FechaRegistro).ThenByDescending(x => x.Id)
+                .Select(x => new ArchivoVista(x.Id, "eficacia", x.NombreOriginal, x.RutaArchivo, x.FechaRegistro, x.Descripcion)).ToList(), planId, null, true));
+        foreach (var c in CarpetasDe(planId))
+            l.Add(new CarpetaVista($"c{c.Id}", c.Nombre, c.Id, null, ArchivosDeCarpeta(c.Id)
+                .Select(x => new ArchivoVista(x.Id, "archivo", x.NombreOriginal, x.RutaArchivo, x.FechaCarga, null)).ToList(), planId));
+        return l;
+    }
+
+    private List<CarpetaPlan> CarpetasDe(int planId) => carpetasTodas.Where(c => c.PlanAccionId == planId).ToList();
+    private List<ArchivoCarpetaPlan> ArchivosDeCarpeta(int carpetaId) => archivosPorCarpeta.TryGetValue(carpetaId, out var l) ? l : new();
+    private int TotalAdjuntos(int planId) => CarpetasVista(planId).Sum(c => c.Archivos.Count);
+
+    private RenderFragment CeldaAdjuntos(int id) => __builder =>
+    {
+        var n = TotalAdjuntos(id);
+        var nc = CarpetasVista(id).Count;
+        <button type="button" class="ens-mini @(nc > 0 ? "" : "opacity-50")" title="@(nc > 0 ? $"Adjuntos: {nc} carpeta(s), {n} archivo(s)" : "Sin adjuntos")" disabled="@modoEdicion"
+                @onclick:stopPropagation="true" @onclick="@(e => AbrirMenuAdj(id, e))"><Ico Nombre="documento" />@(n > 0 ? $" {n}" : "")</button>
+    };
+
+    private void LimpiarAdj() { nuevaCarpeta = ""; carpetaRenombrar = null; archivoReemplazar = null; confirmarElim = null; mensajeAdj = ""; }
+
+    private void AbrirMenuAdj(int id, MouseEventArgs e)
+    {
+        if (menuAdj == id) { menuAdj = null; return; }
+        menuAdj = id; menuX = e.ClientX; menuY = e.ClientY; LimpiarAdj();
+    }
+
+    private RenderFragment MenuAdjuntos() => __builder =>
+    {
+        if (menuAdj is not int id) return;
+        var carpetas = CarpetasVista(id);
+        var x = menuX.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var y = (menuY + 8).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        <div class="doc-menu-fondo" @onclick="() => menuAdj = null"></div>
+        <div class="doc-menu doc-menu-fijo" style="left:min(@(x)px, calc(100vw - 350px)); top:min(@(y)px, calc(100vh - 460px)); width:340px; max-height:450px; overflow:auto;">
+            <button type="button" class="doc-menu-op" @onclick="() => { menuAdj = null; verAdjuntosDe = id; LimpiarAdj(); }">
+                <Ico Nombre="listado" /> <span>Ver todos</span> <span class="text-muted ms-auto">@TotalAdjuntos(id)</span>
+            </button>
+            <div class="doc-menu-sep"></div>
+            @if (carpetas.Count == 0) { <span class="doc-menu-op doc-menu-off"><Ico Nombre="carpeta" /> <span>Sin carpetas</span></span> }
+            @foreach (var c in carpetas)
+            {
+                <text>@SeccionCarpeta(c, true)</text>
+            }
+            @if (!string.IsNullOrEmpty(mensajeAdj)) { <div class="small text-danger px-2">@mensajeAdj</div> }
+            <div class="doc-menu-sep"></div>
+            @NuevaCarpetaFila(id)
+        </div>
+    };
+
+    private RenderFragment NuevaCarpetaFila(int planId) => __builder =>
+    {
+        <div class="doc-menu-fila px-1 py-1">
+            <input class="form-control form-control-sm" placeholder="Nueva carpeta" @bind="nuevaCarpeta" @bind:event="oninput"
+                   @onkeydown="@(async e => { if (e.Key == "Enter") await CrearCarpeta(planId); })" />
+            <button type="button" class="ens-mini" title="Crear carpeta" disabled="@string.IsNullOrWhiteSpace(nuevaCarpeta)" @onclick="() => CrearCarpeta(planId)"><Ico Nombre="agregar" /></button>
+        </div>
+    };
+
+    // Una carpeta: título (cargar; renombrar y eliminar solo las hechas a mano) y sus archivos
+    // (en la ventanita, máximo 3). Los anexos de una acción se reemplazan o eliminan igual que los demás.
+    private RenderFragment SeccionCarpeta(CarpetaVista c, bool enMenu) => __builder =>
+    {
+        var archivos = c.Archivos;
+        var mostrar = enMenu ? archivos.Take(MaxMenu).ToList() : archivos;
+        if (c.CarpetaId is int cid && carpetaRenombrar == cid)
+        {
+            <div class="doc-menu-fila px-1 pt-1">
+                <input class="form-control form-control-sm" @bind="nombreEdicion" @bind:event="oninput"
+                       @onkeydown="@(async e => { if (e.Key == "Enter") await RenombrarCarpeta(cid); })" />
+                <button type="button" class="ens-mini" title="Cancelar" @onclick="() => carpetaRenombrar = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="ens-mini" title="Guardar" disabled="@string.IsNullOrWhiteSpace(nombreEdicion)" @onclick="() => RenombrarCarpeta(cid)"><Ico Nombre="guardar" /></button>
+            </div>
+        }
+        else
+        {
+            <div class="doc-menu-sec d-flex align-items-center gap-1 @(c.Automatica ? "adj-auto" : "")" title="@(c.CampoId is not null ? "Campo de adjuntos del formulario: la carpeta lleva el nombre de su paso" : c.Eficacia ? "Soportes de la verificación de eficacia del plan" : null)">
+                <Ico Nombre="@(c.AccionId is not null ? "plan-accion" : c.CampoId is not null ? "formularios" : c.Eficacia ? "aprobar" : "carpeta")" /> <span class="text-truncate">@c.Nombre@(enMenu && archivos.Count > MaxMenu ? $" ({MaxMenu} de {archivos.Count})" : archivos.Count > 0 ? $" ({archivos.Count})" : "")</span>
+                <label class="ens-mini ms-auto mb-0" title="@($"Cargar en {c.Nombre}")"><Ico Nombre="agregar" /><InputFile class="d-none" multiple OnChange="@(e => SubirACarpeta(c, e))" /></label>
+                @if (c.CarpetaId is int idc)
+                {
+                    <button type="button" class="ens-mini" title="Renombrar carpeta" @onclick="() => { carpetaRenombrar = idc; nombreEdicion = c.Nombre; }"><Ico Nombre="editar" /></button>
+                    <button type="button" class="ens-mini" title="Eliminar carpeta" @onclick="() => PedirElimCarpeta(idc, c.Nombre, archivos.Count)"><Ico Nombre="eliminar" /></button>
+                }
+            </div>
+        }
+        if (c.CarpetaId is int idConf) { <text>@ConfirmacionEliminar("carpeta", idConf)</text> }
+        if (archivos.Count == 0) { <span class="doc-menu-op doc-menu-off"><Ico Nombre="documento" /> <span>—</span></span> }
+        foreach (var a in mostrar)
+        {
+            var arch = a;
+            var tipo = arch.Tipo;
+            <div class="doc-menu-fila">
+                <a class="doc-menu-op" href="@arch.Ruta" target="_blank" rel="noopener" title="@($"{arch.Nombre} · {arch.Fecha:dd/MM/yyyy}" + (arch.Detalle is null ? "" : $" · Producto: {arch.Detalle}"))">
+                    <Ico Nombre="documento" /> <span class="text-truncate">@arch.Nombre</span>
+                </a>
+                @if (archivoReemplazar == (tipo, arch.Id))
+                {
+                    <label class="ens-mini mb-0 activo" title="Elegir el archivo nuevo"><Ico Nombre="adjuntar" /><InputFile class="d-none" OnChange="@(e => ReemplazarArchivo(arch, e))" /></label>
+                    <button type="button" class="ens-mini" title="Cancelar" @onclick="() => archivoReemplazar = null"><Ico Nombre="cancelar" /></button>
+                }
+                else
+                {
+                    <button type="button" class="ens-mini" title="Editar (reemplazar archivo)" @onclick="() => archivoReemplazar = (tipo, arch.Id)"><Ico Nombre="editar" /></button>
+                    <button type="button" class="ens-mini" title="Eliminar archivo" @onclick="() => PedirElimArchivo(arch)"><Ico Nombre="eliminar" /></button>
+                }
+            </div>
+            <text>@ConfirmacionEliminar(tipo, arch.Id)</text>
+        }
+    };
+
+    // Aviso antes de eliminar: la carpeta se lleva sus archivos; todo va a la Papelera.
+    private RenderFragment ConfirmacionEliminar(string tipo, int id) => __builder =>
+    {
+        if (confirmarElim is not { } ce || ce.Tipo != tipo || ce.Id != id) return;
+        <div class="doc-menu-confirma">
+            <div class="small mb-1">
+                <Ico Nombre="eliminar" /> <strong>@ce.Nombre</strong>
+                @if (tipo == "carpeta" && ce.Archivos > 0) { <span> · se van con ella @ce.Archivos archivo(s)</span> }
+            </div>
+            <div class="d-flex gap-1 justify-content-end">
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => confirmarElim = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-danger btn-sm" title="Eliminar (va a la Papelera)" @onclick="ConfirmarEliminarAdj"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    };
+
+    private void CerrarVerAdjuntos() { verAdjuntosDe = null; LimpiarAdj(); }
+
+    private void PedirElimCarpeta(int id, string nombre, int archivos) => confirmarElim = ("carpeta", id, nombre, archivos);
+    private void PedirElimArchivo(ArchivoVista a) => confirmarElim = (a.Tipo, a.Id, a.Nombre, 0);
+
+    private async Task CrearCarpeta(int planId)
+    {
+        var nombre = nuevaCarpeta.Trim();
+        if (nombre.Length == 0) return;
+        if (CarpetasVista(planId).Any(c => string.Equals(c.Nombre, nombre, StringComparison.OrdinalIgnoreCase))) { mensajeAdj = $"Ya existe la carpeta \"{nombre}\"."; return; }
+        await _dbLock.WaitAsync();
+        try
+        {
+            Db.CarpetasPlan.Add(new CarpetaPlan { PlanAccionId = planId, Nombre = nombre, Orden = CarpetasDe(planId).Select(c => c.Orden).DefaultIfEmpty(0).Max() + 1 });
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            nuevaCarpeta = ""; mensajeAdj = "";
+            CargarCarpetas();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeAdj = "No se pudo crear: " + ex.Message; }
+        finally { _dbLock.Release(); }
+    }
+
+    private async Task RenombrarCarpeta(int carpetaId)
+    {
+        var nombre = nombreEdicion.Trim();
+        var c0 = carpetasTodas.FirstOrDefault(c => c.Id == carpetaId);
+        if (nombre.Length == 0 || c0 is null) return;
+        if (CarpetasVista(c0.PlanAccionId).Any(c => c.CarpetaId != carpetaId && string.Equals(c.Nombre, nombre, StringComparison.OrdinalIgnoreCase))) { mensajeAdj = $"Ya existe la carpeta \"{nombre}\"."; return; }
+        await _dbLock.WaitAsync();
+        try
+        {
+            var ent = await Db.CarpetasPlan.FirstOrDefaultAsync(c => c.Id == carpetaId);
+            if (ent is not null) { ent.Nombre = nombre; await Db.SaveChangesAsync(); }
+            Db.ChangeTracker.Clear();
+            carpetaRenombrar = null; mensajeAdj = "";
+            CargarCarpetas();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeAdj = "No se pudo renombrar: " + ex.Message; }
+        finally { _dbLock.Release(); }
+    }
+
+    // En una carpeta de acción, el archivo entra como anexo de la acción (en su primer producto).
+    private async Task SubirACarpeta(CarpetaVista c, InputFileChangeEventArgs e)
+    {
+        mensajeAdj = "";
+        var fallos = new List<string>();
+        await _dbLock.WaitAsync();
+        try
+        {
+            foreach (var f in e.GetMultipleFiles(50))
+            {
+                try
+                {
+                    if (c.AccionId is int accId)
+                    {
+                        var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(f, Env.WebRootPath, "planes-accion");
+                        var prod = productosTodos.Values.Where(p => p.AccionPlanId == accId).OrderBy(p => p.Orden).ThenBy(p => p.Id).FirstOrDefault();
+                        Db.ArchivosAccionPlan.Add(new ArchivoAccionPlan { AccionPlanId = accId, ProductoAccionId = prod?.Id, NombreOriginal = nombre, RutaArchivo = ruta });
+                    }
+                    else if (c.CarpetaId is int carpetaId)
+                    {
+                        var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(f, Env.WebRootPath, "planes-accion/carpetas");
+                        Db.ArchivosCarpetaPlan.Add(new ArchivoCarpetaPlan { CarpetaPlanId = carpetaId, NombreOriginal = nombre, RutaArchivo = ruta });
+                    }
+                    else if (c.CampoId is int campoId)
+                    {
+                        var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(f, Env.WebRootPath, $"{SigWeb.Data.Formularios.ArchivosCampo.CarpetaDisco}/planes-accion");
+                        Db.ArchivosCampoFormulario.Add(new ArchivoCampoFormulario { CampoTablaId = campoId, FilaId = c.PlanId, NombreOriginal = nombre, RutaArchivo = ruta });
+                    }
+                    else if (c.Eficacia)
+                    {
+                        var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(f, Env.WebRootPath, "planes-eficacia");
+                        Db.ArchivosEficaciaPlan.Add(new ArchivoEficaciaPlan { PlanAccionId = c.PlanId, NombreOriginal = nombre, RutaArchivo = ruta });
+                    }
+                }
+                catch (Exception ex) { fallos.Add(ex.Message); }
+            }
+            await Db.SaveChangesAsync();
+            if (c.CampoId is int campoRecontar) await SigWeb.Data.Formularios.ArchivosCampo.RecontarAsync(Db, campoRecontar, c.PlanId);
+            Db.ChangeTracker.Clear();
+            CargarCarpetas();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); fallos.Add(ex.Message); }
+        finally { _dbLock.Release(); }
+        if (fallos.Count > 0) mensajeAdj = "No se cargaron: " + string.Join("; ", fallos);
+    }
+
+    // Mismo registro, archivo nuevo; el anterior se borra del disco.
+    private async Task ReemplazarArchivo(ArchivoVista arch, InputFileChangeEventArgs e)
+    {
+        mensajeAdj = "";
+        await _dbLock.WaitAsync();
+        try
+        {
+            string? anterior = null;
+            if (arch.Tipo == "campo")
+            {
+                var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(e.File, Env.WebRootPath, $"{SigWeb.Data.Formularios.ArchivosCampo.CarpetaDisco}/planes-accion");
+                if (await Db.ArchivosCampoFormulario.FirstOrDefaultAsync(a => a.Id == arch.Id) is { } ent)
+                { anterior = ent.RutaArchivo; ent.NombreOriginal = nombre; ent.RutaArchivo = ruta; ent.FechaCarga = DateTime.Now; }
+            }
+            else if (arch.Tipo == "eficacia")
+            {
+                var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(e.File, Env.WebRootPath, "planes-eficacia");
+                if (await Db.ArchivosEficaciaPlan.FirstOrDefaultAsync(a => a.Id == arch.Id) is { } ent)
+                { anterior = ent.RutaArchivo; ent.NombreOriginal = nombre; ent.RutaArchivo = ruta; ent.FechaRegistro = DateTime.Now; }
+            }
+            else if (arch.Tipo == "anexo")
+            {
+                var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(e.File, Env.WebRootPath, "planes-accion");
+                if (await Db.ArchivosAccionPlan.FirstOrDefaultAsync(a => a.Id == arch.Id) is { } ent)
+                { anterior = ent.RutaArchivo; ent.NombreOriginal = nombre; ent.RutaArchivo = ruta; ent.FechaRegistro = DateTime.Now; }
+            }
+            else
+            {
+                var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(e.File, Env.WebRootPath, "planes-accion/carpetas");
+                if (await Db.ArchivosCarpetaPlan.FirstOrDefaultAsync(a => a.Id == arch.Id) is { } ent)
+                { anterior = ent.RutaArchivo; ent.NombreOriginal = nombre; ent.RutaArchivo = ruta; ent.FechaCarga = DateTime.Now; }
+            }
+            await Db.SaveChangesAsync();
+            if (anterior is not null) SigWeb.Data.Papelera.ProveedorPapeleraAdjuntosMaterial.BorrarFisico(Env, anterior);
+            Db.ChangeTracker.Clear();
+            archivoReemplazar = null;
+            CargarCarpetas();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeAdj = "No se pudo reemplazar: " + ex.Message; }
+        finally { _dbLock.Release(); }
+    }
+
+    private async Task ConfirmarEliminarAdj()
+    {
+        if (confirmarElim is not { } ce) return;
+        await _dbLock.WaitAsync();
+        try
+        {
+            // Misma marca de tiempo para la carpeta y sus archivos: la Papelera los restaura juntos.
+            var ahora = DateTime.Now; ahora = new DateTime(ahora.Year, ahora.Month, ahora.Day, ahora.Hour, ahora.Minute, ahora.Second);
+            if (ce.Tipo == "carpeta")
+            {
+                var c = await Db.CarpetasPlan.FirstOrDefaultAsync(x => x.Id == ce.Id);
+                if (c is not null)
+                {
+                    c.Eliminado = true; c.FechaEliminacion = ahora;
+                    foreach (var a in await Db.ArchivosCarpetaPlan.Where(a => a.CarpetaPlanId == ce.Id).ToListAsync()) { a.Eliminado = true; a.FechaEliminacion = ahora; }
+                }
+            }
+            else if (ce.Tipo == "anexo")
+            {
+                if (await Db.ArchivosAccionPlan.FirstOrDefaultAsync(x => x.Id == ce.Id) is { } ax) { ax.Eliminado = true; ax.FechaEliminacion = ahora; }
+            }
+            else if (ce.Tipo == "campo")
+            {
+                if (await Db.ArchivosCampoFormulario.FirstOrDefaultAsync(x => x.Id == ce.Id) is { } af)
+                {
+                    af.Eliminado = true; af.FechaEliminacion = ahora;
+                    await Db.SaveChangesAsync();
+                    await SigWeb.Data.Formularios.ArchivosCampo.RecontarAsync(Db, af.CampoTablaId, af.FilaId);
+                }
+            }
+            else if (ce.Tipo == "eficacia")
+            {
+                if (await Db.ArchivosEficaciaPlan.FirstOrDefaultAsync(x => x.Id == ce.Id) is { } ae) { ae.Eliminado = true; ae.FechaEliminacion = ahora; }
+            }
+            else if (await Db.ArchivosCarpetaPlan.FirstOrDefaultAsync(x => x.Id == ce.Id) is { } a) { a.Eliminado = true; a.FechaEliminacion = ahora; }
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            confirmarElim = null;
+            CargarCarpetas();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeAdj = "No se pudo eliminar: " + ex.Message; }
+        finally { _dbLock.Release(); }
+    }
+}

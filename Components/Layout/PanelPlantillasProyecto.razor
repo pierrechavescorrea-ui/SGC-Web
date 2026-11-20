@@ -1,0 +1,294 @@
+@* Plantillas de proyecto (Configuración › Catálogos): descargar el libro maestro, cargarlo
+   con vista previa por módulo y deshacer las cargas aplicadas. Lógica en el .razor.cs. *@
+@using SigWeb.Data.Plantillas
+@using SigWeb.Models
+@inject SigWeb.Data.Plantillas.ServicioPlantillas Servicio
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="pp">
+    @if (MostrarDescarga)
+    {
+    <FormularioSig Titulo="Descargar" Icono="exportar-excel" Clase="mb-3">
+        <ChildContent>
+            <SeccionFormulario Titulo="Módulos" SinFila="true">
+                <div class="pp-modulos">
+                    @foreach (var m in modulos)
+                    {
+                        <label class="form-check" title="@m.Nombre">
+                            <input type="checkbox" class="form-check-input" @bind="m.Marcado" disabled="@ocupado" />
+                            <span class="form-check-label">@m.Nombre</span>
+                        </label>
+                    }
+                </div>
+                @if (modulos.Count == 0)
+                {
+                    <span class="pp-vacio">Sin módulos.</span>
+                }
+                <label class="form-check mt-2">
+                    <input type="checkbox" class="form-check-input" @bind="conDatos" disabled="@ocupado" />
+                    <span class="form-check-label">Con los datos actuales del proyecto</span>
+                </label>
+            </SeccionFormulario>
+            @if (!string.IsNullOrEmpty(errorDescarga))
+            {
+                <div class="alert alert-warning py-1 mt-3 mb-0">@errorDescarga</div>
+            }
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-primary btn-sm" title="Descargar" disabled="@(ocupado || modulos.All(m => !m.Marcado))" @onclick="DescargarAsync">
+                <Ico Nombre="exportar-excel" />
+            </button>
+        </Acciones>
+    </FormularioSig>
+    }
+    @if (MostrarCarga)
+    {
+    <FormularioSig Titulo="Cargar" Icono="cargar-excel" Clase="mb-3">
+        <ChildContent>
+            <SeccionFormulario Titulo="Archivo" SinFila="true">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <InputFile @key="archivoKey" class="form-control form-control-sm" style="max-width:340px;" accept=".xlsx"
+                               OnChange="ElegirArchivoAsync" disabled="@ocupado" />
+                    @if (validando)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    }
+                    @if (!string.IsNullOrEmpty(nombreArchivo))
+                    {
+                        <span class="small text-muted text-truncate" title="@nombreArchivo">@nombreArchivo</span>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(errorCarga))
+                {
+                    <div class="alert alert-warning py-1 mt-2 mb-0">@errorCarga</div>
+                }
+            </SeccionFormulario>
+
+            @if (resultado is not null)
+            {
+                <SeccionFormulario Titulo="Vista previa" SinFila="true">
+                    @if (resultado.HojasIgnoradas.Count > 0)
+                    {
+                        <div class="alert alert-warning py-1">Hojas ignoradas: @string.Join(", ", resultado.HojasIgnoradas)</div>
+                    }
+                    @if (sinFilas)
+                    {
+                        <div class="alert alert-info py-1">El libro no trae filas.</div>
+                    }
+                    else
+                    {
+                        <div class="tabla-scroll pp-scroll mb-2">
+                            <table class="table table-sm table-bordered align-middle mb-0 pp-tabla">
+                                <thead>
+                                    <tr>
+                                        <th>Módulo</th>
+                                        <th class="pp-num">Altas</th>
+                                        <th class="pp-num">Actualizaciones</th>
+                                        <th class="pp-num">Sin cambios</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var r in resumenModulos)
+                                    {
+                                        <tr>
+                                            <td>@r.Nombre</td>
+                                            <td class="pp-num">@r.Altas</td>
+                                            <td class="pp-num">@r.Actualizaciones</td>
+                                            <td class="pp-num">@r.SinCambios</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        @if (filasPreview.Count > 0)
+                        {
+                            <div class="tabla-scroll pp-scroll mb-2">
+                                <table class="table table-sm table-bordered align-middle mb-0 pp-tabla">
+                                    <thead>
+                                        <tr>
+                                            <th>Hoja</th>
+                                            <th class="pp-num">Fila</th>
+                                            <th>Código</th>
+                                            <th>Operación</th>
+                                            <th>Cambios</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var f in filasPreview.Take(LimiteFilas))
+                                        {
+                                            <tr>
+                                                <td>@f.Hoja</td>
+                                                <td class="pp-num">@f.NumeroFila</td>
+                                                <td>@f.Codigo</td>
+                                                <td>
+                                                    @if (f.Operacion == OperacionFila.Alta)
+                                                    {
+                                                        <span class="badge text-bg-success">Alta</span>
+                                                    }
+                                                    else if (f.Operacion == OperacionFila.Actualizacion)
+                                                    {
+                                                        <span class="badge text-bg-primary">Actualización</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="pp-vacio">Sin cambios</span>
+                                                    }
+                                                </td>
+                                                <td class="small">@string.Join("; ", f.Cambios)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if (filasPreview.Count > LimiteFilas)
+                            {
+                                <div class="pp-vacio mb-2">… y @(filasPreview.Count - LimiteFilas) fila(s) más.</div>
+                            }
+                        }
+                    }
+
+                    @if (erroresPreview.Count > 0)
+                    {
+                        <div class="tabla-scroll pp-scroll pp-errores mb-2">
+                            <table class="table table-sm table-bordered align-middle mb-0 pp-tabla">
+                                <thead>
+                                    <tr>
+                                        <th>Hoja</th>
+                                        <th class="pp-num">Fila</th>
+                                        <th>Columna</th>
+                                        <th>Mensaje</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var e in erroresPreview.Take(LimiteFilas))
+                                    {
+                                        <tr class="table-danger">
+                                            <td>@e.Hoja</td>
+                                            <td class="pp-num">@e.Fila</td>
+                                            <td>@e.Columna</td>
+                                            <td>@e.Mensaje</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        @if (erroresPreview.Count > LimiteFilas)
+                        {
+                            <div class="pp-vacio mb-2">… y @(erroresPreview.Count - LimiteFilas) error(es) más.</div>
+                        }
+                    }
+                </SeccionFormulario>
+
+                @if (PuedeAplicar)
+                {
+                    <SeccionFormulario Titulo="Confirmar">
+                        <CampoFormulario Etiqueta="Responsable" Ancho="col-md-4">
+                            <input class="form-control" @bind="responsable" @bind:event="oninput" disabled="@ocupado" />
+                        </CampoFormulario>
+                        <CampoFormulario Etiqueta="Motivo" Ancho="col-md-8" Obligatorio="true">
+                            <input class="form-control" @bind="motivo" @bind:event="oninput" disabled="@ocupado" />
+                        </CampoFormulario>
+                    </SeccionFormulario>
+                }
+
+                <div class="frm-pie">
+                    <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" disabled="@ocupado" @onclick="CancelarVista"><Ico Nombre="cancelar" /></button>
+                    @if (PuedeAplicar)
+                    {
+                        <button type="button" class="btn btn-primary btn-sm" title="Aplicar" disabled="@(ocupado || string.IsNullOrWhiteSpace(motivo))" @onclick="AplicarAsync">
+                            @if (aplicando)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                            }
+                            else
+                            {
+                                <Ico Nombre="guardar" />
+                            }
+                        </button>
+                    }
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(mensajeCarga))
+            {
+                <div class="alert alert-success py-1 mt-3 mb-0">@mensajeCarga</div>
+            }
+        </ChildContent>
+    </FormularioSig>
+
+    <FormularioSig Titulo="Historial de cargas" Icono="cargas">
+        <ChildContent>
+            @if (cargandoHistorial)
+            {
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+            }
+            else if (cargas.Count == 0)
+            {
+                <p class="pp-vacio mb-0">Sin cargas.</p>
+            }
+            else
+            {
+                <div class="tabla-scroll pp-scroll-hist">
+                    <table class="table table-sm table-bordered table-hover align-middle mb-0 tabla-pin">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Archivo</th>
+                                <th>Responsable</th>
+                                <th>Motivo</th>
+                                <th>Módulos</th>
+                                <th class="pp-num">Altas</th>
+                                <th class="pp-num">Actualizaciones</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in cargas)
+                            {
+                                <tr @key="c.Id">
+                                    <td class="text-nowrap">@c.Fecha.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="text-truncate" style="max-width:220px;" title="@c.NombreArchivo">@c.NombreArchivo</td>
+                                    <td>@c.Responsable</td>
+                                    <td class="text-truncate" style="max-width:220px;" title="@c.Motivo">@c.Motivo</td>
+                                    <td>@NombresModulos(c.Modulos)</td>
+                                    <td class="pp-num">@c.Altas</td>
+                                    <td class="pp-num">@c.Actualizaciones</td>
+                                    <td class="pp-estado">
+                                        <span class="badge @(c.Estado == EstadoCargaProyecto.Aplicada ? "text-bg-success" : "text-bg-secondary")">@c.Estado</span>
+                                    </td>
+                                    <td class="text-nowrap">
+                                        @if (PuedeDeshacer && c.Estado == EstadoCargaProyecto.Aplicada)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Deshacer la carga"
+                                                    disabled="@ocupado" @onclick="() => confirmarDeshacer = c.Id"><Ico Nombre="eliminar" /></button>
+                                        }
+                                    </td>
+                                </tr>
+                                @if (confirmarDeshacer == c.Id)
+                                {
+                                    <tr class="pp-confirma">
+                                        <td colspan="9">
+                                            <div class="d-flex align-items-center gap-2 justify-content-end">
+                                                <span class="small me-auto">¿Deshacer la carga del @c.Fecha.ToString("dd/MM/yyyy HH:mm")?</span>
+                                                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" disabled="@ocupado" @onclick="() => confirmarDeshacer = null"><Ico Nombre="cancelar" /></button>
+                                                <button type="button" class="btn btn-danger btn-sm" title="Deshacer" disabled="@ocupado" @onclick="() => DeshacerAsync(c)"><Ico Nombre="eliminar" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(errorHistorial))
+            {
+                <div class="alert alert-warning py-1 mt-2 mb-0">@errorHistorial</div>
+            }
+        </ChildContent>
+    </FormularioSig>
+    }
+</div>

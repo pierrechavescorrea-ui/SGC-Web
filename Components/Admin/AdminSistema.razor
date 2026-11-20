@@ -1,0 +1,242 @@
+@page "/admin/sistema"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+
+<PageTitle>Sistema · Administración</PageTitle>
+
+<div class="ad">
+<EncabezadoPagina Titulo="Sistema y servidor" Subtitulo="@($"{Env.EnvironmentName} · {Version}")" Icono="servidor" Atras="/admin">
+    <Acciones>
+        <button type="button" class="pg-btn" title="Revisar de nuevo" @onclick="RevisarAsync"><Ico Nombre="restaurar" /></button>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (Mensaje is not null)
+{
+    <div class="alert @(MensajeError ? "alert-danger" : "alert-success")" role="alert">@Mensaje</div>
+}
+
+<div class="ad-rejilla ad-rejilla-2">
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Bases de datos</h5>
+        <table class="ad-tabla">
+            <thead><tr><th>Proyecto</th><th>Base</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+                <tr><td>Central (usuarios y permisos)</td><td class="ad-mono">@baseCentral</td><td><span class="ad-salud @(centralOk ? "ok" : "mal")">@(centralOk ? $"Al día{(centralPendientes > 0 ? $" ({centralPendientes} pendientes)" : "")}" : "Sin conexión")</span></td><td></td></tr>
+                @foreach (var p in Proyectos.Todos())
+                {
+                    var e = estados.GetValueOrDefault(p.Id);
+                    <tr>
+                        <td>@p.Nombre</td>
+                        <td class="ad-mono">@p.BaseDatos</td>
+                        <td>
+                            @if (e is null) { <span class="ad-salud">Revisando…</span> }
+                            else if (!e.Value.Conecta) { <span class="ad-salud mal" title="@e.Value.Error">No existe o sin conexión</span> }
+                            else if (e.Value.Pendientes > 0) { <span class="ad-salud alerta">@e.Value.Pendientes migraciones pendientes</span> }
+                            else { <span class="ad-salud ok">Al día</span> }
+                        </td>
+                        <td class="ad-acc">
+                            @if (e is { Conecta: true, Pendientes: > 0 })
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Aplicar migraciones (haga copia de seguridad antes)" @onclick="() => MigrarAsync(p.Id)" disabled="@Ocupado"><Ico Nombre="aceptar" /></button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Correo saliente</h5>
+        <dl class="ad-dl">
+            <dt>Modo</dt><dd>@Correo.Modo @(Correo.Configurado ? "" : "· sin servidor SMTP")</dd>
+            <dt>Remitente</dt><dd>@Correo.Remitente</dd>
+            <dt>Servidor</dt><dd>@(Cfg["Correo:Smtp:Servidor"] ?? "—") @(Cfg["Correo:Smtp:Servidor"] is null ? "" : ":" + Cfg.GetValue("Correo:Smtp:Puerto", 587))</dd>
+            <dt>Credenciales</dt><dd>@(string.IsNullOrEmpty(Cfg["Correo:Smtp:Usuario"]) ? "Sin usuario" : "Configuradas (fuera del código)")</dd>
+            <dt>URL de los enlaces</dt><dd>@(Cfg["Aplicacion:UrlPublica"] ?? "No definida: se usa la dirección de la petición (defínala en producción)")</dd>
+        </dl>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" title="Enviarme un correo de prueba" @onclick="PruebaAsync" disabled="@Ocupado"><Ico Nombre="aceptar" /></button>
+        @if (Correo.Recientes.Count > 0)
+        {
+            <h6 class="mt-3 small text-muted">Últimos correos (modo archivo, App_Data/correos)</h6>
+            <table class="ad-tabla">
+                @foreach (var c in Correo.Recientes.Take(10))
+                {
+                    <tr><td class="small text-nowrap">@c.Fecha.ToString("dd/MM HH:mm")</td><td class="small">@c.Para</td><td class="small">@c.Asunto</td>
+                        <td class="ad-acc"><button type="button" class="btn btn-sm btn-outline-secondary" title="Ver" @onclick="() => verCorreo = c"><Ico Nombre="informacion" /></button></td></tr>
+                }
+            </table>
+        }
+    </section>
+
+    @if (verCorreo is not null)
+    {
+        <section class="ad-tarjeta" style="grid-column:1/-1">
+            <h5 class="ad-tit">@verCorreo.Asunto <span class="small text-muted fw-normal">para @verCorreo.Para</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" title="Cerrar" @onclick="() => verCorreo = null"><Ico Nombre="cancelar" /></button></h5>
+            @* El HTML del correo lo arma la app (plantilla con datos codificados); se muestra aislado en un iframe sin scripts. *@
+            <iframe sandbox="" srcdoc="@verCorreo.Html" style="width:100%;height:480px;border:1px solid var(--bs-border-color);border-radius:10px;background:#fff" title="Vista del correo"></iframe>
+        </section>
+    }
+
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Seguridad efectiva</h5>
+        <dl class="ad-dl">
+            @foreach (var (k, v, nivel) in Seguridad())
+            {
+                <dt>@k</dt><dd><span class="ad-salud @nivel">@v</span></dd>
+            }
+        </dl>
+    </section>
+
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Logo de la app</h5>
+        <p class="small text-muted mb-2">Se muestra en el menú de todos los proyectos. Solo el administrador lo cambia.</p>
+        @* Con permiso, el recuadro es la zona de carga: clic o arrastrar la imagen encima (el InputFile lo cubre, invisible). *@
+        <label class="ad-logo @(PuedeModificar && !Ocupado ? "ad-logo-cargable" : "")" title="@(PuedeModificar ? "Cargar logo: clic o arrastre la imagen aquí (PNG, JPG o WebP, máx. 2 MB)" : null)">
+            @if (Logo.Url is string lg)
+            {
+                <img src="@lg" alt="Logo de la app" class="ad-logo-img" />
+            }
+            else
+            {
+                <span class="ad-logo-vacio">SGC Web <small>(sin logo)</small></span>
+            }
+            @if (PuedeModificar)
+            {
+                <span class="ad-logo-subir" aria-hidden="true"><Ico Nombre="cargar-imagen" /></span>
+                <InputFile class="ad-logo-input" accept=".png,.jpg,.jpeg,.webp" OnChange="CargarLogoAsync" disabled="@Ocupado" />
+            }
+        </label>
+        @if (PuedeModificar && Logo.Url is not null)
+        {
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Quitar logo" @onclick="QuitarLogoAsync" disabled="@Ocupado"><Ico Nombre="eliminar" /></button>
+            </div>
+        }
+    </section>
+
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Servidor</h5>
+        <dl class="ad-dl">
+            <dt>Entorno</dt><dd>@Env.EnvironmentName</dd>
+            <dt>Versión</dt><dd>@Version</dd>
+            <dt>.NET</dt><dd>@System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription</dd>
+            <dt>Equipo</dt><dd>@Environment.MachineName (@Environment.ProcessorCount CPU)</dd>
+            <dt>Memoria</dt><dd>@(Environment.WorkingSet / 1024 / 1024) MB</dd>
+            <dt>En marcha desde</dt><dd>@System.Diagnostics.Process.GetCurrentProcess().StartTime.ToString("dd/MM/yyyy HH:mm")</dd>
+            <dt>Hora del servidor</dt><dd>@DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss") (@TimeZoneInfo.Local.Id)</dd>
+            <dt>Claves de cifrado</dt><dd>@clavesDp en la base central (Data Protection)</dd>
+            <dt>Salud</dt><dd><a href="salud/listo" target="_blank" rel="noopener">/salud/listo</a></dd>
+        </dl>
+    </section>
+</div>
+</div>
+
+@code {
+    [Inject] private IWebHostEnvironment Env { get; set; } = default!;
+    [Inject] private IConfiguration Cfg { get; set; } = default!;
+    [Inject] private EnviadorCorreo Correo { get; set; } = default!;
+    [Inject] private LogoApp Logo { get; set; } = default!;
+
+    // Logo único de la app (todos los proyectos). Archivo en uploads/marca; URL en la base de la Empresa.
+    private async Task CargarLogoAsync(Microsoft.AspNetCore.Components.Forms.InputFileChangeEventArgs e)
+    {
+        await Cambiar(async () =>
+        {
+            if (e.File.Size > LogoApp.MaxBytes) throw new OperacionAdminException("El logo pesa más de 2 MB.");
+            if (!LogoApp.Extensiones.Contains(Path.GetExtension(e.File.Name).ToLowerInvariant())) throw new OperacionAdminException("El logo debe ser PNG, JPG o WebP.");
+            await using var s = e.File.OpenReadStream(LogoApp.MaxBytes);
+            using var ms = new MemoryStream();
+            await s.CopyToAsync(ms);
+            ms.Position = 0;
+            var url = await Logo.CargarAsync(ms, e.File.Name);
+            Registrar("Logo de la app cambiado", url);
+        }, "Logo actualizado. Se ve en todos los proyectos al cambiar de pantalla.");
+    }
+
+    private async Task QuitarLogoAsync()
+    {
+        await Cambiar(async () =>
+        {
+            await Logo.EstablecerAsync(null);
+            Registrar("Logo de la app quitado", null);
+        }, "Logo quitado.");
+    }
+
+    private readonly Dictionary<int, (bool Conecta, int Pendientes, string? Error)?> estados = new();
+    private bool centralOk;
+    private int centralPendientes, clavesDp;
+    private string baseCentral = "";
+    private EnviadorCorreo.CorreoPrueba? verCorreo;
+    private static readonly string Version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Autorizado) return;
+        baseCentral = new Npgsql.NpgsqlConnectionStringBuilder(Proyectos.CadenaCentral()).Database ?? "";
+        await RevisarAsync();
+    }
+
+    private async Task RevisarAsync()
+    {
+        await ConDb(async (db, _) =>
+        {
+            try
+            {
+                centralOk = await db.Database.CanConnectAsync();
+                centralPendientes = (await db.Database.GetPendingMigrationsAsync()).Count();
+                clavesDp = await db.DataProtectionKeys.CountAsync();
+            }
+            catch { centralOk = false; }
+        });
+        foreach (var p in Proyectos.Todos())
+            estados[p.Id] = Proyectos.Activo(p.Id) is { } a ? await Proyectos.EstadoBaseAsync(a) : (false, 0, "Sin proyecto");
+    }
+
+    private async Task MigrarAsync(int id)
+    {
+        await Cambiar(async () =>
+        {
+            var error = await Proyectos.MigrarAsync(id);
+            if (error is not null) throw new OperacionAdminException("No se pudo migrar: " + error);
+            Registrar("Migraciones aplicadas", Proyectos.Proyecto(id)?.Codigo);
+        }, "Migraciones aplicadas.");
+        await RevisarAsync();
+    }
+
+    private async Task PruebaAsync()
+    {
+        await Cambiar(async () =>
+        {
+            var para = Actual.Email ?? throw new OperacionAdminException("Su usuario no tiene correo.");
+            var ok = await Correo.EnviarAsync(para, "Prueba de correo de SGC Web", EnviadorCorreo.Plantilla("Prueba de correo",
+                $"<p>Si recibe este mensaje, el correo saliente de SGC Web funciona ({System.Net.WebUtility.HtmlEncode(Correo.Modo)}).</p>"));
+            if (!ok) throw new OperacionAdminException("El correo no salió. Revise el registro del servidor (credenciales, puerto o remitente verificado en SES).");
+        }, "Correo de prueba enviado a su dirección.");
+    }
+
+    private IEnumerable<(string, string, string)> Seguridad()
+    {
+        var dev = Env.IsDevelopment();
+        var control = Cfg["Seguridad:ControlEscritura"] ?? "Bloquear";
+        yield return ("Control de escritura", control, control == "Bloquear" ? "ok" : "alerta");
+        var cspReporte = Cfg.GetValue("Seguridad:CspSoloReporte", true);
+        yield return ("Política de contenido (CSP)", cspReporte ? "Solo reporte" : "Exigida", cspReporte ? "alerta" : "ok");
+        var mfa = Cfg.GetValue("Seguridad:MfaObligatoriaAdministradores", false);
+        yield return ("2 pasos para administradores", mfa ? "Obligatoria" : "Opcional", mfa ? "ok" : "alerta");
+        yield return ("Bloqueo por intentos", $"{Cfg.GetValue("Seguridad:IntentosAntesDeBloquear", 5)} intentos · {Cfg.GetValue("Seguridad:MinutosBloqueo", 15)} min", "ok");
+        yield return ("Sesión", $"{Cfg.GetValue("Seguridad:HorasSesion", 10)} h deslizante · revalida cada 5 min", "ok");
+        var libre = dev && Cfg.GetValue<bool>("Autenticacion:AccesoLibreDesarrollo");
+        yield return ("Acceso sin contraseña", libre ? "Activo (solo desarrollo, solo local)" : "Apagado", libre ? "alerta" : "ok");
+        yield return ("HTTPS / HSTS", dev ? "Desarrollo (HSTS apagado)" : "HSTS 365 días", dev ? "alerta" : "ok");
+        var proxy = Cfg.GetValue("Proxy:ConfiarEnCualquierOrigen", false);
+        yield return ("Proxy (ALB)", proxy ? "Confía en cualquier origen (solo detrás del ALB en red privada)" : Cfg["Proxy:Redes"] is { } r ? "Redes: " + r : "Solo local", proxy ? "alerta" : "ok");
+        var chats = Cfg.GetValue("Telegram:PermitirChatsSinUsuario", true);
+        yield return ("Telegram sin usuario", chats ? "Permitido" : "Bloqueado", chats ? "alerta" : "ok");
+        yield return ("Auditoría", $"{Cfg.GetValue("Auditoria:DiasRetencion", 365)} días", "ok");
+        var hosts = Cfg["AllowedHosts"] ?? "*";
+        yield return ("Hosts permitidos", hosts, hosts == "*" && !dev ? "alerta" : "ok");
+    }
+}

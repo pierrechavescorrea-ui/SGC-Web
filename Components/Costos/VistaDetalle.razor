@@ -1,0 +1,307 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Data.Modelos3D
+@using SigWeb.Models
+
+@* Detalle de torres / de montaje: torre × ítem con cantidad ejecutada al corte contra la prevista,
+   % por ítem y Σ % de la torre (ponderado por valor). Sale de los registros del Avance diario: ya no
+   hay una hoja aparte que se descuadre. Montaje = ítems del capítulo 6. *@
+
+@if (Editando)
+{
+    <fieldset disabled="@Guardando">
+        <div class="cp-filtros">
+            <button type="button" class="btn btn-sm btn-outline-primary" title="Agregar" disabled="@(!PuedeAgregar)" @onclick="AgregarAsync"><Ico Nombre="agregar" /></button>
+            <input class="form-control form-control-sm" style="max-width:200px" placeholder="Buscar torre…" @bind="buscar" @bind:event="oninput" />
+            <span class="cp-sub">Cantidades previstas. Los cambios se aplican con Guardar en el encabezado.</span>
+        </div>
+        @if (!PuedeAgregar)
+        {
+            <div class="cp-sub p-3">Para agregar cantidades previstas, registre torres en Trazado e ítems de esta vista en Formulario de precios.</div>
+        }
+        <div class="tabla-scroll tabla-auto cp-marco">
+            <table class="table table-sm cp-tabla">
+                <thead><tr><th>Torre</th><th>Pata</th><th>Ítem</th><th class="cp-num">Cantidad prevista</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var fila in filasEdicion.Where(f => f.Origen is null || f.Pendiente || CoincideTorre(f.TorreId)))
+                    {
+                        <tr @key="fila" class="@(fila.Eliminar ? "text-muted" : "")">
+                            @if (fila.Origen is null)
+                            {
+                                <td>
+                                    <select class="form-select form-select-sm" aria-label="Torre" @bind="fila.TorreId" @bind:after="() => fila.PataId = null">
+                                        <option value="0">Seleccione torre…</option>
+                                        @foreach (var torre in S.Torres) { <option value="@torre.Id">@S.NombreTorre(torre.Id)</option> }
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" aria-label="Pata" @bind="fila.PataId"
+                                            disabled="@(fila.TorreId == 0 || S.ItemPorId.GetValueOrDefault(fila.ItemId)?.Ambito != AmbitoItemPago.Pata)">
+                                        <option value="">Sin pata</option>
+                                        @foreach (var pata in PatasDe(fila.TorreId)) { <option value="@pata.Id">@pata.Nombre</option> }
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" aria-label="Ítem" @bind="fila.ItemId" @bind:after="() => fila.PataId = null">
+                                        <option value="0">Seleccione ítem…</option>
+                                        @foreach (var item in itemsEdicion) { <option value="@item.Id">@item.Codigo · @item.Descripcion</option> }
+                                    </select>
+                                </td>
+                            }
+                            else
+                            {
+                                <td>@S.NombreTorre(fila.TorreId)</td>
+                                <td>@(fila.PataId is int id ? nombresPatas.GetValueOrDefault(id, $"Pata #{id}") : "—")</td>
+                                <td>@S.ItemPorId.GetValueOrDefault(fila.ItemId)?.Codigo · @S.ItemPorId.GetValueOrDefault(fila.ItemId)?.Descripcion</td>
+                            }
+                            <td class="cp-num">
+                                <input type="number" min="0" step="0.0001" class="form-control form-control-sm cp-in-num"
+                                       aria-label="Cantidad prevista" @bind="fila.Cantidad" @bind:after="Avisar" disabled="@fila.Eliminar" />
+                            </td>
+                            <td>
+                                @if (ReferenceEquals(confirmarEliminacion, fila))
+                                {
+                                    <span class="small">Se eliminará definitivamente al guardar.</span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Confirmar eliminación" @onclick="() => ConfirmarEliminacion(fila)"><Ico Nombre="aceptar" /></button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Cancelar eliminación" @onclick="() => confirmarEliminacion = null"><Ico Nombre="cancelar" /></button>
+                                }
+                                else if (fila.Eliminar)
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Conservar cantidad prevista" @onclick="() => Conservar(fila)"><Ico Nombre="restaurar" /></button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar cantidad prevista" @onclick="() => PedirEliminar(fila)"><Ico Nombre="eliminar" /></button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </fieldset>
+}
+else
+{
+<div class="cp-filtros">
+    <div class="btn-group btn-group-sm">
+        <button type="button" class="btn btn-outline-secondary @(modo == "pct" ? "active" : "")" title="Ver %" @onclick='() => modo = "pct"'>%</button>
+        <button type="button" class="btn btn-outline-secondary @(modo == "cant" ? "active" : "")" title="Ver cantidades ejecutadas / previstas" @onclick='() => modo = "cant"'>Cant.</button>
+    </div>
+    <input class="form-control form-control-sm" style="max-width:200px" placeholder="Buscar torre…" @bind="buscar" @bind:event="oninput" />
+    <label class="cp-check"><input type="checkbox" @bind="soloIniciadas" /> Solo iniciadas</label>
+    <span class="cp-sub ms-auto">@torres.Count torre(s) · Σ % línea @FormatoCostos.Pct(pctLinea)</span>
+</div>
+
+@if (items.Count == 0)
+{
+    <div class="cp-sub p-3">Sin cantidades por torre para estos ítems. @(PuedeAgregar ? "Use Agregar para registrar una cantidad prevista." : "Registre torres en Trazado e ítems en Formulario de precios para habilitar Agregar.")</div>
+}
+else
+{
+    <div class="tabla-scroll tabla-auto cp-marco">
+        <table class="table table-sm cp-tabla cp-detalle @(Montaje ? "cp-det-montaje" : "cp-det-torres")">
+            <thead class="tabla-pin">
+                <tr>
+                    <th class="cp-fija">Torre</th>
+                    @if (Montaje) { <th>Tipo</th> }
+                    <th class="cp-num">Σ %</th>
+                    @foreach (var it in items)
+                    {
+                        <th class="cp-num cp-col-item" title="@it.Descripcion">@it.Codigo<div class="cp-sub">@it.Unidad</div></th>
+                    }
+                </tr>
+                <tr class="cp-total">
+                    <th class="cp-fija">Total</th>
+                    @if (Montaje) { <th></th> }
+                    <th class="cp-num">@FormatoCostos.Pct(pctLinea)</th>
+                    @foreach (var it in items)
+                    {
+                        var t = totales.GetValueOrDefault(it.Id);
+                        <th class="cp-num" style="background:@FormatoCostos.ColorPct(t.prev > 0 ? t.ejec / t.prev : null)">
+                            @(modo == "pct" ? FormatoCostos.Pct(t.prev > 0 ? t.ejec / t.prev : null) : $"{FormatoCostos.Num(t.ejec, 1)} / {FormatoCostos.Num(t.prev, 1)}")
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in torres)
+                {
+                    <tr>
+                        <td class="cp-fija"><a href="trazado?torre=@t.Id">@S.NombreTorre(t.Id)</a></td>
+                        @if (Montaje) { <td>@tipos.GetValueOrDefault(t.Id)</td> }
+                        <td class="cp-num" style="background:@FormatoCostos.ColorPct(pctTorre.GetValueOrDefault(t.Id))"><b>@FormatoCostos.Pct(pctTorre.GetValueOrDefault(t.Id))</b></td>
+                        @foreach (var it in items)
+                        {
+                            if (celdas.TryGetValue((t.Id, it.Id), out var c))
+                            {
+                                <td class="cp-num @(c.Prevista > 0 && c.Ejecutada > c.Prevista * 1.001m ? "cp-sobre" : "")" style="background:@FormatoCostos.ColorPct(c.Pct)" title="@FormatoCostos.Num(c.Ejecutada, 3) de @FormatoCostos.Num(c.Prevista, 3) @it.Unidad">
+                                    @(modo == "pct" ? FormatoCostos.Pct(c.Pct, 0) : $"{FormatoCostos.Num(c.Ejecutada, 2)} / {FormatoCostos.Num(c.Prevista, 2)}")
+                                </td>
+                            }
+                            else
+                            {
+                                <td class="cp-na"></td>
+                            }
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+}
+
+@code {
+    [Parameter] public bool Montaje { get; set; }
+
+    private sealed class FilaEdicion
+    {
+        public CantidadTorre? Origen { get; init; }
+        public int TorreId { get; set; }
+        public int? PataId { get; set; }
+        public int ItemId { get; set; }
+        public decimal? Cantidad { get; set; }
+        public bool Eliminar { get; set; }
+        public bool Pendiente => Origen is null || Eliminar || Cantidad != Origen.CantidadPrevista;
+    }
+
+    private readonly List<FilaEdicion> filasEdicion = new();
+    private List<ItemPago> itemsEdicion = new();
+    private Dictionary<int, List<Componente>> patasPorTorre = new();
+    private Dictionary<int, string> nombresPatas = new();
+    private FilaEdicion? confirmarEliminacion;
+
+    public int Pendientes => filasEdicion.Count(f => f.Pendiente);
+
+    public override bool PuedeAgregar => S.Torres.Count > 0 && itemsEdicion.Count > 0;
+
+    private bool CoincideTorre(int id) => S.NombreTorre(id).Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private IEnumerable<Componente> PatasDe(int torreId) =>
+        patasPorTorre.TryGetValue(torreId, out var patas) ? patas : Enumerable.Empty<Componente>();
+
+    public override async Task EditarAsync()
+    {
+        var patas = await Db.Componentes.AsNoTracking().Where(c => !c.Eliminado).OrderBy(c => c.Orden)
+            .ThenBy(c => c.Nombre).ToListAsync();
+        nombresPatas = patas.ToDictionary(p => p.Id, p => p.Nombre);
+        patasPorTorre = patas.Where(ServicioCantidadesPrevistas.EsPata).GroupBy(p => p.ElementoTrazadoId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        filasEdicion.Clear();
+        var idsItems = itemsEdicion.Select(i => i.Id).ToHashSet();
+        filasEdicion.AddRange(S.CantidadesTorre
+            .Where(c => S.TorrePorId.ContainsKey(c.ElementoTrazadoId) && idsItems.Contains(c.ItemPagoId))
+            .OrderBy(c => S.NombreTorre(c.ElementoTrazadoId)).ThenBy(c => S.ItemPorId[c.ItemPagoId].Codigo)
+            .ThenBy(c => c.ComponenteId)
+            .Select(c => new FilaEdicion
+            {
+                Origen = c, TorreId = c.ElementoTrazadoId, PataId = c.ComponenteId,
+                ItemId = c.ItemPagoId, Cantidad = c.CantidadPrevista
+            }));
+        await base.EditarAsync();
+    }
+
+    public override async Task AgregarAsync()
+    {
+        if (!PuedeAgregar) return;
+        if (!Editando) await EditarAsync();
+        filasEdicion.Insert(0, new FilaEdicion());
+        await Avisar();
+    }
+
+    private async Task PedirEliminar(FilaEdicion fila)
+    {
+        if (fila.Origen is null)
+        {
+            filasEdicion.Remove(fila);
+            await Avisar();
+        }
+        else confirmarEliminacion = fila;
+    }
+
+    private Task ConfirmarEliminacion(FilaEdicion fila)
+    {
+        fila.Eliminar = true;
+        confirmarEliminacion = null;
+        return Avisar();
+    }
+
+    private Task Conservar(FilaEdicion fila)
+    {
+        fila.Eliminar = false;
+        return Avisar();
+    }
+
+    public override void Cancelar()
+    {
+        filasEdicion.Clear();
+        confirmarEliminacion = null;
+        base.Cancelar();
+    }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        if (confirmarEliminacion is not null)
+            throw new InvalidOperationException("Confirme o cancele la eliminación pendiente.");
+        var cambios = filasEdicion.Where(f => f.Pendiente && !f.Eliminar).ToList();
+        if (cambios.Any(f => f.Cantidad is null))
+            throw new InvalidOperationException("Escriba la cantidad prevista de cada fila modificada.");
+
+        var capturas = cambios.Select(f => new ServicioCantidadesPrevistas.Captura(
+            new ServicioCantidadesPrevistas.Clave(f.TorreId, f.PataId, f.ItemId), f.Cantidad!.Value)).ToList();
+        var eliminarIds = filasEdicion.Where(f => f.Eliminar).Select(f => f.Origen!.Id).ToList();
+        await ServicioCantidadesPrevistas.GuardarAsync(Db, capturas, eliminarIds);
+        Db.ChangeTracker.Clear();
+        filasEdicion.Clear();
+    }
+
+
+    private string modo = "pct", buscar = "";
+    private bool soloIniciadas;
+    private List<ItemPago> items = new();
+    private Dictionary<(int, int), InstantaneaCostos.CeldaDetalle> celdas = new();
+    private Dictionary<int, decimal?> pctTorre = new();
+    private Dictionary<int, (decimal ejec, decimal prev)> totales = new();
+    private Dictionary<int, string> tipos = new();
+    private decimal? pctLinea;
+    private List<ElementoTrazado> todas = new();
+
+    private List<ElementoTrazado> torres => todas
+        .Where(t => buscar.Trim() == "" || S.NombreTorre(t.Id).Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase))
+        .Where(t => !soloIniciadas || celdas.Values.Any(c => c.TorreId == t.Id && c.Ejecutada > 0))
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var claves = await Db.CamposExtraTorre.AsNoTracking().Select(c => c.Clave).Distinct().ToListAsync();
+        if (TiposTorre.ClaveTipo(claves) is string clave)
+            tipos = (await Db.CamposExtraTorre.AsNoTracking().Where(c => c.Clave == clave).ToListAsync())
+                .GroupBy(c => c.ElementoTrazadoId).ToDictionary(g => g.Key, g => g.First().Valor.Trim());
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender) =>
+        firstRender ? OnEstado.InvokeAsync() : Task.CompletedTask;
+
+    private InstantaneaCostos? sPrevia; private DateTime cortePrevio; private bool? montajePrevio;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(S, sPrevia) && Corte == cortePrevio && montajePrevio == Montaje) return;
+        sPrevia = S; cortePrevio = Corte; montajePrevio = Montaje;
+        itemsEdicion = S.Items.Where(i => !i.EsCapitulo && InstantaneaCostos.EsMontaje(i) == Montaje)
+            .OrderBy(i => i.Orden).ThenBy(i => i.Codigo).ToList();
+        var lista = S.Detalle(Corte, it => !it.EsCapitulo && InstantaneaCostos.EsMontaje(it) == Montaje);
+        celdas = lista.ToDictionary(c => (c.TorreId, c.ItemId));
+        var ids = lista.Select(c => c.ItemId).ToHashSet();
+        items = S.Items.Where(i => ids.Contains(i.Id)).OrderBy(i => i.Orden).ThenBy(i => i.Codigo).ToList();
+        var conDatos = lista.Select(c => c.TorreId).ToHashSet();
+        todas = S.Torres.Where(t => conDatos.Contains(t.Id)).ToList();
+        pctTorre = lista.GroupBy(c => c.TorreId).ToDictionary(g => g.Key, g => S.PctTorre(g, Corte));
+        totales = lista.GroupBy(c => c.ItemId).ToDictionary(g => g.Key, g => (g.Sum(c => c.Ejecutada), g.Sum(c => c.Prevista)));
+        pctLinea = S.PctTorre(lista, Corte);
+    }
+}

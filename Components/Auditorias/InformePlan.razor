@@ -1,0 +1,68 @@
+@* Un plan de acción dentro del informe de auditoría: análisis de causa, acciones y verificación de eficacia. *@
+@using SigWeb.Models
+@using SigWeb.Data.Auditorias
+
+@{ var p = Plan.P; }
+<div class="inf-plan">
+    <div class="inf-plan-cab">
+        <a href="planes-accion/@p.Id" class="inf-plan-cod">@p.Codigo</a>
+        <span class="inf-chip" style="background:@EscalaAccion.Color(Plan.Estado);color:@EscalaAccion.ColorTexto(Plan.Estado)">@EscalaAccion.Nombre(Plan.Estado)</span>
+        <span class="inf-chip" style="background:@EscalaEficacia.Color(Plan.Eficacia);color:#fff">Eficacia: @EscalaEficacia.Nombre(Plan.Eficacia, p.FechaProgramadaEficacia)</span>
+        <span class="inf-plan-fecha">Abierto el @p.Fecha.ToString("dd/MM/yyyy")@(Plan.Hallazgos.Count > 1 ? $" · trata también {string.Join(", ", Plan.Hallazgos)}" : "")</span>
+    </div>
+    @if (MostrarDescripcion && !string.IsNullOrWhiteSpace(p.DescripcionHallazgo))
+    {
+        <div class="inf-campo"><span>Situación que trata</span><div class="inf-multi">@p.DescripcionHallazgo</div></div>
+    }
+    <div class="inf-campo"><span>Análisis de causa</span><div class="inf-multi">@(string.IsNullOrWhiteSpace(p.AnalisisCausa) && string.IsNullOrWhiteSpace(p.AnalisisCausaSvg) ? "No registrado." : p.AnalisisCausa)
+        <CampoAnalisisCausa Svg="@p.AnalisisCausaSvg" Titulo="@p.Codigo" SoloLectura="true" /></div></div>
+
+    @if (Plan.Acciones.Count == 0)
+    {
+        <div class="inf-vacio">El plan aún no tiene acciones.</div>
+    }
+    else
+    {
+        <table class="inf-tabla">
+            <thead><tr><th>#</th><th>Tipo</th><th>Acción</th><th>Producto / evidencia esperada</th><th>Responsable</th><th>Fecha</th><th>Estado</th></tr></thead>
+            <tbody>
+                @{ var n = 0; }
+                @foreach (var a in Plan.Acciones)
+                {
+                    n++;
+                    <tr>
+                        <td class="text-center">@n</td>
+                        <td>@EscalaAccion.Nombre(a.Tipo)</td>
+                        <td class="inf-multi">@a.Descripcion</td>
+                        <td class="inf-multi">@a.Producto</td>
+                        <td class="inf-multi">@a.Responsable</td>
+                        <td class="text-nowrap">@a.Fecha.ToString("dd/MM/yyyy")</td>
+                        <td>@EscalaAccion.Nombre(a.Estado)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <div class="inf-eficacia">
+        <div class="inf-eficacia-tit">Verificación de eficacia (ISO 9001 10.2.1 d)</div>
+        <div class="inf-rejilla">
+            <div class="inf-campo inf-ancho"><span>Criterio</span><div class="inf-multi">@(string.IsNullOrWhiteSpace(p.CriterioEficacia) ? "No definido." : p.CriterioEficacia)</div></div>
+            <div class="inf-campo"><span>Fecha programada</span><div>@(p.FechaProgramadaEficacia?.ToString("dd/MM/yyyy") ?? "—")</div></div>
+            <div class="inf-campo"><span>Resultado</span><div>@(p.Eficaz is null ? "Sin verificar" : p.Eficaz.Value ? "Eficaz" : "No eficaz")</div></div>
+            @if (p.Eficaz is not null)
+            {
+                <div class="inf-campo"><span>Fecha de verificación</span><div>@(p.FechaVerificacionEficacia?.ToString("dd/MM/yyyy") ?? "—")</div></div>
+                <div class="inf-campo"><span>Verificó</span><div>@(p.VerificoEficacia ?? "—")</div></div>
+                <div class="inf-campo inf-ancho"><span>Evidencia de la verificación</span><div class="inf-multi">@(string.IsNullOrWhiteSpace(p.EvidenciaEficacia) ? "—" : p.EvidenciaEficacia)</div></div>
+            }
+        </div>
+        <InformeArchivos Archivos="Plan.Soportes.Cast<IAdjuntoDescrito>().ToList()" Prefijo="@($"Soporte {p.Codigo}")" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public InformeAuditoria.PlanInforme Plan { get; set; } = default!;
+    // Planes sobre la auditoría (sin hallazgo): se muestra la situación que tratan.
+    [Parameter] public bool MostrarDescripcion { get; set; }
+}

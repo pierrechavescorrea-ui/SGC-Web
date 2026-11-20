@@ -1,0 +1,139 @@
+@* Asistente de ayuda INTERNO (sin API ni servicios externos): botón «?» del encabezado de cada página y panel lateral con
+   la conversación. Responde con el manual de usuario (docs/manual) según la pantalla actual. Lógica en Data/Asistente/;
+   estilos en css/asistente.css (clases asis-*); desplazamiento y foco en js/asistente.js (sigAsistente). *@
+@using SigWeb.Data.Asistente
+@inject AsistenteAyuda Asistente
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<button type="button" class="pg-btn asis-boton @(abierto ? "activo" : "")" title="Asistente de ayuda" aria-label="Asistente de ayuda"
+        id="asis-abrir" aria-controls="asis-panel" aria-expanded="@abierto.ToString().ToLowerInvariant()" @onclick="Alternar">
+    <Ico Nombre="ayuda" />
+</button>
+
+@if (abierto)
+{
+    <div id="asis-panel" class="asis-panel" tabindex="-1" role="dialog" aria-label="Asistente de ayuda">
+        <div class="asis-cab">
+            <span class="asis-cab-ico"><Ico Nombre="ayuda" /></span>
+            <div class="asis-cab-txt">
+                <strong>Asistente de ayuda</strong>
+                <small>Responde con el manual de SGC Web</small>
+            </div>
+            <button type="button" class="asis-cab-btn" title="Nueva conversación" aria-label="Nueva conversación" @onclick="Reiniciar"><Ico Nombre="restaurar" /></button>
+            <button type="button" class="asis-cab-btn" title="Cerrar" aria-label="Cerrar" @onclick="() => abierto = false"><Ico Nombre="cancelar" /></button>
+        </div>
+
+        <div class="asis-mensajes" @ref="caja" role="log" aria-label="Conversación">
+            @foreach (var m in Asistente.Historial)
+            {
+                if (m.De == AsistenteAyuda.Quien.Usuario)
+                {
+                    <div class="asis-msg asis-yo">@m.Texto</div>
+                }
+                else
+                {
+                    <div class="asis-msg asis-el">
+                        @if (!string.IsNullOrEmpty(m.Texto))
+                        {
+                            <p class="mb-1">@((MarkupString)MarkdownAyuda.Frase(m.Texto, (t, d) => Asistente.Enlace(t, d, CapituloActual)))</p>
+                        }
+                        @if (m.Seccion is { } s)
+                        {
+                            <div class="asis-fuente"><Ico Nombre="documento" /> @s.Capitulo.Titulo › @s.Titulo</div>
+                            <div class="asis-cuerpo">@((MarkupString)MarkdownAyuda.AHtml(s.Markdown, (t, d) => Asistente.Enlace(t, d, s.Capitulo)))</div>
+                        }
+                        @if (m.Aviso is not null)
+                        {
+                            <div class="asis-aviso">@m.Aviso</div>
+                        }
+                        @if (m.RutaIr is not null)
+                        {
+                            <a class="asis-ir" href="@m.RutaIr.TrimStart('/')" data-resaltar="@m.ResaltarIr"><Ico Nombre="enlace" /> Ir a @m.NombreIr</a>
+                        }
+                        @if (m.Atajos.Count > 0)
+                        {
+                            <div class="asis-sugs">
+                                <div class="asis-sugs-tit">Ir directo</div>
+                                @foreach (var at in m.Atajos)
+                                {
+                                    <a class="asis-sug asis-atajo" href="@at.Ruta!.TrimStart('/')" data-resaltar="@at.Resaltar" title="Ir a @at.Destino"><Ico Nombre="enlace" /> @at.Texto</a>
+                                }
+                            </div>
+                        }
+                        @if (m.Sugerencias.Count > 0)
+                        {
+                            <div class="asis-sugs">
+                                @if (m.Seccion is not null) { <div class="asis-sugs-tit">También puede servirle</div> }
+                                @foreach (var sg in m.Sugerencias)
+                                {
+                                    var sug = sg;
+                                    <span class="asis-sug-par">
+                                        <button type="button" class="asis-sug" @onclick="() => Sugerencia(sug)">@sug.Texto</button>
+                                        @if (sug.Ruta is not null)
+                                        {
+                                            <a class="asis-sug-ir" href="@sug.Ruta.TrimStart('/')" data-resaltar="@sug.Resaltar" title="Ir a @sug.Destino" aria-label="Ir a @sug.Destino"><Ico Nombre="enlace" /></a>
+                                        }
+                                    </span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+        <form class="asis-pie" @onsubmit="Enviar" @onsubmit:preventDefault>
+            <input class="form-control form-control-sm" data-sin-flotante @ref="entrada" maxlength="300" autocomplete="off"
+                   placeholder="Escriba su pregunta…" aria-label="Pregunta" @bind="texto" @bind:event="oninput" />
+            <button type="submit" class="btn btn-primary btn-sm" title="Preguntar" aria-label="Preguntar" disabled="@string.IsNullOrWhiteSpace(texto)"><Ico Nombre="aceptar" /></button>
+        </form>
+    </div>
+}
+
+@code {
+    private bool abierto;
+    private string texto = "";
+    private ElementReference caja, entrada;
+    private bool desplazar;
+
+    private string Ruta => "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0];
+    [Inject] private ManualAyuda Manual { get; set; } = default!;
+    private ManualAyuda.Capitulo? CapituloActual => Manual.CapituloDeRuta(Ruta);
+
+    private void Alternar()
+    {
+        abierto = !abierto;
+        if (abierto && Asistente.Historial.Count == 0) Asistente.Historial.Add(Asistente.Bienvenida(Ruta));
+        desplazar = abierto;
+    }
+
+    private void Reiniciar()
+    {
+        Asistente.Historial.Clear();
+        Asistente.Historial.Add(Asistente.Bienvenida(Ruta));
+        desplazar = true;
+    }
+
+    private void Enviar()
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return;
+        Asistente.Preguntar(texto, Ruta);
+        texto = "";
+        desplazar = true;
+    }
+
+    private void Sugerencia(AsistenteAyuda.Sugerencia s)
+    {
+        if (s.SeccionId is not null) Asistente.AbrirSeccion(s.SeccionId, s.Texto);
+        else if (s.Pregunta is not null) Asistente.Preguntar(s.Pregunta, Ruta);
+        desplazar = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!desplazar || !abierto) return;
+        desplazar = false;
+        try { await JS.InvokeVoidAsync("sigAsistente.alFinal", caja, entrada); } catch (JSException) { } catch (InvalidOperationException) { }
+    }
+}

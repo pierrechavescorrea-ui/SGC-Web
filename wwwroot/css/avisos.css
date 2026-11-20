@@ -1,0 +1,135 @@
+/* Avisos elegantes (js/avisos.js) y panel de impacto al eliminar (Components/Pages/PanelImpacto.razor), 2026-11-16.
+   Colores con variables del tema (--t-*) y, sin tema, los de Bootstrap. Criticidad = colores de Bootstrap de siempre. */
+
+/* ---------- Franja verde convertida en ventanita ---------- */
+.alert[data-aviso-oculto] { display: none !important; }
+
+.sig-aviso {
+    position: fixed; inset: 0; z-index: 3000; display: grid; place-items: start center; padding-top: 18vh;
+    pointer-events: none;
+}
+.sig-aviso-tarjeta {
+    display: flex; flex-direction: column; align-items: center; gap: .7rem; min-width: 220px; max-width: min(380px, 88vw);
+    padding: 1.4rem 1.8rem 1.2rem; border-radius: 18px; text-align: center;
+    background: var(--t-solido, var(--t-superficie, var(--bs-body-bg, #fff)));
+    color: var(--t-texto, var(--bs-body-color, #212529));
+    border: 1px solid var(--t-borde, rgba(0, 0, 0, .08));
+    box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .45), 0 2px 6px rgba(0, 0, 0, .08);
+    opacity: 0; transform: translateY(-10px) scale(.96); transition: opacity .18s ease, transform .22s cubic-bezier(.2, .9, .3, 1.2);
+}
+.sig-aviso.visible { pointer-events: auto; }
+.sig-aviso.visible .sig-aviso-tarjeta { opacity: 1; transform: none; }
+.sig-aviso-txt { font-weight: 600; font-size: .95rem; letter-spacing: .01em; }
+
+/* Check que se dibuja */
+.sig-aviso-check { display: none; width: 58px; height: 58px; }
+.sig-aviso-check circle { fill: none; stroke: #2fb36d; stroke-width: 2.5; stroke-dasharray: 151; stroke-dashoffset: 151; }
+.sig-aviso-check path { fill: none; stroke: #2fb36d; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 36; stroke-dashoffset: 36; }
+.sig-aviso.exito .sig-aviso-check { display: block; }
+.sig-aviso.exito .sig-aviso-check circle { animation: sigTrazo .45s ease-out forwards; }
+.sig-aviso.exito .sig-aviso-check path { animation: sigTrazo .3s .35s ease-out forwards; }
+@keyframes sigTrazo { to { stroke-dashoffset: 0; } }
+
+/* Cargador circular (también reutilizable: .sig-giro) */
+.sig-aviso-giro, .sig-giro {
+    display: none; width: 46px; height: 46px; border-radius: 50%;
+    border: 3px solid color-mix(in srgb, var(--t-acento, var(--sig-rojo, #EC1C24)) 18%, transparent);
+    border-top-color: var(--t-acento, var(--sig-rojo, #EC1C24));
+    animation: sigGiro .8s linear infinite;
+}
+.sig-giro { display: inline-block; width: 22px; height: 22px; border-width: 2.5px; flex: none; }
+.sig-aviso.cargando .sig-aviso-giro { display: block; }
+.sig-aviso.cargando .sig-aviso-check { display: none; }
+@keyframes sigGiro { to { transform: rotate(360deg); } }
+
+/* ---------- Panel de impacto ---------- */
+.imp-panel {
+    --imp-c: var(--bs-secondary);
+    margin-bottom: .75rem; padding: .9rem 1rem; border-radius: 14px; font-size: .86rem;
+    background: color-mix(in srgb, var(--imp-c) 7%, var(--t-superficie, var(--bs-body-bg, #fff)));
+    color: var(--t-texto, var(--bs-body-color));
+    border: 1px solid color-mix(in srgb, var(--imp-c) 30%, transparent);
+}
+.imp-danger { --imp-c: var(--bs-danger); }
+.imp-warning { --imp-c: var(--bs-warning); }
+.imp-info { --imp-c: var(--bs-info); }
+.imp-secondary { --imp-c: var(--bs-secondary); }
+
+.imp-cargando { display: flex; align-items: center; gap: .7rem; color: var(--t-texto-2, var(--bs-secondary-color)); }
+
+.imp-cab { display: flex; align-items: center; gap: .75rem; }
+.imp-ico {
+    flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px;
+    background: color-mix(in srgb, var(--imp-c) 16%, transparent); color: var(--imp-c);
+}
+.imp-ico svg { width: 22px; height: 22px; }
+.imp-cab-txt { min-width: 0; flex: 1; }
+.imp-nivel { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--imp-c); }
+.imp-elem { font-weight: 600; font-size: .95rem; overflow-wrap: anywhere; }
+.imp-total {
+    flex: none; min-width: 2.2rem; padding: .2rem .55rem; border-radius: 999px; text-align: center; font-weight: 700; font-size: .78rem;
+    background: color-mix(in srgb, var(--imp-c) 16%, transparent); color: var(--imp-c);
+}
+
+.imp-escala { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: .7rem 0 .6rem; }
+.imp-seg { height: 5px; border-radius: 3px; background: color-mix(in srgb, currentColor 10%, transparent); }
+.imp-seg.on { background: var(--imp-c); }
+
+.imp-buscar { margin-bottom: .4rem; }
+.imp-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.imp-lista-todos { max-height: 40vh; overflow: auto; padding-right: 2px; }
+.imp-dep {
+    display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: .5rem;
+    padding: .38rem .55rem; border-radius: 9px;
+    background: color-mix(in srgb, var(--imp-c) 6%, var(--t-superficie-2, color-mix(in srgb, currentColor 3%, transparent)));
+}
+.imp-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--imp-c); }
+.imp-menu { font-weight: 600; white-space: nowrap; }
+.imp-det { color: var(--t-texto-2, var(--bs-secondary-color)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.imp-n { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--imp-c); }
+.imp-vacio { padding: .4rem .55rem; color: var(--t-texto-2, var(--bs-secondary-color)); }
+.imp-ver-todos {
+    margin-top: .4rem; border: 0; background: none; padding: .2rem 0; font-weight: 600; font-size: .8rem;
+    color: var(--t-acento, var(--bs-link-color)); cursor: pointer;
+}
+.imp-ver-todos:hover { text-decoration: underline; }
+.imp-reco { margin-top: .6rem; color: var(--t-texto-2, var(--bs-secondary-color)); line-height: 1.35; }
+.imp-entiendo {
+    display: flex; align-items: center; gap: .5rem; margin: .7rem 0 0; padding: .5rem .65rem; border-radius: 10px; cursor: pointer; font-weight: 600;
+    background: color-mix(in srgb, var(--imp-c) 12%, transparent);
+}
+.imp-entiendo .form-check-input { margin: 0; }
+
+/* ---------- Confirmación de borrado elevada a ventana emergente ---------- */
+[data-imp-emergente] {
+    position: fixed !important; inset: 0 !important; margin: auto !important; z-index: 2000 !important;
+    width: min(620px, calc(100vw - 32px)) !important; max-width: none !important;
+    height: fit-content !important; max-height: 86vh !important; overflow: auto !important;
+    border-radius: 18px !important; padding: 1.1rem 1.2rem !important;
+    background: var(--t-solido, var(--t-superficie, var(--bs-body-bg, #fff))) !important;
+    color: var(--t-texto, var(--bs-body-color));
+    border: 1px solid var(--t-borde, rgba(0, 0, 0, .1)) !important;
+    box-shadow: 0 0 0 100vmax rgba(10, 14, 22, .48), 0 30px 70px -20px rgba(0, 0, 0, .55) !important;
+    animation: impEntrar .22s cubic-bezier(.2, .9, .3, 1.15);
+}
+[data-imp-emergente] > .card-body { padding: 0 !important; }
+[data-imp-emergente] .frm-pie { position: static !important; margin-top: .4rem; }
+@keyframes impEntrar { from { opacity: 0; transform: translateY(8px) scale(.97); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .sig-aviso-tarjeta, [data-imp-emergente] { transition: none; animation: none; }
+    .sig-aviso.exito .sig-aviso-check circle, .sig-aviso.exito .sig-aviso-check path { animation: none; stroke-dashoffset: 0; }
+    .sig-aviso-giro, .sig-giro { animation: none; }
+}
+
+/* Advertencia (ámbar) y error (rojo) en la misma ventanita. */
+.sig-aviso-alerta, .sig-aviso-error { display: none; width: 50px; height: 50px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sig-aviso-alerta { stroke: var(--bs-warning, #f0ad00); }
+.sig-aviso-error { stroke: var(--bs-danger, #dc3545); }
+.sig-aviso.adv .sig-aviso-alerta, .sig-aviso.err .sig-aviso-error { display: block; animation: sigLatido .5s ease-out; }
+.sig-aviso.adv .sig-aviso-tarjeta { border-top: 3px solid var(--bs-warning, #f0ad00); }
+.sig-aviso.err .sig-aviso-tarjeta { border-top: 3px solid var(--bs-danger, #dc3545); }
+.sig-aviso:is(.adv, .err) .sig-aviso-txt { font-weight: 500; line-height: 1.4; }
+.sig-aviso:is(.adv, .err) { cursor: pointer; }
+@keyframes sigLatido { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .sig-aviso.adv .sig-aviso-alerta, .sig-aviso.err .sig-aviso-error { animation: none; } }

@@ -1,0 +1,12 @@
+@page "/cuenta/sin-proyectos"
+@layout LayoutCuenta
+@using SigWeb.Data.Seguridad
+
+<PageTitle>Sin proyectos · SGC Web</PageTitle>
+
+<h1 class="cu-titulo">Aún no tiene proyectos</h1>
+<div class="cu-aviso" role="status">Su cuenta está activa, pero todavía no tiene acceso a ningún proyecto (o el acceso venció). Pida al administrador que le asigne uno.</div>
+<form method="post" action="cuenta/salir">
+    <AntiforgeryToken />
+    <button type="submit" class="cu-boton sec">Cerrar sesión</button>
+</form>

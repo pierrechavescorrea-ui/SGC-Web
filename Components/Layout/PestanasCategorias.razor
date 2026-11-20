@@ -1,0 +1,188 @@
+@typeparam TGrupo where TGrupo : class, IGrupoListado, new()
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Components.Pages
+@using SigWeb.Models
+@using SigWeb.Data
+@using SigWeb.Data.Documentos
+@using SigWeb.Data.Impacto
+@inject IServiceScopeFactory Scopes
+@inject AppDbContext Db
+
+<div class="pl-barra">
+    <div class="pl-pestanas" role="tablist" aria-label="Categorías">
+        <button type="button" role="tab" aria-selected="@(Seleccionado is null)" class="pl-pestana @(Seleccionado is null ? "activo" : "")" disabled="@Deshabilitado" @onclick="() => Seleccionar(null)"><span class="pl-nombre">Todos</span><span class="pl-cuenta">@Total</span></button>
+        @if (SinCategoria > 0)
+        {
+            <button type="button" role="tab" aria-selected="@(Seleccionado == 0)" class="pl-pestana @(Seleccionado == 0 ? "activo" : "")" disabled="@Deshabilitado" @onclick="() => Seleccionar(0)"><span class="pl-nombre">Sin categoría</span><span class="pl-cuenta">@SinCategoria</span></button>
+        }
+        @foreach (var g in grupos)
+        {
+            @* Arrastrar una pestaña sobre otra la mueve a ese lugar (el orden se guarda para todos). *@
+            <button type="button" role="tab" aria-selected="@(Seleccionado == g.Id)" class="pl-pestana @(Seleccionado == g.Id ? "activo" : "") @(sobre == g && arrastrando is not null && arrastrando != g ? "pl-sobre" : "") @(arrastrando == g ? "pl-arrastrando" : "")"
+                    disabled="@Deshabilitado" title="@($"{g.Nombre} · arrastre para reordenar")" draggable="@(Deshabilitado ? "false" : "true")"
+                    @ondragstart="() => arrastrando = g" @ondragenter="() => sobre = g" @ondragover:preventDefault="true" @ondrop="() => SoltarPestana(g)"
+                    @ondragend="() => { arrastrando = null; sobre = null; }" @onclick="() => Seleccionar(g.Id)">
+                @if (iconos.FirstOrDefault(i => i.Id == g.IconoCatalogoId) is { } ico) { <img src="@ico.RutaArchivo" alt="" /> }
+                <span class="pl-nombre">@g.Nombre</span><span class="pl-cuenta">@Conteos.GetValueOrDefault(g.Id)</span>
+            </button>
+        }
+        <button type="button" class="pl-pestana" title="Nueva categoría" aria-label="Nueva categoría" disabled="@Deshabilitado" @onclick="Nuevo"><Ico Nombre="agregar" /></button>
+    </div>
+    <div class="pl-herr">
+        @Buscador
+        @if (grupos.FirstOrDefault(g => g.Id == Seleccionado) is { } actual)
+        {
+            <button type="button" class="ens-mini" title="Editar categoría" disabled="@Deshabilitado" @onclick="() => Editar(actual)"><Ico Nombre="editar" /></button>
+            <button type="button" class="ens-mini pl-peligro" title="Eliminar categoría" disabled="@Deshabilitado" @onclick="() => PedirEliminar(actual)"><Ico Nombre="eliminar" /></button>
+        }
+        else if (Seleccionado == 0 && SinCategoria > 0)
+        {
+            <button type="button" class="ens-mini" title="Editar «Sin categoría»: nombre e ícono (sus registros pasan a esa categoría)" disabled="@Deshabilitado" @onclick="EditarSinCategoria"><Ico Nombre="editar" /></button>
+        }
+    </div>
+</div>
+@if (formulario is not null)
+{
+    <div class="card panel-formulario mb-2"><div class="card-body">
+        <label class="form-label">@(desdeSin ? $"Editar «Sin categoría» ({SinCategoria} registro(s) pasan a esta categoría)" : formulario.Id == 0 ? "Nueva categoría" : "Editar categoría")</label>
+        <input class="form-control mb-2" @bind="formulario.Nombre" placeholder="Nombre de la categoría" />
+        <SelectorIconos Iconos="iconos" IconoSeleccionadoId="formulario.IconoCatalogoId" PermitirNinguno="true" OnSeleccionar="id => formulario.IconoCatalogoId = id" />
+        <div class="frm-pie"><button type="button" class="btn btn-secondary btn-sm" @onclick="() => { formulario = null; desdeSin = false; }" title="Cancelar"><Ico Nombre="cancelar" /></button><button type="button" class="btn btn-primary btn-sm" @onclick="Guardar" title="Guardar"><Ico Nombre="guardar" /></button></div>
+    </div></div>
+}
+@if (eliminar is not null)
+{
+    <div class="card panel-formulario mb-2"><div class="card-body">
+        <strong>@eliminar.Nombre</strong>
+        <PanelImpacto Informe="impacto" OnEntendido="v => impactoOk = v" />
+        <p class="small">La categoría irá a la Papelera. Sus @Conteos.GetValueOrDefault(eliminar.Id) registro(s) conservan sus archivos y control de cambios, y siguen visibles en Todos. Al restaurarla recuperará su pestaña.</p>
+        <div class="frm-pie"><button type="button" class="btn btn-secondary btn-sm" @onclick="() => eliminar = null" title="Cancelar"><Ico Nombre="cancelar" /></button><button type="button" class="btn btn-danger btn-sm" disabled="@(impacto is null || (impacto.RequiereEntender && !impactoOk))" @onclick="Eliminar" title="Eliminar categoría"><Ico Nombre="eliminar" /></button></div>
+    </div></div>
+}
+@if (aviso.Length > 0) { <div class="alert alert-warning py-1">@aviso</div> }
+
+@code {
+    [Parameter] public int? Seleccionado { get; set; }
+    [Parameter] public EventCallback<int?> SeleccionadoChanged { get; set; }
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int SinCategoria { get; set; }
+    [Parameter] public Dictionary<int, int> Conteos { get; set; } = new();
+    [Parameter] public RenderFragment? Buscador { get; set; }
+    [Parameter] public bool Deshabilitado { get; set; }
+    // La página recarga sus registros (conteos y GrupoId) cuando "Sin categoría" se convierte en categoría.
+    [Parameter] public EventCallback OnDatosCambiados { get; set; }
+    // Listados con categorías propias de un ámbito (p. ej. cada tipo de ensayo): qué grupos son de esta pantalla y cómo nace uno.
+    [Parameter] public Func<TGrupo, bool>? Filtro { get; set; }
+    [Parameter] public Action<TGrupo>? AlCrear { get; set; }
+    // "Sin categoría" → categoría real para tipos que el componente no conoce (la página pasa sus registros al grupo nuevo).
+    [Parameter] public Func<int, Task>? PasarSinCategoria { get; set; }
+    private TGrupo? arrastrando, sobre;
+
+    private async Task SoltarPestana(TGrupo destino)
+    {
+        var origen = arrastrando; arrastrando = null; sobre = null;
+        if (origen is null || origen.Id == destino.Id) return;
+        var lista = grupos.ToList();
+        lista.RemoveAll(g => g.Id == origen.Id);
+        lista.Insert(Math.Max(0, lista.FindIndex(g => g.Id == destino.Id) + (grupos.IndexOf(origen) < grupos.IndexOf(destino) ? 1 : 0)), origen);
+        try
+        {
+            var ids = lista.Select(g => g.Id).ToList();
+            var ents = await Db.Set<TGrupo>().Where(g => ids.Contains(g.Id)).ToListAsync();
+            foreach (var e in ents) e.Orden = ids.IndexOf(e.Id);
+            await Db.SaveChangesAsync();
+        }
+        catch (Exception ex) { aviso = "No se pudo guardar el orden: " + (ex.InnerException?.Message ?? ex.Message); }
+        Db.ChangeTracker.Clear(); Cargar();
+    }
+    private bool desdeSin;
+    private List<TGrupo> grupos = new();
+    private List<IconoCatalogo> iconos = new();
+    private TGrupo? formulario, eliminar;
+    private string aviso = "";
+    private InformeImpacto? impacto;
+    private bool impactoOk;
+    protected override void OnInitialized() => Cargar();
+    private void Cargar()
+    {
+        grupos = Db.Set<TGrupo>().AsNoTracking().Where(g => g.Activo).OrderBy(g => g.Orden).ThenBy(g => g.Nombre).ToList()
+            .Where(g => Filtro?.Invoke(g) ?? true).ToList();
+        iconos = Db.IconosCatalogo.AsNoTracking().Where(i => i.Activo).OrderBy(i => i.Categoria).ThenBy(i => i.Nombre).ToList();
+    }
+    private async Task Seleccionar(int? id) { formulario = null; eliminar = null; aviso = ""; await SeleccionadoChanged.InvokeAsync(id); }
+    private void Nuevo() { formulario = new(); eliminar = null; aviso = ""; desdeSin = false; }
+    private void EditarSinCategoria() { formulario = new() { Nombre = "" }; eliminar = null; aviso = ""; desdeSin = true; }
+    private void Editar(TGrupo g) { desdeSin = false; formulario = new() { Id = g.Id, Nombre = g.Nombre, Orden = g.Orden, Activo = g.Activo, IconoCatalogoId = g.IconoCatalogoId }; eliminar = null; aviso = ""; }
+    private async Task Guardar()
+    {
+        if (formulario is null) return;
+        try
+        {
+            var nombre = formulario.Nombre.Trim();
+            if (nombre.Length == 0) { aviso = "El nombre es obligatorio."; return; }
+            var otros = (await Db.Set<TGrupo>().IgnoreQueryFilters().AsNoTracking().Where(g => g.Id != formulario.Id).ToListAsync())
+                .Where(g => Filtro?.Invoke(g) ?? true).ToList();
+            if (otros.Any(g => MigracionDocumentos.Normalizar(g.Nombre) == MigracionDocumentos.Normalizar(nombre))) { aviso = "Ya existe esa categoría (puede estar en la Papelera)."; return; }
+            TGrupo entidad;
+            if (formulario.Id == 0)
+            {
+                entidad = new() { Orden = (otros.Select(g => (int?)g.Orden).Max() ?? -1) + 1 };
+                AlCrear?.Invoke(entidad);
+                Db.Set<TGrupo>().Add(entidad);
+            }
+            else entidad = await Db.Set<TGrupo>().FirstAsync(g => g.Id == formulario.Id);
+            entidad.Nombre = nombre; entidad.IconoCatalogoId = formulario.IconoCatalogoId;
+            await using var tx = await Db.Database.BeginTransactionAsync();
+            await Db.SaveChangesAsync();
+            var id = entidad.Id;
+            var pasaron = desdeSin;
+            if (desdeSin)
+            {
+                // "Sin categoría" → categoría real: todos los registros sin grupo (también los de la Papelera, para que
+                // al restaurarlos caigan en ella) pasan a la nueva.
+                if (typeof(TGrupo) == typeof(GrupoDocumento))
+                    await Db.DocumentosMaestro.IgnoreQueryFilters().Where(d => d.GrupoDocumentoId == null).ExecuteUpdateAsync(u => u.SetProperty(d => d.GrupoDocumentoId, (int?)id));
+                else if (typeof(TGrupo) == typeof(GrupoEquipo))
+                    await Db.Equipos.IgnoreQueryFilters().Where(e => e.GrupoEquipoId == null).ExecuteUpdateAsync(u => u.SetProperty(e => e.GrupoEquipoId, (int?)id));
+                else if (typeof(TGrupo) == typeof(GrupoMaterial))
+                    await Db.Materiales.IgnoreQueryFilters().Where(m => m.GrupoMaterialId == null).ExecuteUpdateAsync(u => u.SetProperty(m => m.GrupoMaterialId, (int?)id));
+                else if (PasarSinCategoria is not null)
+                    await PasarSinCategoria(id);
+            }
+            await tx.CommitAsync();
+            desdeSin = false;
+            Db.ChangeTracker.Clear(); Cargar();
+            if (pasaron) await OnDatosCambiados.InvokeAsync();
+            await Seleccionar(id);
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); aviso = "No se pudo guardar: " + (ex.InnerException?.Message ?? ex.Message); }
+    }
+    private async Task PedirEliminar(TGrupo grupo)
+    {
+        desdeSin = false;
+        eliminar = grupo; formulario = null; aviso = ""; impacto = null; impactoOk = false;
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var analizador = new AnalizadorImpacto(db);
+            var resultado = typeof(TGrupo) == typeof(GrupoDocumento) ? await analizador.GrupoDocumento(grupo.Id)
+                : typeof(TGrupo) == typeof(GrupoMaterial) ? await analizador.GrupoMaterial(grupo.Id)
+                : typeof(TGrupo) == typeof(GrupoResultadoEnsayo) ? await analizador.GrupoResultadoEnsayo(grupo.Id)
+                : await analizador.GrupoEquipo(grupo.Id);
+            if (eliminar?.Id == grupo.Id) impacto = resultado;
+        }
+        catch (Exception ex) { aviso = "No se pudo calcular el impacto: " + ex.Message; }
+    }
+    private async Task Eliminar()
+    {
+        if (eliminar is null || impacto is null || (impacto.RequiereEntender && !impactoOk)) return;
+        try
+        {
+            var entidad = await Db.Set<TGrupo>().FirstAsync(g => g.Id == eliminar.Id);
+            entidad.Eliminado = true; entidad.FechaEliminacion = DateTime.Now;
+            await Db.SaveChangesAsync(); Db.ChangeTracker.Clear(); Cargar(); await Seleccionar(null);
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); aviso = "No se pudo eliminar: " + (ex.InnerException?.Message ?? ex.Message); }
+    }
+}

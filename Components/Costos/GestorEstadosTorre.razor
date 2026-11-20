@@ -1,0 +1,139 @@
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Catalogos
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+@inject AppDbContext Db
+@inject EstilosCatalogo Estilos
+
+@* Estados de las torres (catálogo "Estado de torre"): nombre, colores, negrita, etapa (en qué cuenta), orden
+   (arrastrar ⠿), agregar y eliminar (solo si ninguna torre lo usa). Renombrar cambia también los estados ya
+   guardados de las torres. Nada se escribe hasta Guardar. *@
+
+<div class="et-gestor-fondo" @onclick="Cerrar"></div>
+<div class="et-gestor" role="dialog" aria-label="Estados de las torres">
+    <div class="et-gestor-cab">
+        <Ico Nombre="paleta" /><span>Estados de las torres</span>
+        <button type="button" class="et-btn" title="Agregar estado" @onclick="Agregar"><Ico Nombre="agregar" /></button>
+        <button type="button" class="btn-close ms-auto" title="Cerrar" @onclick="Cerrar"></button>
+    </div>
+    @if (error is not null) { <div class="alert alert-danger py-1 px-2 my-2 small">@error</div> }
+    <div class="et-gestor-lista">
+        <div class="et-g-fila et-g-tit"><span></span><span>Vista</span><span>Nombre</span><span>Fondo</span><span>Texto</span><span title="Negrita">N</span><span>Cuenta como</span><span title="Torres con este estado">Torres</span><span></span></div>
+        @foreach (var f in filas.Where(f => !f.Borrar))
+        {
+            var usos = Usos(f);
+            <div class="et-g-fila @(arr == f ? "arr-origen" : "") @(sobre == f && arr != f ? "arr-sobre" : "")"
+                 @ondragover:preventDefault="true" @ondragenter="() => sobre = f" @ondrop="() => Soltar(f)">
+                <span class="arr-asa" draggable="true" data-arrastre title="Arrastrar para reordenar" @ondragstart="() => arr = f" @ondragend="() => arr = sobre = null">⠿</span>
+                <span class="et-t et-g-mues @(EstadoTorres.EnProceso(f.Etapa) ? "proc" : "")" style="--f:@f.Fondo;--c:@f.Texto;font-weight:@(f.Negrita ? 700 : 400)">@(string.IsNullOrWhiteSpace(f.Nombre) ? "—" : "123N")</span>
+                <input class="form-control form-control-sm" @bind="f.Nombre" placeholder="Nombre" />
+                <input type="color" class="form-control form-control-sm form-control-color" @bind="f.Fondo" title="Color de fondo" />
+                <input type="color" class="form-control form-control-sm form-control-color" @bind="f.Texto" title="Color del texto" />
+                <input type="checkbox" class="form-check-input" @bind="f.Negrita" title="Negrita" />
+                <select class="form-select form-select-sm" @bind="f.Etapa" title="En qué cuenta para el resumen y para Control por tiro">
+                    @foreach (var (e, n) in EstadoTorres.NombresEtapa) { <option value="@e">@n</option> }
+                </select>
+                <span class="et-g-usos">@(usos == 0 ? "" : usos.ToString())</span>
+                <button type="button" class="et-btn" title="@(usos > 0 ? $"No se puede eliminar: {usos} torre(s) lo usan" : "Eliminar")" disabled="@(usos > 0)" @onclick="() => Quitar(f)"><Ico Nombre="eliminar" /></button>
+            </div>
+        }
+    </div>
+    <div class="et-gestor-pie frm-pie frm-pie-plano">
+        <button type="button" class="btn btn-sm btn-secondary" title="Cancelar" @onclick="Cerrar"><Ico Nombre="cancelar" /></button>
+        <button type="button" class="btn btn-sm btn-primary" title="Guardar" disabled="@guardando" @onclick="Guardar"><Ico Nombre="guardar" /></button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public InstantaneaCostos S { get; set; } = default!;
+    [Parameter] public EventCallback OnCerrar { get; set; }
+    [Parameter] public EventCallback OnGuardado { get; set; }
+
+    private sealed class Fila
+    {
+        public int Id; public string Original = ""; public string Nombre = ""; public string Fondo = "#e5e7eb"; public string Texto = "#222222";
+        public bool Negrita = true; public EstadoTorres.Etapa Etapa; public bool Borrar;
+    }
+
+    private List<Fila> filas = new();
+    private Fila? arr, sobre;
+    private string? error;
+    private bool guardando;
+
+    protected override void OnInitialized()
+    {
+        filas = S.EstadosCatalogo.Select(c => new Fila
+        {
+            Id = c.Id, Original = c.Nombre, Nombre = c.Nombre, Fondo = Hex(c.ColorFondo, "#e5e7eb"), Texto = Hex(c.ColorTexto, "#222222"),
+            Negrita = c.Negrita, Etapa = EstadoTorres.EtapaDe(c.Nombre, S.EstadosCatalogo)
+        }).ToList();
+    }
+
+    private static string Hex(string? c, string def) => c is { Length: 7 } && c[0] == '#' ? c.ToLowerInvariant() : def;
+
+    // Torres que hoy (último estado) usan el estado: impiden eliminarlo.
+    private int Usos(Fila f) => f.Id == 0 ? 0 : S.EstadosManuales.GroupBy(e => e.ElementoTrazadoId)
+        .Select(g => g.OrderByDescending(e => e.Desde).ThenByDescending(e => e.Id).First())
+        .Count(e => EstadoTorres.Clave(e.Estado) == EstadoTorres.Clave(f.Original));
+
+    private void Agregar() => filas.Add(new Fila { Nombre = "NUEVO ESTADO", Etapa = EstadoTorres.Etapa.Pendiente, Fondo = "#9ca3af", Texto = "#ffffff" });
+    private void Quitar(Fila f) { if (f.Id == 0) filas.Remove(f); else f.Borrar = true; }
+
+    private void Soltar(Fila destino)
+    {
+        var o = arr; arr = sobre = null;
+        if (o is null || o == destino) return;
+        filas.Remove(o);
+        filas.Insert(filas.IndexOf(destino), o);
+    }
+
+    private Task Cerrar() => OnCerrar.InvokeAsync();
+
+    private async Task Guardar()
+    {
+        error = null;
+        var vivas = filas.Where(f => !f.Borrar).ToList();
+        foreach (var f in vivas) f.Nombre = (f.Nombre ?? "").Trim().ToUpperInvariant();
+        if (vivas.Any(f => f.Nombre == "")) { error = "Todos los estados necesitan nombre."; return; }
+        if (vivas.GroupBy(f => EstadoTorres.Clave(f.Nombre)).Any(g => g.Count() > 1)) { error = "Hay dos estados con el mismo nombre."; return; }
+        guardando = true;
+        try
+        {
+            var items = await Db.Catalogos.Where(c => c.Tipo == EstadoTorres.Catalogo).ToListAsync();
+            foreach (var f in filas.Where(f => f.Borrar && f.Id != 0))
+                if (items.FirstOrDefault(i => i.Id == f.Id) is { } i) Db.Catalogos.Remove(i);
+            var renombres = new List<(string De, string A)>();
+            foreach (var f in vivas)
+            {
+                var i = f.Id == 0 ? null : items.FirstOrDefault(x => x.Id == f.Id);
+                if (i is null) { i = new ItemCatalogo { Tipo = EstadoTorres.Catalogo, Estilo = "personalizado", Forma = "celda" }; Db.Catalogos.Add(i); }
+                else if (EstadoTorres.Clave(i.Nombre) != EstadoTorres.Clave(f.Nombre)) renombres.Add((i.Nombre, f.Nombre));
+                i.Nombre = f.Nombre; i.ColorFondo = f.Fondo; i.ColorTexto = f.Texto; i.Negrita = f.Negrita; i.Activo = true;
+                i.Descripcion = EstadoTorres.NombresEtapa[f.Etapa];
+            }
+            if (renombres.Count > 0)
+            {
+                var claves = renombres.ToDictionary(r => EstadoTorres.Clave(r.De), r => r.A);
+                foreach (var e in await Db.EstadosTorreManual.ToListAsync())
+                    if (claves.TryGetValue(EstadoTorres.Clave(e.Estado), out var nuevo)) e.Estado = nuevo;
+            }
+            await Db.SaveChangesAsync();
+            var cfg = await Db.ConfiguracionCostos.OrderBy(c => c.Id).FirstOrDefaultAsync();
+            if (cfg is null) Db.ConfiguracionCostos.Add(cfg = new ConfiguracionCostos());
+            var borradas = filas.Where(f => f.Borrar).Select(f => f.Id).ToHashSet();
+            var porNombre = items.Concat(Db.ChangeTracker.Entries<ItemCatalogo>().Select(x => x.Entity)).Distinct().Where(i => !borradas.Contains(i.Id)).ToList();
+            cfg.OrdenEstadosTorre = string.Join(",", vivas.Select(f => porNombre.First(i => EstadoTorres.Clave(i.Nombre) == EstadoTorres.Clave(f.Nombre)).Id));
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            Estilos.Recargar();
+            await OnGuardado.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            error = "No se pudo guardar: " + (ex.InnerException?.Message ?? ex.Message);
+        }
+        finally { guardando = false; }
+    }
+}

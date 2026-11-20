@@ -1,0 +1,21 @@
+/* Íconos en todos los temas (revisión 2026-11-16: menú expandido y en barra, encabezado y botones medidos en institucional,
+   oscuro, cristal, cálido y empresarial). Va después de temas.css. Solo lo que se encontró mal. */
+
+/* Controles sobre el mapa (Leaflet): el botón de pantalla completa heredaba el texto claro del tema sobre su fondo blanco. */
+.btn-mapa-pantalla-completa { color: #1f2a3a; }
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .btn-mapa-pantalla-completa,
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .leaflet-bar a,
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .leaflet-control-layers {
+    background: var(--t-solido, var(--t-superficie)) !important;
+    color: var(--t-texto) !important;
+    border-color: var(--t-borde) !important;
+}
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .btn-mapa-pantalla-completa:hover,
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .leaflet-bar a:hover { background: var(--t-solido-2, var(--t-superficie-2)) !important; }
+/* El ícono de capas de Leaflet es una imagen oscura: se invierte conservando el tono (regla de la casa: nunca brightness(0)). */
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .leaflet-control-layers-toggle { filter: invert(1) hue-rotate(180deg); }
+html:is([data-tema="oscuro"],[data-tema="cristal"]) .leaflet-control-layers-expanded { color: var(--t-texto); }
+
+/* Foco de teclado visible en los botones del encabezado y del menú (antes solo cambiaba con el mouse). */
+.pg-cab :is(.pg-btn, .pg-atras):focus-visible,
+.sidebar :is(.nav-link, .nav-buscar):focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }

@@ -1,0 +1,1325 @@
+@page "/catalogos"
+@rendermode InteractiveServer
+<link rel="stylesheet" href="css/catalogos.css" />
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using SigWeb.Data
+@using SigWeb.Models
+@using SigWeb.Data.Tablas
+@inject IServiceScopeFactory Scopes
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@inject SigWeb.Data.Iconos.IconosApp IconosApp
+@inject SigWeb.Data.Catalogos.EstilosCatalogo EstilosCat
+@inject IWebHostEnvironment Env
+@inject SigWeb.Data.Impacto.AnalizadorImpacto Analizador
+
+@if (iconoUsarEn is not null)
+{
+    <DialogoUsarIcono Icono="iconoUsarEn" OnCerrar="CerrarUsarEn" />
+}
+
+@if (verCampos && motor is not null && EnDetalle)
+{
+    <PanelCampos Motor="motor" OnCerrar="() => verCampos = false" OnCambio="StateHasChanged" />
+}
+
+@if (EnDetalle)
+{
+    <EncabezadoPagina Titulo="@definicionActual!.Nombre" Subtitulo="@definicionActual.EntidadAsociada" IconoUrl="@RutaIconoCatalogo(definicionActual.IconoCatalogoId)" OnAtras="AtrasCatalogos">
+        <Acciones>
+            <BotonCampos Activo="verCampos" Deshabilitado="motor is null" OnClick="() => verCampos = true" />
+            <BotonExportar Titulo="@definicionActual.Nombre" />
+            <span class="pg-sep"></span>
+            <button type="button" class="pg-btn pg-btn-peligro" title="Eliminar este catálogo" aria-label="Eliminar este catálogo" @onclick="() => PedirEliminarCatalogo(definicionActual)"><Ico Nombre="eliminar" /></button>
+            <button type="button" class="pg-btn pg-btn-primario" title="Nuevo ítem" aria-label="Nuevo ítem" @onclick="AlternarFormItem"><Ico Nombre="agregar" /></button>
+        </Acciones>
+    </EncabezadoPagina>
+}
+else
+{
+    <EncabezadoPagina Titulo="Catálogos maestros" Icono="catalogos" OnAtras="AtrasCatalogos">
+        <Acciones>
+            <button type="button" class="pg-btn @(pestana == "catalogos" ? "activo" : "")" title="Catálogos" aria-label="Catálogos" @onclick='() => pestana = "catalogos"'><Ico Nombre="catalogos" /></button>
+            <button type="button" class="pg-btn @(pestana == "iconos" ? "activo" : "")" title="Galería de íconos" aria-label="Galería de íconos" @onclick='() => pestana = "iconos"'><Ico Nombre="iconos" /></button>
+            <button type="button" class="pg-btn @(pestana == "plantillas" ? "activo" : "")" title="Plantillas de proyecto" aria-label="Plantillas de proyecto" @onclick='() => pestana = "plantillas"'><Ico Nombre="cargar-excel" /></button>
+            @if (pestana == "catalogos")
+            {
+                <span class="pg-sep"></span>
+                <button type="button" class="pg-btn pg-btn-primario @(mostrarNuevoCatalogo ? "activo" : "")" title="Nuevo catálogo" aria-label="Nuevo catálogo" @onclick="@(() => mostrarNuevoCatalogo = !mostrarNuevoCatalogo)"><Ico Nombre="agregar" /></button>
+            }
+        </Acciones>
+    </EncabezadoPagina>
+}
+
+@if (pestana == "catalogos")
+{
+    @if (!EnDetalle)
+    {
+    <div class="cm-marco">
+    <aside class="cm-mods" aria-label="Módulos">
+        <button type="button" class="cm-mod @(moduloSel is null ? "activo" : "")" @onclick="() => ElegirModulo(null)"><span>Todos</span><span class="cm-n">@definiciones.Count</span></button>
+        <button type="button" class="cm-mod @(moduloSel == "" ? "activo" : "")" title="Catálogos que usan varios módulos" @onclick='() => ElegirModulo("")'><span>General</span><span class="cm-n">@ConteoModulo("")</span></button>
+        @foreach (var g in SigWeb.Data.Navegacion.MapaNavegacion.Modulos().GroupBy(m => m.Grupo).OrderBy(g => Array.IndexOf(SigWeb.Data.Navegacion.MapaNavegacion.OrdenGrupos, g.Key)))
+        {
+            <div class="cm-grupo">@g.Key</div>
+            @foreach (var m in g)
+            {
+                var n = ConteoModulo(m.Href);
+                <button type="button" class="cm-mod @(moduloSel == m.Href ? "activo" : "") @(n == 0 ? "cm-vacio" : "")" @onclick="() => ElegirModulo(m.Href)"><span>@m.Nombre</span>@if (n > 0) { <span class="cm-n">@n</span> }</button>
+            }
+        }
+    </aside>
+    <div class="cm-lista">
+    @if (avisoHerencia != "")
+    {
+        <div class="alert alert-success py-1 small d-flex align-items-center gap-2">@avisoHerencia
+            <button type="button" class="btn-close ms-auto" title="Cerrar" @onclick='() => avisoHerencia = ""'></button></div>
+    }
+    <div class="ens-barra mb-3">
+        <input class="form-control form-control-sm" style="max-width:260px;" placeholder="Buscar catálogo..." @bind="filtroCatalogos" @bind:event="oninput" />
+    </div>
+
+    @if (mostrarNuevoCatalogo)
+    {
+        @if (volverAFormularios)
+        {
+            <div class="alert alert-info py-1 small d-flex align-items-center gap-2">
+                <Ico Nombre="formularios" /> Catálogo para el diseñador de formularios: al guardar (o cancelar) vuelve al formulario donde lo dejó.
+            </div>
+        }
+        <FormularioSig Titulo="Nuevo catálogo" Icono="catalogos" Clase="mb-3" OnCerrar="CancelarNuevoCatalogo">
+            <ChildContent>
+                <SeccionFormulario Titulo="Catálogo">
+                    <div class="col-auto d-flex align-items-end">
+                        <button type="button" class="frm-icono-btn" title="Elegir ícono"
+                                @onclick="@(() => mostrarSelectorIconoCatalogo = !mostrarSelectorIconoCatalogo)">
+                            <img src="@RutaIconoCatalogo(nuevoCatalogoIconoId)" alt="" />
+                        </button>
+                    </div>
+                    <CampoFormulario Etiqueta="Nombre" Ancho="col-md-4" Obligatorio="true" Destacado="true">
+                        <input class="form-control" @bind="nuevoCatalogoNombre" placeholder="Equipos de medición" />
+                    </CampoFormulario>
+                    <CampoFormulario Etiqueta="Módulo" Ancho="col-md-3">
+                        <select class="form-select" @bind="nuevoCatalogoModulo">@OpcionesModulo()</select>
+                    </CampoFormulario>
+                    <CampoFormulario Etiqueta="Descripción (opcional)" Ancho="col">
+                        <input class="form-control" @bind="nuevoCatalogoEntidad" placeholder="Para qué sirve: p. ej. especialidad que reporta el hallazgo" />
+                    </CampoFormulario>
+                    @if (mostrarSelectorIconoCatalogo)
+                    {
+                        <div class="col-12">
+                            <SelectorIconos Iconos="iconosGaleria" IconoSeleccionadoId="nuevoCatalogoIconoId" PermitirNinguno="false"
+                                            OnSeleccionar="@(id => { nuevoCatalogoIconoId = id; mostrarSelectorIconoCatalogo = false; })" />
+                        </div>
+                    }
+                </SeccionFormulario>
+
+                <SeccionFormulario Titulo="Opciones">
+                    <CampoFormulario Etiqueta="Opciones iniciales (una por línea; se pueden agregar después)" Ancho="col-12">
+                        <textarea class="form-control" rows="4" @bind="nuevoCatalogoOpciones"></textarea>
+                    </CampoFormulario>
+                </SeccionFormulario>
+
+                <SeccionFormulario Titulo="Campos de cada ítem" SinFila="true">
+                    <Extra>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Agregar campo" @onclick="@(() => nuevoCatalogoCampos.Add(new CampoNuevoCatalogoForm()))"><Ico Nombre="agregar" /></button>
+                    </Extra>
+                    <ChildContent>
+                        <div class="frm-filas">
+                            <div class="frm-fila">
+                                <span class="frm-fila-n" title="Siempre incluido"><Ico Nombre="candado" /></span>
+                                <input class="form-control" value="Nombre" disabled />
+                                <input class="form-control" value="Descripción" disabled />
+                            </div>
+                            @for (var i = 0; i < nuevoCatalogoCampos.Count; i++)
+                            {
+                                var campo = nuevoCatalogoCampos[i];
+                                var n = i + 1;
+                                <div class="frm-fila" @key="campo">
+                                    <span class="frm-fila-n">@n</span>
+                                    <input class="form-control" placeholder="Nombre del campo" @bind="campo.Nombre" />
+                                    <select class="form-select" style="max-width:180px;" title="Tipo de dato" @bind="campo.Tipo">
+                                        <option value="@TipoCampoCatalogo.Texto">Texto</option>
+                                        <option value="@TipoCampoCatalogo.Numero">Número</option>
+                                        <option value="@TipoCampoCatalogo.Fecha">Fecha</option>
+                                        <option value="@TipoCampoCatalogo.SiNo">Sí / No</option>
+                                    </select>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Quitar campo" @onclick="() => nuevoCatalogoCampos.Remove(campo)"><Ico Nombre="eliminar" /></button>
+                                </div>
+                            }
+                        </div>
+                    </ChildContent>
+                </SeccionFormulario>
+
+                @if (!string.IsNullOrEmpty(mensajeNuevoCatalogo))
+                {
+                    <div class="alert alert-warning py-1 mt-3 mb-0">@mensajeNuevoCatalogo</div>
+                }
+            </ChildContent>
+            <Acciones>
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="CancelarNuevoCatalogo"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary btn-sm" title="Crear catálogo" @onclick="CrearCatalogo"><Ico Nombre="guardar" /></button>
+            </Acciones>
+        </FormularioSig>
+    }
+
+    @if (catalogoEditar is not null)
+    {
+        <FormularioSig Titulo="Editar catálogo" Icono="editar" Clase="mb-3" OnCerrar="() => catalogoEditar = null">
+            <ChildContent>
+                <SeccionFormulario Titulo="Catálogo">
+                    <CampoFormulario Etiqueta="Nombre" Ancho="col-md-5"><input class="form-control" value="@catalogoEditar.Nombre" readonly title="Clave usada por los módulos y sus ítems" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Módulo" Ancho="col-md-3"><select class="form-select" @bind="catalogoEditarModulo">@OpcionesModulo()</select></CampoFormulario>
+                    <CampoFormulario Etiqueta="Descripción (opcional)" Ancho="col-md-4"><input class="form-control" @bind="catalogoEditar.EntidadAsociada" /></CampoFormulario>
+                    <div class="col-12"><SelectorIconos Iconos="iconosGaleria" IconoSeleccionadoId="catalogoEditar.IconoCatalogoId" PermitirNinguno="true" OnSeleccionar="id => catalogoEditar.IconoCatalogoId = id" /></div>
+                </SeccionFormulario>
+                @if (errorEditarCatalogo.Length > 0) { <div class="alert alert-warning">@errorEditarCatalogo</div> }
+            </ChildContent>
+            <Acciones><button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => catalogoEditar = null"><Ico Nombre="cancelar" /></button><button type="button" class="btn btn-primary btn-sm" title="Guardar" @onclick="GuardarCatalogoEditado"><Ico Nombre="guardar" /></button></Acciones>
+        </FormularioSig>
+    }
+    <div class="tabla-scroll tabla-auto cat-maestros">
+        <table class="table table-sm table-bordered table-hover tabla-compacta align-middle tabla-pin mb-0">
+            <thead><tr><th>Catálogo</th><th class="text-end">Ítems</th><th>Módulo</th><th>Usado en</th><th>Descripción</th><th aria-label="Acciones"></th></tr></thead>
+            <tbody>
+                @foreach (var d in DefinicionesMostradas)
+                {
+                    <tr @key="d.Id" class="cat-fila" @onclick="() => AbrirCatalogo(d)">
+                        <td><button type="button" class="cat-abrir" title="@($"Abrir {d.Nombre}")"><img class="ico-img" src="@RutaIconoCatalogo(d.IconoCatalogoId)" alt="" /><span>@d.Nombre</span></button></td>
+                        <td class="text-end">@conteoItems.GetValueOrDefault(d.Nombre)</td>
+                        <td class="small text-nowrap">@SigWeb.Data.Catalogos.ModulosCatalogo.NombreModulo(d.Modulo)</td>
+                        <td class="small">@if (usos.TryGetValue(d.Nombre, out var us)) { @foreach (var u in us) { <span class="cm-uso">@u</span> } } else { <span class="text-muted">—</span> }</td>
+                        <td class="text-muted small">@d.EntidadAsociada</td>
+                        <td class="text-nowrap cat-fila-acciones" @onclick:stopPropagation="true">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Abrir ítems" @onclick="() => AbrirCatalogo(d)"><Ico Nombre="listado" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar catálogo" @onclick="() => EditarCatalogo(d)"><Ico Nombre="editar" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar catálogo" @onclick="() => PedirEliminarCatalogo(d)"><Ico Nombre="eliminar" /></button>
+                        </td>
+                    </tr>
+                }
+                @if (!DefinicionesMostradas.Any()) { <tr><td colspan="6" class="text-muted text-center py-3">@(moduloSel is null ? "Sin catálogos que coincidan." : $"{SigWeb.Data.Catalogos.ModulosCatalogo.NombreModulo(moduloSel)} aún no tiene catálogos: créelo con +.")</td></tr> }
+            </tbody>
+        </table>
+    </div>
+    </div>
+    </div>
+
+    }
+
+    @if (elimCatalogo is not null)
+    {
+        <div class="card panel-formulario mb-3 border-danger">
+            <div class="card-body">
+                <div class="mb-2">🗑 <strong>@elimCatalogo.Nombre</strong></div>
+                <PanelImpacto Informe="impacto" OnEntendido="@(v => impactoOk = v)" />
+                <div class="frm-pie frm-pie-plano">
+                    <button class="btn btn-secondary btn-sm" type="button" title="Cancelar" @onclick="CancelarEliminarCatalogo"><Ico Nombre="cancelar" /></button>
+                    <button data-texto="Eliminar" class="btn btn-danger btn-sm" type="button" title="Eliminar (va a la Papelera)" disabled="@BloqueadoPorImpacto" @onclick="EliminarCatalogoActual"><Ico Nombre="eliminar" /></button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (EnDetalle)
+    {
+        <div class="ens-barra mb-3">
+            <input class="form-control form-control-sm" style="max-width:300px;" placeholder="Buscar..." @bind="filtro" @bind:event="oninput" />
+            <span class="text-muted small">@ItemsMostrados.Count()</span>
+        </div>
+        @if (desdeFormularios)
+        {
+            <div class="alert alert-info py-1 small d-flex align-items-center gap-2">
+                <Ico Nombre="formularios" /> Opciones de un campo del diseñador de formularios.
+                <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" title="Volver al diseñador de formularios" @onclick="VolverAlDisenadorAsync"><Ico Nombre="formularios" /></button>
+            </div>
+        }
+        @if (avisoHerencia != "")
+        {
+            <div class="alert alert-success py-1 small d-flex align-items-center gap-2">@avisoHerencia
+                <button type="button" class="btn-close ms-auto" title="Cerrar" @onclick='() => avisoHerencia = ""'></button></div>
+        }
+
+        @if (mostrarFormItem)
+        {
+            <FormularioSig Titulo="@(modoEdicion ? "Editar ítem" : "Nuevo ítem")" Icono="@(modoEdicion ? "editar" : "agregar")" Clase="mb-3" OnCerrar="CerrarFormItem">
+                <Subtitulo>@tipoSeleccionado</Subtitulo>
+                <ChildContent>
+    <EditForm Model="itemActual" OnValidSubmit="Guardar" FormName="CatalogoForm">
+        <SeccionFormulario Titulo="Ítem">
+            <CampoFormulario Etiqueta="Nombre" Ancho="col-md-5" Obligatorio="true" Destacado="true">
+                <InputText class="form-control" @bind-Value="itemActual.Nombre" />
+            </CampoFormulario>
+            <CampoFormulario Etiqueta="Descripción" Ancho="col-md-7">
+                <InputText class="form-control" @bind-Value="itemActual.Descripcion" />
+            </CampoFormulario>
+        </SeccionFormulario>
+
+        <SeccionFormulario Titulo="Formato" SinFila="true">
+        @* Formato con que se ve este valor en todas las listas (igual que los formatos de "Campos"). *@
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="pc-paleta">
+                <button type="button" class="pc-swatch @(string.IsNullOrEmpty(itemActual.Estilo) ? "activo" : "")" title="Sin formato" @onclick="() => itemActual.Estilo = null">∅</button>
+                @foreach (var p in SigWeb.Data.Tablas.MotorTabla.Paleta)
+                {
+                    <button type="button" class="pc-swatch @(itemActual.Estilo == p.Clave ? "activo" : "")" title="@p.Nombre" @onclick="() => itemActual.Estilo = p.Clave"
+                            style="background:@p.Fondo;color:@p.Texto">Aa</button>
+                }
+                <button type="button" class="pc-swatch pc-swatch-pers @(itemActual.Estilo == "personalizado" ? "activo" : "")" title="Personalizado"
+                        @onclick='() => { itemActual.Estilo = "personalizado"; itemActual.ColorFondo ??= "#e9ecef"; itemActual.ColorTexto ??= "#212529"; }'><Ico Nombre="editar" /></button>
+            </div>
+            @if (itemActual.Estilo == "personalizado")
+            {
+                <label class="d-flex gap-1 align-items-center mb-0 small">Texto <input type="color" class="form-control form-control-color form-control-sm" value="@(itemActual.ColorTexto ?? "#212529")" @oninput='ev => itemActual.ColorTexto = ev.Value?.ToString()' /></label>
+                <label class="d-flex gap-1 align-items-center mb-0 small">Fondo <input type="color" class="form-control form-control-color form-control-sm" value="@(itemActual.ColorFondo ?? "#ffffff")" @oninput='ev => itemActual.ColorFondo = ev.Value?.ToString()' /></label>
+            }
+            @if (!string.IsNullOrEmpty(itemActual.Estilo))
+            {
+                <select class="form-select form-select-sm" style="max-width:150px" @bind="itemActual.Forma">
+                    <option value="pildora">Píldora</option>
+                    <option value="celda">Recuadro</option>
+                    <option value="texto">Solo el texto</option>
+                </select>
+                <label class="form-check mb-0 small"><input type="checkbox" class="form-check-input" @bind="itemActual.Negrita" /> Negrita</label>
+            }
+        </div>
+        @* Así se verá la lista: todas las opciones del catálogo, con la que se está editando ya con su formato nuevo. *@
+        <div class="cm-vista">
+            <span class="cm-vista-tit">Así se ven las opciones:</span>
+            @foreach (var o in items.Where(o => o.Activo || o.Id == itemActual.Id))
+            {
+                @if (o.Id == itemActual.Id && itemActual.Id != 0) { @VistaItem(itemActual, true) }
+                else { <ValorCatalogo Tipo="@o.Tipo" Valor="@o.Nombre" ClaseSinFormato="cm-vista-sin" /> }
+            }
+            @if (itemActual.Id == 0) { @VistaItem(itemActual, true) }
+        </div>
+
+        </SeccionFormulario>
+
+        @if (camposDelCatalogoActual.Count > 0)
+        {
+            <SeccionFormulario Titulo="Campos">
+                @foreach (var campo in camposDelCatalogoActual)
+                {
+                    <div class="col-md-3 frm-campo">
+                        <label class="form-label">@campo.Nombre</label>
+                        @if (campo.Tipo == TipoCampoCatalogo.Fecha)
+                        {
+                            <input type="date" class="form-control form-control-sm" value="@ValorCampo(campo.Nombre)"
+                                   @onchange='e => EstablecerValorCampo(campo.Nombre, e.Value?.ToString())' />
+                        }
+                        else if (campo.Tipo == TipoCampoCatalogo.Numero)
+                        {
+                            <input type="number" step="any" class="form-control form-control-sm" value="@ValorCampo(campo.Nombre)"
+                                   @onchange='e => EstablecerValorCampo(campo.Nombre, e.Value?.ToString())' />
+                        }
+                        else if (campo.Tipo == TipoCampoCatalogo.SiNo)
+                        {
+                            <div class="form-check mt-1">
+                                <input type="checkbox" class="form-check-input" checked='@EsVerdadero(campo.Nombre)'
+                                       @onchange='e => EstablecerValorCampoCheckbox(campo.Nombre, e.Value is bool b && b)' />
+                            </div>
+                        }
+                        else
+                        {
+                            <input class="form-control form-control-sm" value="@ValorCampo(campo.Nombre)"
+                                   @onchange='e => EstablecerValorCampo(campo.Nombre, e.Value?.ToString())' />
+                        }
+                    </div>
+                }
+            </SeccionFormulario>
+        }
+
+        @if (!string.IsNullOrEmpty(mensaje))
+        {
+            <div class="alert alert-warning py-1 mt-3 mb-0">@mensaje</div>
+        }
+        <div class="frm-pie">
+            <button class="btn btn-secondary btn-sm" type="button" @onclick="CerrarFormItem" title="Cancelar"><Ico Nombre="cancelar" /></button>
+            <button class="btn btn-primary btn-sm" type="submit" title="@(modoEdicion ? "Guardar" : "Agregar")"><Ico Nombre="@(modoEdicion ? "guardar" : "agregar")" /></button>
+        </div>
+    </EditForm>
+                </ChildContent>
+            </FormularioSig>
+        }
+
+        <div class="tabla-scroll"><table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin">
+            <thead>
+                <tr>
+                    @foreach (var c in Columnas)
+                    {
+                        <th class="th-ordenable" @onclick="() => OrdenarPor(c.Clave)">@c.Nombre@(Flecha(c.Clave))</th>
+                    }
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var i in ItemsMostrados)
+                {
+                    <tr class="@(!i.Activo ? "text-muted" : "")">
+                        @foreach (var c in Columnas)
+                        {
+                            if (c.Origen == OrigenCampoTabla.Nativo && c.Clave == "Nombre" && Motor.Estilo(i.Id, c) is null)
+                            {
+                                <td>
+                            @if (mostrarFormItem && modoEdicion && itemActual.Id == i.Id) { @VistaItem(itemActual, false) }
+                            else { <ValorCatalogo Tipo="@i.Tipo" Valor="@i.Nombre" /> }
+                            @if (i.ElementoTrazadoId is not null)
+                            {
+                                <span class="badge bg-info text-dark ms-1" title="Se actualiza automáticamente desde el Trazado">🗺</span>
+                            }
+                        </td>
+                            }
+                            else
+                            {
+                                <CeldaCampo Motor="Motor" Campo="c" Fila="i.Id" OnCambio="StateHasChanged" />
+                            }
+                        }
+                        <td class="text-nowrap">
+                            <button type="button" class="btn btn-sm btn-outline-primary" title="Editar" @onclick="() => EditarItem(i)"><Ico Nombre="editar" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="@(i.Activo ? "Desactivar" : "Activar")" @onclick="() => CambiarEstado(i)"><span class="@(i.Activo ? "" : "ico-apagado")"><Ico Nombre="activar" /></span></button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table></div>
+        @if (!ItemsMostrados.Any())
+        {
+            <p class="text-muted small mt-2">Sin ítems.</p>
+        }
+    }
+}
+else if (pestana == "plantillas")
+{
+    <PanelPlantillasProyecto />
+}
+else if (pestana == "iconos")
+{
+    @* El logo de la app ya no se elige aquí: es uno para todos los proyectos y lo cambia el administrador en Administración › Sistema. *@
+    <div class="card panel-formulario">
+        <div class="card-header">Galería de íconos</div>
+        <div class="card-body">
+
+            @if (mostrarCargaImagen)
+            {
+                <FormularioSig Titulo="Cargar imagen" Icono="agregar" Clase="mb-3" OnCerrar="CerrarCargaImagen">
+                    <ChildContent>
+                        <SeccionFormulario Titulo="Imagen o ícono">
+                            <CampoFormulario Etiqueta="Archivo SVG o PNG (máximo 2 MB)" Ancho="col-12" Obligatorio="true"><InputFile class="form-control" OnChange="SeleccionarImagen" accept=".svg,.png,image/svg+xml,image/png" disabled="@guardandoImagen" /></CampoFormulario>
+                            <CampoFormulario Etiqueta="Nombre" Ancho="col-md-6"><input class="form-control" @bind="nombreNuevoIcono" placeholder="Nombre de la imagen" disabled="@guardandoImagen" /></CampoFormulario>
+                            <CampoFormulario Etiqueta="Categoría" Ancho="col-md-6"><input class="form-control" list="categoriasIcono" @bind="categoriaNuevoIcono" disabled="@guardandoImagen" /></CampoFormulario>
+                        </SeccionFormulario>
+                    </ChildContent>
+                    <Acciones>
+                        <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" disabled="@guardandoImagen" @onclick="CerrarCargaImagen"><Ico Nombre="cancelar" /></button>
+                        <button type="button" class="btn btn-primary btn-sm" title="Guardar imagen" disabled="@(archivoNuevoIcono is null || guardandoImagen)" @onclick="GuardarImagen"><Ico Nombre="guardar" /></button>
+                    </Acciones>
+                </FormularioSig>
+            }
+            <datalist id="categoriasIcono">@foreach (var c in CategoriasIconoSugeridas.Concat(iconosGaleria.Select(i => i.Categoria)).Distinct().OrderBy(c => c)) { <option value="@c" /> }</datalist>
+            @if (!string.IsNullOrEmpty(mensajeIconos))
+            {
+                <div class="alert @(errorIconos ? "alert-warning" : "alert-success") py-1">@mensajeIconos</div>
+            }
+
+            @if (iconoEliminar is not null)
+            {
+                <div class="border border-danger rounded p-2 mb-3">
+                    <strong>@iconoEliminar.Nombre</strong>
+                    <PanelImpacto Informe="impactoIcono" OnEntendido="v => impactoIconoOk = v" />
+                    <p class="small">El ícono irá a la Papelera y dejará de ofrecerse en la galería. Las referencias se conservan para restaurarlo; al purgar quedan sin ícono.</p>
+                    <div class="frm-pie frm-pie-plano">
+                        <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="CancelarEliminarIcono"><Ico Nombre="cancelar" /></button>
+                        <button type="button" class="btn btn-danger btn-sm" title="Eliminar ícono" disabled="@(eliminandoIcono || impactoIcono is null || (impactoIcono.RequiereEntender && !impactoIconoOk))" @onclick="EliminarIcono"><Ico Nombre="eliminar" /></button>
+                    </div>
+                </div>
+            }
+            <div class="cat-galeria-barra">
+                <input class="form-control form-control-sm" placeholder="Buscar imagen o ícono..." aria-label="Buscar imagen o ícono" @bind="filtroIconos" @bind:event="oninput" />
+                <select class="form-select form-select-sm" aria-label="Filtrar por categoría" @bind="categoriaFiltroIconos">
+                    <option value="">Todas las categorías</option>
+                    @foreach (var c in iconosGaleria.Select(i => i.Categoria).Distinct().OrderBy(c => c)) { <option value="@c">@c</option> }
+                </select>
+                <button type="button" class="cat-accion" title="Ordenar por categoría" @onclick='() => OrdenarIconosPor("Categoria")'><Ico Nombre="carpeta" />@FlechaIconos("Categoria")</button>
+                <button type="button" class="cat-accion" title="Ordenar por nombre" @onclick='() => OrdenarIconosPor("Nombre")'><Ico Nombre="listado" />@FlechaIconos("Nombre")</button>
+                <span class="text-muted small">@IconosMostrados.Count()</span>
+            </div>
+            <div class="cat-galeria">
+                <button type="button" class="cat-imagen cat-imagen-nueva" title="Cargar imagen" @onclick="AbrirCargaImagen"><span class="cat-mas"><Ico Nombre="agregar" /></span><span>Cargar imagen</span><small>SVG o PNG</small></button>
+                @foreach (var icono in IconosMostrados)
+                {
+                    <div @key="icono.Id" class="cat-imagen @(!icono.Activo ? "cat-inactiva" : "")">
+                        <div class="cat-miniatura @(Path.GetExtension(icono.RutaArchivo).Equals(".svg", StringComparison.OrdinalIgnoreCase) ? "cat-svg" : "cat-raster")"><img src="@icono.RutaArchivo" alt="@icono.Nombre" loading="lazy" /></div>
+                        @if (iconoEnEdicionId == icono.Id)
+                        {
+                            <input class="form-control form-control-sm" aria-label="Nombre del ícono" @bind="nombreEdicionIcono" />
+                            <input class="form-control form-control-sm" aria-label="Categoría del ícono" list="categoriasIcono" @bind="categoriaEdicionIcono" />
+                            <div class="cat-acciones"><button type="button" class="cat-accion" title="Cancelar" @onclick="CancelarEdicionIcono"><Ico Nombre="cancelar" /></button><button type="button" class="cat-accion" title="Guardar" @onclick="GuardarEdicionIcono"><Ico Nombre="guardar" /></button></div>
+                        }
+                        else
+                        {
+                            <div class="cat-imagen-nombre" title="@icono.Nombre">@icono.Nombre</div>
+                            <div class="cat-chip" title="@icono.Categoria">@icono.Categoria</div>
+                            <div class="cat-acciones">
+                                @{ var usos = IconosApp.PuntosDe(icono.RutaArchivo).Count; }
+                                <button type="button" class="cat-accion" title="@TituloUsarEn(usos)" disabled="@(!icono.Activo)" @onclick="() => iconoUsarEn = icono"><Ico Nombre="usar-en" /></button>
+                                <button type="button" class="cat-accion" title="Editar" @onclick="() => EditarIcono(icono)"><Ico Nombre="editar" /></button>
+                                <button type="button" class="cat-accion cat-accion-peligro" title="Eliminar ícono (Papelera)" @onclick="() => PedirEliminarIcono(icono)"><Ico Nombre="eliminar" /></button>
+                                <button type="button" class="cat-accion" title="@(icono.Activo ? "Desactivar" : "Activar")" @onclick="() => CambiarEstadoIcono(icono)"><span class="@(icono.Activo ? "" : "ico-apagado")"><Ico Nombre="activar" /></span></button>
+                            </div>
+                        }
+                    </div>
+                }
+                @if (!IconosMostrados.Any()) { <p class="text-muted small cat-sin-resultados">Sin imágenes que coincidan.</p> }
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    private IconoCatalogo? iconoEliminar;
+    private SigWeb.Data.Impacto.InformeImpacto? impactoIcono;
+    private bool impactoIconoOk, eliminandoIcono;
+    private void CancelarEliminarIcono() { iconoEliminar = null; impactoIcono = null; impactoIconoOk = false; }
+    private async Task PedirEliminarIcono(IconoCatalogo icono)
+    {
+        iconoEliminar = icono; impactoIcono = null; impactoIconoOk = false; mensajeIconos = "";
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var resultado = await new SigWeb.Data.Impacto.AnalizadorImpacto(db).Icono(icono.Id);
+            if (iconoEliminar?.Id == icono.Id) impactoIcono = resultado;
+        }
+        catch (Exception ex) { mensajeIconos = "No se pudo calcular el impacto: " + ex.Message; errorIconos = true; }
+    }
+    private async Task EliminarIcono()
+    {
+        if (eliminandoIcono || iconoEliminar is null || impactoIcono is null || (impactoIcono.RequiereEntender && !impactoIconoOk)) return;
+        eliminandoIcono = true;
+        try
+        {
+            var entidad = await Db.IconosCatalogo.FirstAsync(i => i.Id == iconoEliminar.Id);
+            entidad.Eliminado = true; entidad.FechaEliminacion = DateTime.Now;
+            await Db.SaveChangesAsync(); Db.ChangeTracker.Clear();
+            IconosApp.Recargar(); CargarIconos(); CargarDefiniciones();
+            iconoEnEdicionId = null; iconoUsarEn = null; CancelarEliminarIcono();
+            mensajeIconos = "Ícono enviado a la Papelera."; errorIconos = false;
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeIconos = "No se pudo eliminar: " + (ex.InnerException?.Message ?? ex.Message); errorIconos = true; }
+        finally { eliminandoIcono = false; }
+    }
+    private IconoCatalogo? iconoUsarEn;
+    private void CerrarUsarEn() { iconoUsarEn = null; CargarDefiniciones(); }
+
+    // ---------- Campos (columnas visibles, campos creados, fórmulas y formatos), uno por catálogo ----------
+    private MotorTabla? motor;
+    private MotorTabla Motor => motor!;
+    private bool verCampos, motorPendiente = true;
+    private Dictionary<int, ItemCatalogo> itemsPorId = new();
+
+    private IEnumerable<CampoTabla> Columnas => motor?.Visibles ?? Enumerable.Empty<CampoTabla>();
+
+    private IEnumerable<ColumnaNativa> ColumnasNativas()
+    {
+        var l = new List<ColumnaNativa>
+        {
+            new("Nombre", "Nombre", TipoCampoTabla.Texto, id => itemsPorId.TryGetValue(id, out var i) ? i.Nombre : null),
+            new("Descripcion", "Descripción", TipoCampoTabla.Texto, id => itemsPorId.TryGetValue(id, out var i) ? i.Descripcion : null),
+        };
+        foreach (var campo in camposDelCatalogoActual)
+        {
+            var nombre = campo.Nombre;
+            l.Add(new ColumnaNativa("campo:" + nombre, nombre, TipoCampoTabla.Texto,
+                id => valoresPorItem.TryGetValue((id, nombre), out var v) && !string.IsNullOrWhiteSpace(v) ? v : null, true, "Catálogo"));
+        }
+        l.Add(new("Estado", "Estado", TipoCampoTabla.Texto, id => itemsPorId.TryGetValue(id, out var i) ? (i.Activo ? "Activo" : "Inactivo") : null));
+        return l;
+    }
+
+    // CargarLista() es síncrono: el motor de Campos del catálogo abierto se arma después de dibujar.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await AnotarVista(firstRender);
+        if (!motorPendiente || string.IsNullOrEmpty(tipoSeleccionado)) return;
+        motorPendiente = false;
+        try { motor = await MotorTabla.CargarAsync(Db, "catalogo:" + tipoSeleccionado, ColumnasNativas(), items.Select(i => (i.Id, i.Nombre))); }
+        catch { motor = null; }
+        StateHasChanged();
+    }
+
+    private static string TituloUsarEn(int usos) => usos == 0 ? "Usar en…" : usos == 1 ? "Usar en… (hoy en 1 lugar)" : $"Usar en… (hoy en {usos} lugares)";
+
+    private string pestana = "catalogos";
+
+    // ---------- Catálogos ----------
+    private List<DefinicionCatalogo> definiciones = new();
+    private DefinicionCatalogo? definicionActual;
+    private List<CampoCatalogoDefinicion> camposDelCatalogoActual = new();
+    private Dictionary<(int ItemId, string Clave), string> valoresPorItem = new();
+    private Dictionary<string, string> valoresCamposActual = new();
+
+    private string tipoSeleccionado = "Material";
+    private List<ItemCatalogo> items = new();
+    private ItemCatalogo itemActual = new();
+    private bool modoEdicion = false;
+    private string mensaje = "";
+    private string avisoHerencia = "";
+
+    private bool mostrarNuevoCatalogo = false;
+    private string nuevoCatalogoNombre = "";
+    private string nuevoCatalogoEntidad = "";
+    private List<CampoNuevoCatalogoForm> nuevoCatalogoCampos = new();
+    private string mensajeNuevoCatalogo = "";
+
+    private class CampoNuevoCatalogoForm
+    {
+        public string Nombre { get; set; } = "";
+        public TipoCampoCatalogo Tipo { get; set; } = TipoCampoCatalogo.Texto;
+    }
+
+    // ---------- Búsqueda y orden (sobre la lista ya cargada, sin tocar la BD) ----------
+    private string filtro = "";
+    private string columnaOrden = "Nombre";
+    private bool ordenAscendente = true;
+
+    private IEnumerable<ItemCatalogo> ItemsMostrados
+    {
+        get
+        {
+            var query = items.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(filtro))
+            {
+                query = query.Where(i => $"{i.Nombre} {i.Descripcion} {motor?.TextoBusqueda(i.Id)}".Contains(filtro, StringComparison.OrdinalIgnoreCase));
+            }
+            query = columnaOrden switch
+            {
+                "Nombre" => ordenAscendente ? query.OrderBy(i => i.Nombre) : query.OrderByDescending(i => i.Nombre),
+                "Descripcion" => ordenAscendente ? query.OrderBy(i => i.Descripcion) : query.OrderByDescending(i => i.Descripcion),
+                "Estado" => ordenAscendente ? query.OrderBy(i => i.Activo) : query.OrderByDescending(i => i.Activo),
+                _ => motor is null ? query : motor.Ordenar(query, i => i.Id, columnaOrden, ordenAscendente)
+            };
+            return query;
+        }
+    }
+
+    private void OrdenarPor(string columna)
+    {
+        if (columnaOrden == columna) ordenAscendente = !ordenAscendente;
+        else { columnaOrden = columna; ordenAscendente = true; }
+    }
+
+    private string Flecha(string columna) => columnaOrden != columna ? "" : (ordenAscendente ? " ▲" : " ▼");
+
+    private string ValorCampo(string clave) => valoresCamposActual.TryGetValue(clave, out var v) ? v : "";
+    private bool EsVerdadero(string clave) => ValorCampo(clave) == "true";
+    private void EstablecerValorCampo(string clave, string? valor) => valoresCamposActual[clave] = valor ?? "";
+    private void EstablecerValorCampoCheckbox(string clave, bool activo) => valoresCamposActual[clave] = activo ? "true" : "false";
+
+    // --- Logo de la app (ahora se elige de la galería de íconos) ---
+    private const int IdConfiguracionUnica = 1;
+
+    // ?catalogo=Id y ?pestana=iconos: lo abierto se anota en la URL (Atrás desde otra pantalla vuelve igual).
+    [SupplyParameterFromQuery(Name = "catalogo")] public int? CatalogoQ { get; set; }
+    [SupplyParameterFromQuery(Name = "pestana")] public string? PestanaQ { get; set; }
+    [SupplyParameterFromQuery(Name = "desde")] public string? DesdeQ { get; set; }
+    [SupplyParameterFromQuery(Name = "form")] public string? FormVolverQ { get; set; }
+    private string? formVolver;
+
+    protected override void OnInitialized()
+    {
+        // Catálogos sembrados después del arranque (riesgos, auditorías…) también quedan con su módulo.
+        try { SigWeb.Data.Catalogos.ModulosCatalogo.ClasificarPendientes(Db); } catch (Exception ex) { Console.Error.WriteLine("Módulo de catálogos: " + ex.Message); }
+        CargarDefiniciones();
+        if (PestanaQ == "iconos") pestana = "iconos";
+        else if (PestanaQ == "plantillas") pestana = "plantillas";
+        // Los editores de formularios y de vistas pasaron a Configuración › Editor (2026-11-16).
+        else if (PestanaQ is "formularios" or "vistas") { Nav.NavigateTo($"editor?pestana={PestanaQ}", replace: true); return; }
+        if (DesdeQ == "editor") { desdeFormularios = true; formVolver = FormVolverQ; }
+        else if (CatalogoQ is int idCat && definiciones.FirstOrDefault(d => d.Id == idCat) is { } dq) { tipoSeleccionado = dq.Nombre; abierto = true; }
+        CargarLista();
+        CargarIconos();
+        CargarConteos();
+    }
+
+    // ---------- Catálogos: lista de definiciones ----------
+    // Dónde se usa cada catálogo de verdad: campos de lista de tablas/formularios (CampoTabla.CatalogoTipo) y propiedades del
+    // código (PropagadorCatalogo). Es lo que lo "enlaza"; la descripción es solo texto.
+    private Dictionary<string, List<string>> usos = new(StringComparer.OrdinalIgnoreCase);
+
+    private void CargarUsos()
+    {
+        var l = SigWeb.Data.Catalogos.PropagadorCatalogo.Usos().ToList();
+        foreach (var c in Db.CamposTabla.AsNoTracking().Where(c => c.CatalogoTipo != null && !c.Eliminado).Select(c => new { c.CatalogoTipo, c.Tabla, c.Nombre }).ToList())
+        {
+            var f = SigWeb.Data.Formularios.RegistroFormularios.Todos.FirstOrDefault(x => x.Tabla == c.Tabla);
+            var donde = f?.Nombre ?? SigWeb.Data.Navegacion.MapaNavegacion.De(c.Tabla)?.Nombre ?? c.Tabla;
+            l.Add((c.CatalogoTipo!, $"{donde} · {c.Nombre}"));
+        }
+        usos = l.GroupBy(x => x.Item1, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Item2).Distinct().ToList(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void CargarDefiniciones()
+    {
+        definiciones = Db.DefinicionesCatalogo.AsNoTracking().Where(d => d.Activo).OrderBy(d => d.Orden).ThenBy(d => d.Nombre).ToList();
+        try { CargarUsos(); } catch (Exception ex) { Console.Error.WriteLine("Usos de catálogos: " + ex.Message); }
+        if (!definiciones.Any(d => d.Nombre == tipoSeleccionado))
+        {
+            tipoSeleccionado = definiciones.FirstOrDefault()?.Nombre ?? "";
+        }
+    }
+
+    private void CargarLista()
+    {
+        items = Db.Catalogos.AsNoTracking()
+                  .Where(c => c.Tipo == tipoSeleccionado)
+                  .OrderBy(c => c.Nombre)
+                  .ToList();
+
+        definicionActual = definiciones.FirstOrDefault(d => d.Nombre == tipoSeleccionado);
+        itemsPorId = items.ToDictionary(i => i.Id);
+        motorPendiente = true;
+        camposDelCatalogoActual = definicionActual is null
+            ? new()
+            : Db.CamposCatalogoDefinicion.AsNoTracking()
+                .Where(c => c.DefinicionCatalogoId == definicionActual.Id)
+                .OrderBy(c => c.Orden).ThenBy(c => c.Nombre)
+                .ToList();
+
+        var itemIds = items.Select(i => i.Id).ToList();
+        valoresPorItem = itemIds.Count == 0
+            ? new()
+            : Db.ValoresCampoCatalogoItem.AsNoTracking()
+                .Where(v => itemIds.Contains(v.ItemCatalogoId))
+                .ToDictionary(v => (v.ItemCatalogoId, v.Clave), v => v.Valor);
+    }
+
+    // Un fallo de la base (p. ej. un nombre repetido que entró por otra vía) se muestra en el formulario, no tumba la página.
+    private async Task CrearCatalogo()
+    {
+        try { await CrearCatalogoInterno(); }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            var interna = ex; while (interna.InnerException is not null) interna = interna.InnerException;
+            mensajeNuevoCatalogo = "No se pudo crear el catálogo: " + interna.Message;
+        }
+    }
+
+    private async Task CrearCatalogoInterno()
+    {
+        mensajeNuevoCatalogo = "";
+        var nombre = (nuevoCatalogoNombre ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            mensajeNuevoCatalogo = "El nombre del catálogo es obligatorio.";
+            return;
+        }
+
+        // El nombre es único en la base AUN en la Papelera (índice IX_DefinicionesCatalogo_Nombre): se busca también allí.
+        var existente = Db.DefinicionesCatalogo.IgnoreQueryFilters().FirstOrDefault(d => d.Nombre.ToLower() == nombre.ToLower());
+        if (existente is { Eliminado: false })
+        {
+            mensajeNuevoCatalogo = $"Ya existe un catálogo llamado \"{existente.Nombre}\".";
+            return;
+        }
+
+        DefinicionCatalogo definicion;
+        if (existente is not null)
+        {
+            // Estaba en la Papelera: se restaura (con sus ítems de antes) y toma lo que se acaba de escribir.
+            definicion = existente;
+            definicion.Eliminado = false; definicion.FechaEliminacion = null; definicion.Activo = true;
+            definicion.EntidadAsociada = (nuevoCatalogoEntidad ?? "").Trim();
+            definicion.Modulo = nuevoCatalogoModulo ?? "";
+            if (nuevoCatalogoIconoId is int ico) definicion.IconoCatalogoId = ico;
+            avisoHerencia = $"«{definicion.Nombre}» estaba en la Papelera: se restauró con sus opciones anteriores y lo que escribió.";
+        }
+        else
+        {
+            definicion = new DefinicionCatalogo
+            {
+                Nombre = nombre,
+                EntidadAsociada = (nuevoCatalogoEntidad ?? "").Trim(),
+                EsPredeterminado = false,
+                Modulo = nuevoCatalogoModulo ?? "",
+                IconoCatalogoId = nuevoCatalogoIconoId,
+                Orden = definiciones.Count
+            };
+            Db.DefinicionesCatalogo.Add(definicion);
+        }
+        await Db.SaveChangesAsync();
+
+        int orden = 0;
+        foreach (var campo in nuevoCatalogoCampos)
+        {
+            var nombreCampo = (campo.Nombre ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(nombreCampo)) continue;
+            Db.CamposCatalogoDefinicion.Add(new CampoCatalogoDefinicion
+            {
+                DefinicionCatalogoId = definicion.Id,
+                Nombre = nombreCampo,
+                Tipo = campo.Tipo,
+                Orden = orden++
+            });
+        }
+        // Opciones iniciales (ítems del catálogo).
+        foreach (var op in nuevoCatalogoOpciones.Split('\n').Select(x => x.Trim()).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+            Db.Catalogos.Add(new ItemCatalogo { Tipo = definicion.Nombre, Nombre = op, Activo = true });
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        EstilosCat.Recargar();
+
+        nuevoCatalogoNombre = "";
+        nuevoCatalogoEntidad = "";
+        nuevoCatalogoOpciones = "";
+        nuevoCatalogoCampos = new();
+        nuevoCatalogoIconoId = null;
+        mostrarSelectorIconoCatalogo = false;
+        mostrarNuevoCatalogo = false;
+
+        CargarDefiniciones();
+        tipoSeleccionado = definicion.Nombre;
+        CancelarEdicion();
+        CargarLista();
+        CargarConteos();
+        if (volverAFormularios) await VolverAFormulariosAsync(definicion.Nombre);
+    }
+
+    // ---------- Crear un catálogo desde el diseñador de formularios ----------
+    private SigWeb.Components.Catalogos.DisenadorFormularios? disenador;
+    private bool disenadorAbierto, volverAFormularios;
+    private string nuevoCatalogoOpciones = "";
+
+    // El diseñador pide un catálogo nuevo: se abre "Nuevo catálogo" con el módulo del formulario y el nombre sugerido.
+    private void CrearCatalogoDesdeFormulario((string Modulo, string Nombre) d)
+    {
+        pestana = "catalogos";
+        abierto = false;
+        moduloSel = d.Modulo;
+        nuevoCatalogoModulo = d.Modulo;
+        nuevoCatalogoNombre = d.Nombre;
+        nuevoCatalogoEntidad = "";
+        nuevoCatalogoOpciones = "";
+        nuevoCatalogoCampos = new();
+        mensajeNuevoCatalogo = "";
+        mostrarNuevoCatalogo = true;
+        volverAFormularios = true;
+    }
+
+    private async Task CancelarNuevoCatalogo()
+    {
+        mostrarNuevoCatalogo = false;
+        if (volverAFormularios) await VolverAFormulariosAsync(null);
+    }
+
+    private Task VolverAFormulariosAsync(string? creado)
+    {
+        volverAFormularios = false;
+        Nav.NavigateTo("editor?pestana=formularios");
+        return Task.CompletedTask;
+    }
+
+    // ---------- Galería de íconos ----------
+    private static readonly string[] CategoriasIconoSugeridas =
+    {
+        "General", "Obra civil", "Eléctrico", "Torres", "Suelos", "Concretos", "Laboratorio", "Marca"
+    };
+
+    private bool mostrarCargaImagen, guardandoImagen;
+    private IBrowserFile? archivoNuevoIcono;
+    private string categoriaFiltroIconos = "";
+    private void AbrirCargaImagen() { mostrarCargaImagen = true; archivoNuevoIcono = null; nombreNuevoIcono = ""; categoriaNuevoIcono = "General"; mensajeIconos = ""; }
+    private void CerrarCargaImagen() { if (guardandoImagen) return; mostrarCargaImagen = false; archivoNuevoIcono = null; nombreNuevoIcono = ""; }
+    private void SeleccionarImagen(InputFileChangeEventArgs e) { archivoNuevoIcono = e.File; }
+    private async Task GuardarImagen()
+    {
+        if (guardandoImagen || archivoNuevoIcono is null) return;
+        guardandoImagen = true;
+        try { await SubirIcono(); if (!errorIconos) { mostrarCargaImagen = false; archivoNuevoIcono = null; } }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); mensajeIconos = "No se pudo guardar la imagen: " + (ex.InnerException?.Message ?? ex.Message); errorIconos = true; }
+        finally { guardandoImagen = false; }
+    }
+    private DefinicionCatalogo? catalogoEditar;
+    private string errorEditarCatalogo = "";
+    private void EditarCatalogo(DefinicionCatalogo d) { catalogoEditar = new() { Id = d.Id, Nombre = d.Nombre, EntidadAsociada = d.EntidadAsociada, IconoCatalogoId = d.IconoCatalogoId }; catalogoEditarModulo = d.Modulo ?? ""; errorEditarCatalogo = ""; }
+    private async Task GuardarCatalogoEditado()
+    {
+        if (catalogoEditar is null) return;
+        try
+        {
+            var d = await Db.DefinicionesCatalogo.FirstAsync(d => d.Id == catalogoEditar.Id);
+            d.EntidadAsociada = catalogoEditar.EntidadAsociada.Trim(); d.IconoCatalogoId = catalogoEditar.IconoCatalogoId; d.Modulo = catalogoEditarModulo ?? "";
+            await Db.SaveChangesAsync(); Db.ChangeTracker.Clear(); CargarDefiniciones(); catalogoEditar = null;
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); errorEditarCatalogo = "No se pudo guardar: " + ex.Message; }
+    }
+    private List<IconoCatalogo> iconosGaleria = new();
+    private string nombreNuevoIcono = "";
+    private string categoriaNuevoIcono = "General";
+    private string mensajeIconos = "";
+    private bool errorIconos = false;
+
+    private int? iconoEnEdicionId;
+    private string nombreEdicionIcono = "";
+    private string categoriaEdicionIcono = "";
+
+    private string filtroIconos = "";
+    private string columnaOrdenIconos = "Categoria";
+    private bool ordenAscendenteIconos = true;
+
+    private IEnumerable<IconoCatalogo> IconosMostrados
+    {
+        get
+        {
+            var query = iconosGaleria.AsEnumerable();
+            if (categoriaFiltroIconos.Length > 0) query = query.Where(i => i.Categoria == categoriaFiltroIconos);
+            if (!string.IsNullOrWhiteSpace(filtroIconos))
+            {
+                query = query.Where(i => $"{i.Nombre} {i.Categoria}".Contains(filtroIconos, StringComparison.OrdinalIgnoreCase));
+            }
+            query = columnaOrdenIconos switch
+            {
+                "Categoria" => ordenAscendenteIconos
+                    ? query.OrderBy(i => i.Categoria).ThenBy(i => i.Nombre)
+                    : query.OrderByDescending(i => i.Categoria).ThenBy(i => i.Nombre),
+                "Nombre" => ordenAscendenteIconos ? query.OrderBy(i => i.Nombre) : query.OrderByDescending(i => i.Nombre),
+                _ => query
+            };
+            return query;
+        }
+    }
+
+    private void OrdenarIconosPor(string columna)
+    {
+        if (columnaOrdenIconos == columna) ordenAscendenteIconos = !ordenAscendenteIconos;
+        else { columnaOrdenIconos = columna; ordenAscendenteIconos = true; }
+    }
+
+    private string FlechaIconos(string columna) => columnaOrdenIconos != columna ? "" : (ordenAscendenteIconos ? " ▲" : " ▼");
+
+    private void CargarIconos()
+    {
+        iconosGaleria = Db.IconosCatalogo.AsNoTracking().OrderBy(i => i.Categoria).ThenBy(i => i.Nombre).ToList();
+    }
+
+    private async Task SubirIcono()
+    {
+        mensajeIconos = "";
+        var archivo = archivoNuevoIcono;
+        if (archivo is null) return;
+
+        var extension = Path.GetExtension(archivo.Name).ToLowerInvariant();
+        if (extension != ".svg" && extension != ".png")
+        {
+            mensajeIconos = "El ícono debe ser un archivo SVG o PNG.";
+            errorIconos = true;
+            return;
+        }
+
+        var nombre = string.IsNullOrWhiteSpace(nombreNuevoIcono)
+            ? Path.GetFileNameWithoutExtension(archivo.Name)
+            : nombreNuevoIcono.Trim();
+        var categoria = string.IsNullOrWhiteSpace(categoriaNuevoIcono) ? "General" : categoriaNuevoIcono.Trim();
+
+        var carpeta = Path.Combine(Env.WebRootPath, "uploads", "iconos");
+        Directory.CreateDirectory(carpeta);
+
+        var nombreArchivo = $"{Guid.NewGuid()}{extension}";
+        var rutaFisica = Path.Combine(carpeta, nombreArchivo);
+
+        await using (var stream = archivo.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024))
+        await using (var destino = File.Create(rutaFisica))
+        {
+            await stream.CopyToAsync(destino);
+        }
+
+        Db.IconosCatalogo.Add(new IconoCatalogo
+        {
+            Clave = $"custom-{Guid.NewGuid()}",
+            Nombre = nombre,
+            Categoria = categoria,
+            RutaArchivo = $"/uploads/iconos/{nombreArchivo}"
+        });
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+
+        nombreNuevoIcono = "";
+        mensajeIconos = $"Ícono \"{nombre}\" agregado a la galería.";
+        errorIconos = false;
+        CargarIconos();
+    }
+
+    private void EditarIcono(IconoCatalogo i)
+    {
+        iconoEnEdicionId = i.Id;
+        nombreEdicionIcono = i.Nombre;
+        categoriaEdicionIcono = i.Categoria;
+    }
+
+    private void CancelarEdicionIcono()
+    {
+        iconoEnEdicionId = null;
+    }
+
+    private async Task GuardarEdicionIcono()
+    {
+        try
+        {
+            if (iconoEnEdicionId is null) return;
+
+            var nombre = (nombreEdicionIcono ?? "").Trim();
+            var categoria = string.IsNullOrWhiteSpace(categoriaEdicionIcono) ? "General" : categoriaEdicionIcono.Trim();
+            if (string.IsNullOrWhiteSpace(nombre)) return;
+
+            var entidad = await Db.IconosCatalogo.FindAsync(iconoEnEdicionId.Value);
+            if (entidad is not null)
+            {
+                entidad.Nombre = nombre;
+                entidad.Categoria = categoria;
+                await Db.SaveChangesAsync();
+            }
+            Db.ChangeTracker.Clear();
+
+            iconoEnEdicionId = null;
+            CargarIconos();
+
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            mensaje = "No se pudo guardar: " + (ex.InnerException?.Message ?? ex.Message);
+        }
+    }
+
+    private async Task CambiarEstadoIcono(IconoCatalogo i)
+    {
+        var entidad = await Db.IconosCatalogo.FindAsync(i.Id);
+        if (entidad is not null)
+        {
+            entidad.Activo = !entidad.Activo;
+            await Db.SaveChangesAsync();
+        }
+        Db.ChangeTracker.Clear();
+        CargarIconos();
+    }
+
+    private void CambiarTipo(ChangeEventArgs e)
+    {
+        tipoSeleccionado = e.Value?.ToString() ?? (definiciones.FirstOrDefault()?.Nombre ?? "");
+        CancelarEdicion();
+        CargarLista();
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            mensaje = "";
+            var nombre = (itemActual.Nombre ?? "").Trim();
+
+            if (string.IsNullOrWhiteSpace(nombre))
+            {
+                mensaje = "El nombre es obligatorio.";
+                return;
+            }
+
+            bool duplicado = Db.Catalogos.AsNoTracking().Any(c =>
+                c.Tipo == tipoSeleccionado &&
+                c.Nombre.ToLower() == nombre.ToLower() &&
+                c.Id != itemActual.Id);
+
+            if (duplicado)
+            {
+                mensaje = $"\"{nombre}\" ya existe en {tipoSeleccionado}.";
+                return;
+            }
+
+            // Nombre anterior: si cambia, los registros que ya usan la opción heredan el nombre nuevo (PropagadorCatalogo).
+            var nombreAnterior = modoEdicion
+                ? Db.Catalogos.AsNoTracking().Where(c => c.Id == itemActual.Id).Select(c => c.Nombre).FirstOrDefault()
+                : null;
+
+            itemActual.Nombre = nombre;
+            itemActual.Tipo = tipoSeleccionado;
+
+            if (modoEdicion)
+            {
+                Db.Catalogos.Update(itemActual);
+            }
+            else
+            {
+                Db.Catalogos.Add(itemActual);
+            }
+
+            await Db.SaveChangesAsync();
+
+            foreach (var campo in camposDelCatalogoActual)
+            {
+                var valor = ValorCampo(campo.Nombre);
+                var existente = await Db.ValoresCampoCatalogoItem.FirstOrDefaultAsync(
+                    v => v.ItemCatalogoId == itemActual.Id && v.Clave == campo.Nombre);
+                if (existente is not null)
+                {
+                    existente.Valor = valor;
+                }
+                else if (!string.IsNullOrWhiteSpace(valor))
+                {
+                    Db.ValoresCampoCatalogoItem.Add(new ValorCampoCatalogoItem
+                    {
+                        ItemCatalogoId = itemActual.Id,
+                        Clave = campo.Nombre,
+                        Valor = valor
+                    });
+                }
+            }
+            await Db.SaveChangesAsync();
+            Db.ChangeTracker.Clear();
+            string heredado = "";
+            if (nombreAnterior is not null && nombreAnterior != nombre)
+                heredado = await SigWeb.Data.Catalogos.PropagadorCatalogo.RenombrarAsync(Db, tipoSeleccionado, nombreAnterior, nombre);
+            EstilosCat.Recargar();
+
+            CerrarFormItem();
+            avisoHerencia = heredado != "" ? $"«{nombreAnterior}» ahora es «{nombre}» también en los registros que la usaban ({heredado})." : "";
+            CargarLista();
+            CargarConteos();
+
+        }
+        catch (Exception ex)
+        {
+            Db.ChangeTracker.Clear();
+            mensaje = "No se pudo guardar: " + (ex.InnerException?.Message ?? ex.Message);
+        }
+    }
+
+    private void Editar(ItemCatalogo i)
+    {
+        itemActual = new ItemCatalogo
+        {
+            Id = i.Id,
+            Tipo = i.Tipo,
+            Nombre = i.Nombre,
+            Descripcion = i.Descripcion,
+            Activo = i.Activo,
+            ElementoTrazadoId = i.ElementoTrazadoId,
+            Estilo = i.Estilo, ColorTexto = i.ColorTexto, ColorFondo = i.ColorFondo, Forma = i.Forma, Negrita = i.Negrita
+        };
+        valoresCamposActual = camposDelCatalogoActual.ToDictionary(
+            c => c.Nombre,
+            c => valoresPorItem.TryGetValue((i.Id, c.Nombre), out var v) ? v : "");
+        modoEdicion = true;
+        mensaje = "";
+    }
+
+    private void CancelarEdicion()
+    {
+        itemActual = new();
+        valoresCamposActual = new();
+        modoEdicion = false;
+        mensaje = "";
+    }
+
+    private async Task CambiarEstado(ItemCatalogo i)
+    {
+        var item = await Db.Catalogos.FindAsync(i.Id);
+        if (item is not null)
+        {
+            item.Activo = !item.Activo;
+            await Db.SaveChangesAsync();
+        }
+        Db.ChangeTracker.Clear();
+        CargarLista();
+    }
+
+    // ---------- Vista por cuadros ----------
+    private bool abierto = false;
+    private bool EnDetalle => pestana == "catalogos" && abierto && definicionActual is not null;
+    private void CerrarCatalogo() { abierto = false; CerrarFormItem(); filtro = ""; }
+    private bool mostrarFormItem = false;
+    private string filtroCatalogos = "";
+    private Dictionary<string, int> conteoItems = new();
+    private int? nuevoCatalogoIconoId;
+    private bool mostrarSelectorIconoCatalogo = false;
+    private DefinicionCatalogo? elimCatalogo;
+    private SigWeb.Data.Impacto.InformeImpacto? impacto;
+    private bool impactoOk;
+    private bool BloqueadoPorImpacto => impacto is null || (impacto.RequiereEntender && !impactoOk);
+
+    private IEnumerable<DefinicionCatalogo> DefinicionesMostradas =>
+        definiciones.Where(d => moduloSel is null || (d.Modulo ?? "") == moduloSel)
+            .Where(d => string.IsNullOrWhiteSpace(filtroCatalogos) || ($"{d.Nombre} {d.EntidadAsociada}").Contains(filtroCatalogos, StringComparison.OrdinalIgnoreCase));
+
+    // ---------- Módulo de cada catálogo (panel izquierdo) ----------
+    private string? moduloSel;              // null = todos, "" = General, ruta = un módulo
+    private string? nuevoCatalogoModulo = "";
+    private string? catalogoEditarModulo = "";
+    private int ConteoModulo(string ruta) => definiciones.Count(d => (d.Modulo ?? "") == ruta);
+
+    // Elegir un módulo filtra la lista; "Nuevo catálogo" queda en ese módulo.
+    private void ElegirModulo(string? ruta)
+    {
+        moduloSel = ruta;
+        nuevoCatalogoModulo = ruta ?? "";
+    }
+
+    private RenderFragment OpcionesModulo() => __builder =>
+    {
+        <option value="">General (varios módulos)</option>
+        @foreach (var g in SigWeb.Data.Navegacion.MapaNavegacion.Modulos().GroupBy(m => m.Grupo).OrderBy(g => Array.IndexOf(SigWeb.Data.Navegacion.MapaNavegacion.OrdenGrupos, g.Key)))
+        {
+            <optgroup label="@g.Key">
+                @foreach (var m in g) { <option value="@m.Href">@m.Nombre</option> }
+            </optgroup>
+        }
+    };
+
+    private string RutaIconoCatalogo(int? id)
+    {
+        var ruta = id is null ? null : iconosGaleria.FirstOrDefault(i => i.Id == id)?.RutaArchivo;
+        if (ruta is not null) return ruta;
+        return iconosGaleria.FirstOrDefault(i => i.Clave == "catalogo")?.RutaArchivo ?? "images/iconos/documento.svg";
+    }
+
+    private static string TituloItem(ItemCatalogo i) => string.IsNullOrWhiteSpace(i.Descripcion) ? i.Nombre : i.Nombre + " — " + i.Descripcion;
+
+    private void CargarConteos()
+    {
+        conteoItems = Db.Catalogos.AsNoTracking().GroupBy(c => c.Tipo).Select(x => new { x.Key, N = x.Count() }).ToDictionary(x => x.Key, x => x.N);
+    }
+
+    // Desde el diseñador de formularios ("Gestionar opciones"): abre los ítems de ese catálogo.
+    private void AbrirCatalogoPorTipo(string tipo)
+    {
+        CargarDefiniciones();
+        desdeFormularios = true;               // Atrás (o el aviso) vuelve al diseñador, no a la lista de catálogos
+        pestana = "catalogos";
+        tipoSeleccionado = tipo;
+        abierto = true;
+        filtro = "";
+        CerrarFormItem();
+        CargarLista();
+    }
+
+    private void AbrirCatalogo(DefinicionCatalogo d)
+    {
+        if (abierto && tipoSeleccionado == d.Nombre) { abierto = false; return; }
+        tipoSeleccionado = d.Nombre;
+        abierto = true;
+        filtro = "";
+        CerrarFormItem();
+        CargarLista();
+    }
+
+    private void AlternarFormItem()
+    {
+        if (mostrarFormItem) CerrarFormItem();
+        else { CancelarEdicion(); mostrarFormItem = true; }
+    }
+
+    private void CerrarFormItem() { CancelarEdicion(); mostrarFormItem = false; }
+
+    private void EditarItem(ItemCatalogo i) { Editar(i); mostrarFormItem = true; }
+
+    private async Task CalcularImpacto(Func<Task<SigWeb.Data.Impacto.InformeImpacto>> f)
+    {
+        impacto = null; impactoOk = false;
+        try { impacto = await f(); } catch { impacto = new SigWeb.Data.Impacto.InformeImpacto { Elemento = "No se pudo calcular el impacto" }; }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void PedirEliminarCatalogo(DefinicionCatalogo d)
+    {
+        elimCatalogo = d;
+        _ = CalcularImpacto(() => Analizador.Catalogo(d.Id));
+    }
+
+    private void CancelarEliminarCatalogo() { elimCatalogo = null; impacto = null; impactoOk = false; }
+
+    private async Task EliminarCatalogoActual()
+    {
+        if (elimCatalogo is null || BloqueadoPorImpacto) return;
+        var entidad = await Db.DefinicionesCatalogo.FirstOrDefaultAsync(x => x.Id == elimCatalogo.Id);
+        if (entidad is not null)
+        {
+            entidad.Eliminado = true;
+            entidad.FechaEliminacion = DateTime.Now;
+            await Db.SaveChangesAsync();
+        }
+        Db.ChangeTracker.Clear();
+        if (tipoSeleccionado == elimCatalogo.Nombre) abierto = false;
+        CancelarEliminarCatalogo();
+        CargarDefiniciones();
+        CargarConteos();
+        CargarLista();
+    }
+
+    // Desde la pestaña Íconos, «volver» regresa a Catálogos; desde ahí, a la página anterior.
+    // Volver: a lo visto antes en esta página (lista, un catálogo, íconos) y, si no hay, a la pantalla anterior.
+    private EventCallback AtrasCatalogos => EventCallback.Factory.Create(this, AtrasAsync);
+
+    private readonly PilaVistas pila = new();
+    private string? vistaAnotada;
+    private string EstadoVista => pestana is "iconos" or "plantillas" ? pestana : abierto && definicionActual is not null ? $"catalogo:{definicionActual.Id}" : "lista";
+
+    private bool desdeFormularios;
+
+    // Ítem con el formato que tiene AHORA en el formulario (aún sin guardar).
+    private RenderFragment VistaItem(ItemCatalogo it, bool marcar) => __builder =>
+    {
+        var nombre = string.IsNullOrWhiteSpace(it.Nombre) ? "Nuevo" : it.Nombre;
+        var est = SigWeb.Data.Catalogos.EstilosCatalogo.De(it);
+        var cls = marcar ? "cm-vista-edita" : "";
+        if (est is null)
+        {
+            <span class="@(marcar ? "cm-vista-sin cm-vista-edita" : "")">@nombre</span>
+        }
+        else if (est.Forma == "texto")
+        {
+            <span class="@cls" style="color:@est.ColorTexto;font-weight:@(est.Negrita ? 600 : 400)">@nombre</span>
+        }
+        else
+        {
+            <span class="@(est.Forma == "celda" ? "vc-celda" : "rg-pill") @cls" style="background:@est.ColorFondo;color:@est.ColorTexto;font-weight:@(est.Negrita ? 600 : 400)">@nombre</span>
+        }
+    };
+
+    private Task VolverAlDisenadorAsync()
+    {
+        desdeFormularios = false;
+        CerrarFormItem();
+        Nav.NavigateTo(string.IsNullOrEmpty(formVolver) ? "editor?pestana=formularios" : $"editor?pestana=formularios&form={Uri.EscapeDataString(formVolver)}");
+        return Task.CompletedTask;
+    }
+
+    private async Task AtrasAsync()
+    {
+        if (desdeFormularios && pestana == "catalogos") { await VolverAlDisenadorAsync(); return; }
+        if (pila.Volver(EstadoVista) is not { } previa) { await JS.VolverAsync(); return; }
+        var partes = previa.Split(':', 2);
+        if (partes[0] is "iconos" or "plantillas") { pestana = partes[0]; return; }
+        pestana = "catalogos";
+        if (partes.Length == 2 && int.TryParse(partes[1], out var id) && definiciones.FirstOrDefault(x => x.Id == id) is { } def)
+        {
+            if (!(abierto && tipoSeleccionado == def.Nombre)) AbrirCatalogo(def);
+        }
+        else if (abierto) CerrarCatalogo();
+    }
+
+    private async Task AnotarVista(bool primera)
+    {
+        if (primera) await pila.CargarAsync(JS, "catalogos");
+        pila.Observar(EstadoVista);
+        await pila.GuardarAsync(JS, "catalogos", "/catalogos");
+        if (EstadoVista == vistaAnotada) return;
+        vistaAnotada = EstadoVista;
+        await JS.RecordarVistaAsync("/catalogos", new Dictionary<string, object?>
+        {
+            ["pestana"] = pestana is "iconos" or "plantillas" ? pestana : null,
+            ["catalogo"] = abierto ? definicionActual?.Id : null,
+        });
+    }
+}

@@ -1,0 +1,118 @@
+@page "/editor"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Models
+@inject IServiceScopeFactory Scopes
+@inject NavigationManager Nav
+
+@* Configuración › Editor (2026-11-16): editor de formularios y editor de vistas (tableros de los registros), separados de
+   Catálogos. "Crear catálogo nuevo" desde un campo abre aquí mismo una ventana (no se pierde el diseño sin guardar);
+   "Gestionar opciones" lleva a Catálogos y su aviso/Atrás vuelve al formulario (editor?pestana=formularios&form=clave). *@
+
+<PageTitle>Editor</PageTitle>
+
+<EncabezadoPagina Titulo="Editor" Icono="formularios" Subtitulo="@(pestana == "vistas" ? "Vistas de los registros" : "Formularios")">
+    <Acciones>
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(pestana == "formularios" ? "activo" : "")" title="Formularios" @onclick='() => Cambiar("formularios")'><Ico Nombre="formularios" /></button>
+            <button type="button" class="pg-btn @(pestana == "vistas" ? "activo" : "")" title="Vistas (tableros de los registros)" @onclick='() => Cambiar("vistas")'><Ico Nombre="tablero" /></button>
+        </span>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (pestana == "vistas")
+{
+    <SigWeb.Components.Catalogos.GestorVistas />
+}
+else
+{
+    <SigWeb.Components.Catalogos.DisenadorFormularios @ref="disenador" FormularioInicial="@FormQ"
+        OnGestionarCatalogo="GestionarCatalogo" OnCrearCatalogo="AbrirNuevoCatalogo" />
+}
+
+@if (nuevo is not null)
+{
+    <div class="modal-backdrop-custom">
+        <div class="modal-box-custom" style="max-width: 560px;">
+            <h5 class="d-flex align-items-center gap-2"><Ico Nombre="catalogos" /> Catálogo nuevo</h5>
+            <div class="row g-3">
+                <CampoFormulario Etiqueta="Nombre" Ancho="col-md-7" Obligatorio="true"><input class="form-control" @bind="nuevo.Nombre" @bind:event="oninput" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Módulo" Ancho="col-md-5">
+                    <select class="form-select" @bind="nuevo.Modulo">
+                        <option value="">General (varios módulos)</option>
+                        @foreach (var m in SigWeb.Data.Navegacion.MapaNavegacion.Modulos()) { <option value="@m.Href">@m.Nombre</option> }
+                    </select>
+                </CampoFormulario>
+                <CampoFormulario Etiqueta="Descripción (opcional)" Ancho="col-12"><input class="form-control" @bind="nuevo.Descripcion" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Opciones (una por línea)" Ancho="col-12"><textarea class="form-control" rows="5" @bind="nuevo.Opciones"></textarea></CampoFormulario>
+            </div>
+            @if (mensajeNuevo != "") { <div class="alert alert-warning py-1 small mt-2 mb-0">@mensajeNuevo</div> }
+            <div class="frm-pie frm-pie-plano">
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => nuevo = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary btn-sm" title="Crear catálogo" @onclick="CrearCatalogo"><Ico Nombre="guardar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "pestana")] public string? PestanaQ { get; set; }
+    [SupplyParameterFromQuery(Name = "form")] public string? FormQ { get; set; }
+
+    private string pestana = "formularios";
+    private SigWeb.Components.Catalogos.DisenadorFormularios? disenador;
+
+    private sealed class NuevoCatalogo { public string Nombre = ""; public string Modulo = ""; public string Descripcion = ""; public string Opciones = ""; }
+    private NuevoCatalogo? nuevo;
+    private string mensajeNuevo = "";
+
+    protected override void OnParametersSet() => pestana = PestanaQ == "vistas" ? "vistas" : "formularios";
+
+    private void Cambiar(string p) { pestana = p; Nav.NavigateTo($"editor?pestana={p}", replace: true); }
+
+    // "Gestionar opciones": el catálogo en Catálogos; su aviso y Atrás vuelven a este formulario.
+    private async Task GestionarCatalogo(string tipo)
+    {
+        using var scope = Scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var id = await db.DefinicionesCatalogo.AsNoTracking().Where(d => d.Nombre == tipo).Select(d => (int?)d.Id).FirstOrDefaultAsync();
+        var form = disenador?.FormularioActual ?? "";
+        Nav.NavigateTo(id is int i ? $"catalogos?catalogo={i}&desde=editor&form={Uri.EscapeDataString(form)}" : "catalogos");
+    }
+
+    private void AbrirNuevoCatalogo((string Modulo, string Nombre) d)
+    {
+        nuevo = new NuevoCatalogo { Nombre = d.Nombre, Modulo = d.Modulo };
+        mensajeNuevo = "";
+    }
+
+    // Crea el catálogo (o lo restaura si estaba en la Papelera: el nombre es único) con sus opciones y vuelve al campo.
+    private async Task CrearCatalogo()
+    {
+        if (nuevo is null) return;
+        var nombre = nuevo.Nombre.Trim();
+        if (nombre.Length == 0) { mensajeNuevo = "Escriba el nombre del catálogo."; return; }
+        try
+        {
+            using var scope = Scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var existente = await db.DefinicionesCatalogo.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Nombre.ToLower() == nombre.ToLower());
+            if (existente is { Eliminado: false }) { mensajeNuevo = $"Ya existe un catálogo llamado \"{existente.Nombre}\"."; return; }
+            if (existente is null)
+                db.DefinicionesCatalogo.Add(new DefinicionCatalogo { Nombre = nombre, EntidadAsociada = nuevo.Descripcion.Trim(), Modulo = nuevo.Modulo, Activo = true, Orden = 999 });
+            else { existente.Eliminado = false; existente.FechaEliminacion = null; existente.Activo = true; existente.Modulo = nuevo.Modulo; existente.EntidadAsociada = nuevo.Descripcion.Trim(); nombre = existente.Nombre; }
+            var ya = await db.Catalogos.Where(i => i.Tipo == nombre).Select(i => i.Nombre).ToListAsync();
+            foreach (var op in nuevo.Opciones.Split('\n').Select(x => x.Trim()).Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+                if (!ya.Contains(op, StringComparer.OrdinalIgnoreCase)) db.Catalogos.Add(new ItemCatalogo { Tipo = nombre, Nombre = op, Activo = true });
+            await db.SaveChangesAsync();
+            nuevo = null;
+            if (disenador is not null) await disenador.CatalogoCreadoAsync(nombre);
+        }
+        catch (Exception ex)
+        {
+            var interna = ex; while (interna.InnerException is not null) interna = interna.InnerException;
+            mensajeNuevo = "No se pudo crear: " + interna.Message;
+        }
+    }
+}

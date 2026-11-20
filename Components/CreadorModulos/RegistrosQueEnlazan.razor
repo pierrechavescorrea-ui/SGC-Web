@@ -1,0 +1,90 @@
+@* Registros de módulos creados que enlazan un elemento de la app (p. ej. las inspecciones de una torre en su hoja de vida).
+   Fuente = clave de la fuente de vínculos ("torres", "equipos"…); ElementoId = Id de la fila en esa fuente.
+   Por cada módulo con un campo Vínculo a esa fuente: sus registros y «＋» para crear uno ya enlazado. *@
+@using SigWeb.Data.CreadorModulos
+@using SigWeb.Data.Seguridad
+@inject RegistroModulosCreados Registro
+@inject ServicioRegistrosModulo Registros
+@inject UsuarioActual Usuario
+
+<div class="rqe">
+    @if (cargando)
+    {
+        <Esqueleto Tipo="texto" Filas="3" />
+    }
+    else if (Modulos.Count == 0)
+    {
+        <p class="text-muted small mb-0"><em>Ningún módulo creado enlaza este tipo de registro.</em></p>
+    }
+    else
+    {
+        @foreach (var m in Modulos)
+        {
+            var regs = registros.Where(r => r.Modulo == m.Clave).ToList();
+            <div class="rqe-modulo">
+                <div class="rqe-cab">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)SigWeb.Components.Layout.EncabezadoPagina.Trazos(m.Icono))</svg>
+                    <a href="@m.Ruta" class="rqe-nombre">@m.Nombre</a>
+                    <span class="rqe-n">@regs.Count</span>
+                    @if (Usuario.Puede(m.ClavePermiso, Accion.Crear))
+                    {
+                        <a class="btn btn-sm btn-outline-primary ms-auto" title="Nuevo registro de @m.Nombre enlazado a este elemento"
+                           href="@($"{m.Ruta}?registro=nuevo&vincular={Uri.EscapeDataString(Fuente + ":" + ElementoId)}")"><Ico Nombre="agregar" /></a>
+                    }
+                </div>
+                @if (regs.Count == 0)
+                {
+                    <div class="text-muted small ps-4"><em>Sin registros.</em></div>
+                }
+                else
+                {
+                    <ul class="rqe-lista">
+                        @foreach (var r in regs)
+                        {
+                            var s = m.Definicion.Estados.FirstOrDefault(x => x.Nombre == r.Estado);
+                            <li>
+                                <a href="@($"{m.Ruta}?registro={r.Id}")" class="rqe-codigo">@r.Codigo</a>
+                                <span class="rqe-titulo">@r.Titulo</span>
+                                @if (s is not null) { <span class="mc-pildora" style="@Estilo(s)">@s.Nombre</span> }
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Fuente { get; set; } = "";
+    [Parameter] public int ElementoId { get; set; }
+
+    private bool cargando = true;
+    private string? cargado;
+    private List<(string Modulo, int Id, string Codigo, string? Titulo, string? Estado)> registros = new();
+
+    // Módulos visibles para el usuario que tienen algún campo Vínculo a esta fuente.
+    private List<RegistroModulosCreados.Publicado> Modulos =>
+        Registro.Todos.Where(m => Usuario.Puede(m.ClavePermiso, Accion.Ver)
+            && m.Definicion.Campos.Any(c => c.Tipo == TipoCampoModulo.Vinculo && c.Fuente == Fuente)).ToList();
+
+    // Para quien lo usa: decide si muestra la pestaña.
+    public static bool HayModulosPara(RegistroModulosCreados registro, string fuente) =>
+        registro.Todos.Any(m => m.Definicion.Campos.Any(c => c.Tipo == TipoCampoModulo.Vinculo && c.Fuente == fuente));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var clave = $"{Fuente}:{ElementoId}";
+        if (clave == cargado) return;
+        cargado = clave; cargando = true;
+        try { registros = ElementoId == 0 ? new() : await Registros.QueEnlazanAsync(Fuente, ElementoId); }
+        catch { registros = new(); }
+        finally { cargando = false; }
+    }
+
+    private static string Estilo(EstadoModulo s)
+    {
+        var p = SigWeb.Data.Tablas.MotorTabla.Paleta.FirstOrDefault(x => x.Clave == s.Color);
+        return p.Clave is null ? "" : $"background:{p.Fondo};color:{p.Texto}";
+    }
+}

@@ -1,0 +1,238 @@
+@* Resultados de los seguimientos, como la vista "Indicador por indicador" de Indicadores: a la izquierda
+   "Todos" (compilado) y cada objeto con su tira de 12 meses; a la derecha el compilado (cifras,
+   distribución y mapa objetos × meses) o la vista rápida del objeto (cifras, meses, seguimientos, ficha). *@
+
+<div class="ind-foco res">
+    <nav class="ind-rail" data-alto-auto>
+        <button type="button" class="ind-rail-item res-todos @(sel is null ? "activo" : "")" @onclick="() => Elegir(null)">
+            <span class="ind-rail-cab">
+                <span class="ind-rail-ico res-ico">Σ</span>
+                <span class="ind-rail-nom">@TituloTodos</span>
+                <span class="ind-rail-val">@FilasAnio(Items.SelectMany(i => i.Filas)).Count()</span>
+            </span>
+            <span class="ind-tira">
+                @for (var m = 1; m <= 12; m++)
+                {
+                    var c = PeorDelMes(m);
+                    <span class="ind-tira-m @c" title="@NombreMes(m)"></span>
+                }
+            </span>
+        </button>
+        @foreach (var it in Items)
+        {
+            var i = it;
+            <button type="button" class="ind-rail-item @(sel == i.Clave ? "activo" : "") @(i.Apagado ? "res-apagado" : "")" @onclick="() => Elegir(i.Clave)">
+                <span class="ind-rail-cab">
+                    <span class="ind-rail-ico res-cod" title="@i.Codigo">@i.Codigo</span>
+                    <span class="ind-rail-nom" title="@i.Nombre">@i.Nombre</span>
+                    @if (i.Ultimo is { } u)
+                    {
+                        <span class="ind-rail-val res-val @u.Clase" title="@u.Titulo">@u.Texto</span>
+                    }
+                    else
+                    {
+                        <span class="ind-rail-val">—</span>
+                    }
+                </span>
+                <span class="ind-tira">
+                    @for (var m = 0; m < 12; m++)
+                    {
+                        var c = i.Meses[m];
+                        <span class="ind-tira-m @c?.Clase" title="@c?.Titulo"></span>
+                    }
+                </span>
+            </button>
+        }
+        @if (Items.Count == 0)
+        {
+            <span class="text-muted small p-2">—</span>
+        }
+    </nav>
+
+    <section class="ind-det">
+        @if (Actual is not { } o)
+        {
+            <div class="ind-det-cab">
+                <div class="ind-det-tits">
+                    <h2 class="ind-det-nom">@TituloTodos</h2>
+                    <div class="ind-chips">
+                        @foreach (var l in Leyenda)
+                        {
+                            <span class="ind-chip res-ley @l.Clase">@l.Texto</span>
+                        }
+                    </div>
+                </div>
+                @SelectorAnio()
+            </div>
+
+            <div class="ind-kpis res-kpis">
+                @foreach (var k in KpisTodos) { @Kpi(k) }
+            </div>
+
+            @* La tabla de seguimiento manda: ocupa el alto que queda en pantalla (tabla-auto) con su propio scroll. *@
+            <div class="tabla-scroll tabla-auto res-mapa-marco">
+                <table class="table table-sm table-bordered align-middle mb-0 tabla-compacta tabla-pin res-mapa">
+                    <thead>
+                        <tr>
+                            <th>@TituloObjeto</th>
+                            @for (var m = 1; m <= 12; m++) { <th class="text-center @(EsMesActual(m) ? "res-hoy" : "")">@NombreMes(m)</th> }
+                            <th class="text-center">Último</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var it in Items)
+                        {
+                            var i = it;
+                            <tr role="button" class="@(i.Apagado ? "res-apagado" : "")" @onclick="() => Elegir(i.Clave)">
+                                <td class="res-mapa-nom"><b>@i.Codigo</b> @i.Nombre</td>
+                                @for (var m = 0; m < 12; m++)
+                                {
+                                    var c = i.Meses[m];
+                                    <td class="res-celda @c?.Clase" title="@c?.Titulo">@(c?.Clase is ClasesRes.Ok or ClasesRes.Medio or ClasesRes.Mal or ClasesRes.Gris ? c.Texto : "")</td>
+                                }
+                                <td class="text-center">@if (i.Ultimo is { } u) { <span class="res-val @u.Clase" title="@u.Titulo">@u.Texto</span> }</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            var pos = Items.FindIndex(x => x.Clave == o.Clave);
+            <div class="ind-det-cab">
+                <button type="button" class="ind-nav" title="Anterior" disabled="@(pos <= 0)" @onclick="() => Elegir(Items[pos - 1].Clave)">‹</button>
+                <div class="ind-det-tits">
+                    <h2 class="ind-det-nom">@(string.IsNullOrWhiteSpace(o.Codigo) ? "" : o.Codigo + " · ")@o.Nombre</h2>
+                    <div class="ind-chips">
+                        @foreach (var c in o.Chips)
+                        {
+                            <span class="ind-chip res-chip @c.Clase" style="@(c.Color is null ? null : $"--c:{c.Color}")" title="@c.Titulo">@if (c.Color is not null) { <i></i> }@c.Texto</span>
+                        }
+                    </div>
+                </div>
+                @SelectorAnio()
+                <span class="ind-det-pos">@(pos + 1) / @Items.Count</span>
+                @if (OnAbrir.HasDelegate)
+                {
+                    <button type="button" class="ind-nav res-abrir" title="@TituloAbrir" @onclick="() => OnAbrir.InvokeAsync(o.Clave)"><Ico Nombre="enlace" /></button>
+                }
+                @if (OnEliminar.HasDelegate)
+                {
+                    <button type="button" class="ind-nav res-abrir" title="@TituloEliminar" @onclick="() => OnEliminar.InvokeAsync(o.Clave)"><Ico Nombre="eliminar" /></button>
+                }
+                <button type="button" class="ind-nav" title="Siguiente" disabled="@(pos >= Items.Count - 1)" @onclick="() => Elegir(Items[pos + 1].Clave)">›</button>
+            </div>
+
+            <div class="ind-kpis res-kpis">
+                @foreach (var k in o.Kpis) { @Kpi(k) }
+            </div>
+
+            <div class="ind-meses">
+                @for (var m = 1; m <= 12; m++)
+                {
+                    var mes = m;
+                    var c = o.Meses[m - 1];
+                    var n = o.Filas.Count(f => f.Fecha.Year == Anio && f.Fecha.Month == mes);
+                    <button type="button" class="ind-mes-t res-mes @c?.Clase @(mesSel == mes ? "sel" : "") @(EsMesActual(mes) ? "hoy" : "")" title="@c?.Titulo" @onclick="() => mesSel = mesSel == mes ? null : mes">
+                        <span class="ind-mes-n">@NombreMes(mes)</span>
+                        <span class="ind-mes-v">@(string.IsNullOrEmpty(c?.Texto) ? (c?.Clase == ClasesRes.Falta ? "·" : "") : c.Texto)</span>
+                        <span class="ind-mes-marcas">@if (n > 1) { <span>×@n</span> }</span>
+                    </button>
+                }
+            </div>
+
+            var fl = o.Filas.Where(f => mesSel is int ms ? f.Fecha.Year == Anio && f.Fecha.Month == ms : true).ToList();
+            <div class="ind-det-cuerpo">
+                <div class="res-segs">
+                    <div class="res-segs-cab">
+                        <span>@(mesSel is int mm ? $"{NombreMes(mm)} {Anio}" : "Seguimientos")</span>
+                        <b>@fl.Count</b>
+                    </div>
+                    @if (fl.Count == 0)
+                    {
+                        <div class="text-muted small p-2"><em>Sin seguimientos.</em></div>
+                    }
+                    @foreach (var f in fl)
+                    {
+                        <div class="res-seg">
+                            <span class="res-seg-fecha">@f.Fecha.ToString("dd/MM/yyyy")</span>
+                            <span class="res-val @f.Clase">@f.Resultado</span>
+                            <span class="res-seg-resp">@f.Responsable</span>
+                            @if (!string.IsNullOrWhiteSpace(f.Detalle)) { <span class="res-seg-det">@f.Detalle</span> }
+                            @if (!string.IsNullOrWhiteSpace(f.Observacion)) { <span class="res-seg-obs">@f.Observacion</span> }
+                        </div>
+                    }
+                </div>
+                <dl class="ind-ficha">
+                    @foreach (var (t, v) in o.Ficha)
+                    {
+                        <dt>@t</dt><dd class="res-pre">@(string.IsNullOrWhiteSpace(v) ? "—" : v)</dd>
+                    }
+                </dl>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    [Parameter] public List<ObjetoRes> Items { get; set; } = new();
+    [Parameter] public List<KpiRes> KpisTodos { get; set; } = new();
+    [Parameter] public List<ChipRes> Leyenda { get; set; } = new();
+    [Parameter] public string TituloTodos { get; set; } = "Todos";
+    [Parameter] public string TituloObjeto { get; set; } = "";
+    [Parameter] public string TituloAbrir { get; set; } = "Abrir";
+    [Parameter] public int Anio { get; set; } = DateTime.Today.Year;
+    [Parameter] public EventCallback<int> OnAnio { get; set; }
+    [Parameter] public string? Seleccion { get; set; }
+    [Parameter] public EventCallback<string?> SeleccionChanged { get; set; }
+    [Parameter] public EventCallback<string> OnAbrir { get; set; }
+    [Parameter] public EventCallback<string> OnEliminar { get; set; }
+    [Parameter] public string TituloEliminar { get; set; } = "Eliminar";
+
+    private string? sel;
+    private int? mesSel;
+
+    protected override void OnParametersSet()
+    {
+        sel = Seleccion is not null && Items.Any(i => i.Clave == Seleccion) ? Seleccion : null;
+    }
+
+    private ObjetoRes? Actual => sel is null ? null : Items.FirstOrDefault(i => i.Clave == sel);
+
+    private async Task Elegir(string? clave)
+    {
+        sel = clave; mesSel = null;
+        await SeleccionChanged.InvokeAsync(clave);
+    }
+
+    private IEnumerable<FilaRes> FilasAnio(IEnumerable<FilaRes> f) => f.Where(x => x.Fecha.Year == Anio);
+
+    // Compilado del mes: el resultado más frecuente entre los objetos (en empate, el más grave).
+    private string PeorDelMes(int m) =>
+        Items.Select(i => i.Meses[m - 1]?.Clase).Where(c => ClasesRes.Gravedad(c) > 0)
+            .GroupBy(c => c!).OrderByDescending(g => g.Count()).ThenByDescending(g => ClasesRes.Gravedad(g.Key))
+            .Select(g => g.Key).FirstOrDefault() ?? "";
+
+    private static readonly System.Globalization.CultureInfo Es = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+    private string NombreMes(int m) => new DateTime(Anio, m, 1).ToString("MMM", Es).TrimEnd('.');
+    private bool EsMesActual(int m) => Anio == DateTime.Today.Year && m == DateTime.Today.Month;
+
+    private RenderFragment SelectorAnio() => __builder =>
+    {
+        <span class="res-anio">
+            <button type="button" class="ind-nav" title="Año anterior" @onclick="() => OnAnio.InvokeAsync(Anio - 1)">‹</button>
+            <b>@Anio</b>
+            <button type="button" class="ind-nav" title="Año siguiente" disabled="@(Anio >= DateTime.Today.Year)" @onclick="() => OnAnio.InvokeAsync(Anio + 1)">›</button>
+        </span>
+    };
+
+    private static RenderFragment Kpi(KpiRes k) => __builder =>
+    {
+        <div class="ind-kpi @(k.Grande ? "ind-kpi-grande" : "") @k.Clase">
+            <span class="ind-kpi-tit">@k.Titulo</span>
+            <span class="ind-kpi-val">@k.Valor</span>
+            @if (!string.IsNullOrWhiteSpace(k.Sub)) { <span class="ind-kpi-sub">@k.Sub</span> }
+        </div>
+    };
+}

@@ -1,0 +1,318 @@
+@page "/tiros"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+@using SigWeb.Data.Tablas
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@inject SigWeb.Data.Iconos.IconosApp IconosApp
+@inject SigWeb.Data.Impacto.AnalizadorImpacto Analizador
+
+@* Tiros (Configuración). Tres vistas:
+   - Tablero: una columna por tiro con sus torres (color = estado de la torre, como "Estado de las torres").
+     En edición: clic = seleccionar (Mayús = rango, Ctrl = alternar sin perder el resto, cabecera = todo el tiro,
+     lazo sobre el fondo), arrastrar fichas a otra columna (js/tirosTablero.js), barra "Mover a…", tiro nuevo,
+     renombrar y ordenar. Todo queda en memoria hasta Guardar.
+   - Tabla: la de siempre (campos, fórmulas, exportar).
+   - Control de cambios: lo que dejó cada guardado (CambioTiro). Las filas se generan solas comparando lo que había
+     con lo guardado: solo cuentan los cambios reales (mover una torre y devolverla no es un cambio). *@
+
+<EncabezadoPagina Titulo="Tiros" IconoUrl="@(IconosApp.Ruta("ico:tiro") ?? "images/icono-tiro.svg")" Atras="actividades">
+    <Acciones>
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(vista == "tablero" ? "activo" : "")" title="Tablero" aria-label="Tablero" @onclick='() => CambiarVista("tablero")'><Ico Nombre="tablero" /></button>
+            <button type="button" class="pg-btn @(vista == "tabla" ? "activo" : "")" title="Tabla" aria-label="Tabla" disabled="@edicion" @onclick='() => CambiarVista("tabla")'><Ico Nombre="tabla" /></button>
+            <button type="button" class="pg-btn @(vista == "cambios" ? "activo" : "")" title="Control de cambios" aria-label="Control de cambios" disabled="@edicion" @onclick='() => CambiarVista("cambios")'><Ico Nombre="versiones" /></button>
+        </span>
+        @if (!edicion)
+        {
+            @if (vista == "tabla")
+            {
+                <BotonCampos Activo="verCampos" Deshabilitado="motor is null" OnClick="() => verCampos = true" />
+                <BotonExportar Titulo="Tiros" />
+            }
+            <span class="pg-sep"></span>
+            <button type="button" class="pg-btn" title="Editar: mover torres entre tiros, renombrar y ordenar" @onclick="() => EntrarEdicion()"><Ico Nombre="editar" /></button>
+            <button type="button" class="pg-btn pg-btn-primario" title="Nuevo tiro" @onclick="NuevoDesdeEncabezado"><Ico Nombre="agregar" /></button>
+        }
+        else
+        {
+            <button type="button" class="pg-btn" title="Deshacer el último paso" disabled="@(historial.Count == 0)" @onclick="DeshacerUltimo">↶</button>
+            <button type="button" class="pg-btn" title="Descartar cambios y salir de edición" @onclick="SalirEdicion"><Ico Nombre="cancelar" /></button>
+            <AvisoCambios Pendientes="pendientes.Count" />
+            <button type="button" class="pg-btn pg-btn-primario" title="@(pendientes.Count == 0 ? "Sin cambios por guardar" : "Guardar cambios")" disabled="@(pendientes.Count == 0 || guardando || NombreVacio)" @onclick="Guardar"><Ico Nombre="guardar" />@(pendientes.Count > 0 ? $" {pendientes.Count}" : "")</button>
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@if (verCampos && motor is not null)
+{
+    <PanelCampos Motor="motor" OnCerrar="() => verCampos = false" OnCambio="StateHasChanged" />
+}
+
+@if (elim is not null)
+{
+    <div class="card panel-formulario mb-3 border-danger">
+        <div class="card-body">
+            <div class="mb-2"><Ico Nombre="eliminar" /> <strong>@elim.Nombre</strong></div>
+            <PanelImpacto Informe="impacto" OnEntendido="@(v => impactoOk = v)" />
+            <div class="frm-pie frm-pie-plano">
+                <button class="btn btn-secondary btn-sm" type="button" title="Cancelar" @onclick="() => elim = null"><Ico Nombre="cancelar" /></button>
+                <button data-texto="Eliminar" class="btn btn-danger btn-sm" type="button" title="Eliminar (va a la Papelera)" disabled="@BloqueadoPorImpacto" @onclick="ConfirmarEliminar"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert @(mensajeError ? "alert-warning" : "alert-success") py-1 d-flex align-items-center" role="alert">
+        <span class="me-auto">@mensaje</span>
+        <button type="button" class="btn-close btn-sm" title="Cerrar" @onclick="() => mensaje = null"></button>
+    </div>
+}
+
+@if (vista == "tablero")
+{
+    <div class="tt @(edicion ? "editando" : "")" data-editando="@(edicion ? "1" : "0")" @ref="raiz">
+        <div class="tt-barra">
+            <div class="tt-kpis">
+                <span class="tt-kpi"><b>@tirosEd.Count</b> tiros</span>
+                <span class="tt-kpi"><b>@(torres.Count - SinTiro.Count)</b> torres en tiros</span>
+                <span class="tt-kpi @(SinTiro.Count > 0 ? "aviso" : "")"><b>@SinTiro.Count</b> sin tiro</span>
+            </div>
+            <input class="form-control form-control-sm tt-buscar" placeholder="Buscar torre o tiro" @bind="buscar" @bind:event="oninput" />
+            @if (edicion && buscar.Trim() != "")
+            {
+                <button type="button" class="tt-btn" title="Seleccionar las torres que coinciden" @onclick="SeleccionarCoincidencias"><Ico Nombre="filtro" /></button>
+            }
+            @if (edicion)
+            {
+                <button type="button" class="tt-btn" title="Seleccionar todas / ninguna" @onclick="SeleccionarTodas"><Ico Nombre="seleccionar-todo" /></button>
+            }
+            <button type="button" class="tt-btn @(colorEstado ? "activo" : "")" title="@(colorEstado ? "Quitar el color por estado de la torre" : "Colorear por estado de la torre")" @onclick="() => colorEstado = !colorEstado"><Ico Nombre="paleta" /></button>
+        </div>
+
+        <div class="tt-cuerpo @(edicion ? "" : "sin-lateral")">
+            <div class="tt-tablero">
+                @if (edicion || SinTiro.Count > 0)
+                {
+                    @Columna(null)
+                }
+                @foreach (var t in TirosOrdenados)
+                {
+                    @Columna(t)
+                }
+                @if (edicion)
+                {
+                    <section class="tt-col tt-col-nuevo" data-tiro="nuevo" title="Suelta aquí torres para crear un tiro nuevo con ellas, o haz clic para crear uno vacío" @onclick="() => CrearTiro(sel.Count > 0 ? sel.ToList() : new())">
+                        <div class="tt-nuevo-txt"><Ico Nombre="agregar" /><span>Tiro nuevo</span><small>@(sel.Count > 0 ? $"con las {sel.Count} seleccionadas" : "suelta torres aquí")</small></div>
+                    </section>
+                }
+            </div>
+
+            @if (edicion)
+            {
+                <aside class="tt-lateral">
+                    <div class="tt-lat-tit">Cambios por guardar <b>@pendientes.Count</b></div>
+                    @if (pendientes.Count == 0)
+                    {
+                        <div class="tt-lat-vacio">Sin cambios. Arrastra torres a otro tiro, usa la barra "Mover a…" o crea un tiro nuevo; los cambios aparecen aquí solos.</div>
+                    }
+                    else
+                    {
+                        <div class="tt-lat-lista">
+                            @foreach (var c in pendientes)
+                            {
+                                <div class="tt-cambio" @key="c.Clave">
+                                    <span class="tt-cambio-tipo">@c.Tipo</span>
+                                    <span class="tt-cambio-el" title="@c.Elemento">@c.Elemento</span>
+                                    <span class="tt-cambio-de">@(c.Antes ?? "—") <i>→</i> <b>@(c.Despues ?? "—")</b></span>
+                                    <button type="button" class="tt-cambio-x" title="Deshacer este cambio" @onclick="() => Revertir(c)">×</button>
+                                </div>
+                            }
+                        </div>
+                        <input class="form-control form-control-sm mt-2" placeholder="Motivo (opcional, queda en el control de cambios)" @bind="motivo" />
+                    }
+                    @if (NombreVacio)
+                    {
+                        <div class="tt-lat-aviso">Hay un tiro sin nombre.</div>
+                    }
+                </aside>
+            }
+        </div>
+
+        @if (edicion && sel.Count > 0)
+        {
+            <div class="tt-accion">
+                <span class="tt-accion-n"><b>@sel.Count</b> @(sel.Count == 1 ? "torre" : "torres")</span>
+                <select class="form-select form-select-sm" value="" @onchange="e => MoverSeleccion(e.Value?.ToString())" title="Pasar las torres seleccionadas a otro tiro">
+                    <option value="">Mover a…</option>
+                    @foreach (var t in TirosOrdenados) { <option value="@t.Id">@NombreTiro(t.Id)</option> }
+                    <option value="0">Sin tiro</option>
+                </select>
+                <button type="button" class="btn btn-sm btn-outline-light" title="Crear un tiro nuevo con las seleccionadas" @onclick="() => CrearTiro(sel.ToList())"><Ico Nombre="agregar" /></button>
+                <button type="button" class="btn btn-sm btn-outline-light" title="Dejar las seleccionadas sin tiro" @onclick='() => MoverSeleccion("0")'><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn-close" title="Quitar la selección" @onclick="() => sel.Clear()"></button>
+            </div>
+        }
+    </div>
+}
+else if (vista == "tabla")
+{
+    <input class="form-control form-control-sm mb-2" style="max-width:240px;" placeholder="Buscar tiro..." @bind="filtro" @bind:event="oninput" />
+
+    <div class="tabla-scroll tabla-llena"><table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin">
+        <thead>
+            <tr>
+                @foreach (var c in Columnas)
+                {
+                    <th class="th-ordenable" @onclick="() => OrdenarPor(c.Clave)">@c.Nombre@(Flecha(c.Clave))</th>
+                }
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in TirosMostrados)
+            {
+                <tr>
+                    @foreach (var c in Columnas)
+                    {
+                        <CeldaCampo Motor="Motor" Campo="c" Fila="t.Id" Clase="@(c.Clave == "Nombre" ? "fw-bold" : null)" OnCambio="StateHasChanged" />
+                    }
+                    <td class="text-nowrap">
+                        <button class="btn btn-sm btn-outline-primary" title="Editar sus torres en el tablero" @onclick="() => EntrarEdicion(t.Id)"><Ico Nombre="editar" /></button>
+                        <button class="btn btn-sm btn-outline-danger" title="Eliminar" @onclick="() => PedirEliminar(t)"><Ico Nombre="eliminar" /></button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table></div>
+}
+else
+{
+    <div class="tt-hist">
+        <div class="tt-barra">
+            <div class="tt-kpis">
+                <span class="tt-kpi"><b>@lotes.Count</b> guardados</span>
+                <span class="tt-kpi"><b>@lotes.Sum(l => l.Filas.Count)</b> cambios</span>
+            </div>
+            <input class="form-control form-control-sm tt-buscar" placeholder="Buscar torre, tiro o motivo" @bind="buscarHist" @bind:event="oninput" />
+        </div>
+        @if (errorHist is not null)
+        {
+            <div class="alert alert-warning py-1">@errorHist</div>
+        }
+        else if (lotes.Count == 0)
+        {
+            <div class="tt-lat-vacio">Aún no hay cambios registrados. Cada vez que guardes en el modo edición quedará aquí lo que cambió.</div>
+        }
+        @foreach (var l in LotesMostrados)
+        {
+            <section class="tt-lote">
+                <header class="tt-lote-cab">
+                    <b>@l.Fecha.ToString("dd/MM/yyyy HH:mm")</b>
+                    <span class="tt-lote-n">@l.Filas.Count @(l.Filas.Count == 1 ? "cambio" : "cambios")</span>
+                    <span class="tt-lote-res">@Resumen(l)</span>
+                    @if (!string.IsNullOrWhiteSpace(l.Motivo)) { <span class="tt-lote-mot">«@l.Motivo»</span> }
+                </header>
+                <table class="table table-sm tabla-compacta mb-0">
+                    <thead><tr><th style="width:120px">Tipo</th><th>Elemento</th><th>Antes</th><th>Después</th></tr></thead>
+                    <tbody>
+                        @foreach (var f in l.Filas)
+                        {
+                            <tr>
+                                <td><span class="tt-cambio-tipo">@f.Tipo</span></td>
+                                <td class="fw-semibold">@f.Elemento</td>
+                                <td class="text-muted">@(f.Antes ?? "—")</td>
+                                <td>@(f.Despues ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    // ---------- Fragmento: una columna del tablero (t = null → "Sin tiro") ----------
+    private RenderFragment Columna(TiroEd? t) => __builder =>
+    {
+        var id = t?.Id ?? 0;
+        var lista = TorresDe(t?.Id);
+        var todasSel = lista.Count > 0 && lista.All(x => sel.Contains(x.Id));
+        var cambiado = t is not null && TiroCambiado(t);
+        var coincideTiro = t is not null && buscar.Trim() != "" && t.Nombre.Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase);
+        <section class="tt-col @(t is null ? "tt-col-sin" : "") @(t?.Id < 0 ? "tt-col-nueva" : "") @(cambiado ? "cambiada" : "") @(destacado == id && id != 0 ? "destacada" : "")" data-tiro="@id" id="tt-col-@id" @key="id">
+            <header class="tt-col-cab @(todasSel ? "sel" : "")" title="@(edicion ? "Clic = seleccionar todas las torres del tiro" : (t?.Nombre ?? "Torres sin tiro"))" @onclick="() => SeleccionarTiro(t?.Id)">
+                <div class="tt-col-l1">
+                    @if (t is null)
+                    {
+                        <span class="tt-col-nom">Sin tiro</span>
+                    }
+                    else if (edicion)
+                    {
+                        <input class="tt-col-in @(string.IsNullOrWhiteSpace(t.Nombre) ? "vacio" : "")" value="@t.Nombre" placeholder="Nombre del tiro" title="Nombre del tiro"
+                               @onclick:stopPropagation="true" @onchange="e => Renombrar(t, e.Value?.ToString())" />
+                    }
+                    else
+                    {
+                        <span class="tt-col-nom @(coincideTiro ? "coincide" : "")">@t.Nombre</span>
+                    }
+                    <span class="tt-col-n" title="Torres en el tiro">@lista.Count</span>
+                </div>
+                @if (colorEstado && lista.Count > 0)
+                {
+                    <div class="tt-col-barra">
+                        @foreach (var (est, k) in lista.GroupBy(x => EstadoDe(x.Id)).Select(g => (g.Key, g.Count())).OrderBy(x => OrdenEstado(x.Key)))
+                        {
+                            <i style="flex:@k 1 0;@Estilo(est)" title="@(est ?? "Sin estado"): @k"></i>
+                        }
+                    </div>
+                }
+                @if (t is not null)
+                {
+                    <div class="tt-col-l2">
+                        <span class="tt-col-rango">@Rango(lista)</span>
+                        @if (edicion)
+                        {
+                            <span class="tt-col-ord" @onclick:stopPropagation="true">
+                                <button type="button" title="Mover el tiro a la izquierda (orden)" disabled="@(PosicionDe(t) == 0)" @onclick="() => MoverTiro(t, -1)">‹</button>
+                                <button type="button" title="Mover el tiro a la derecha (orden)" disabled="@(PosicionDe(t) == tirosEd.Count - 1)" @onclick="() => MoverTiro(t, 1)">›</button>
+                                @if (t.Id < 0)
+                                {
+                                    <button type="button" title="Quitar este tiro nuevo (sus torres vuelven a donde estaban)" @onclick="() => QuitarNuevo(t)">×</button>
+                                }
+                            </span>
+                        }
+                        else
+                        {
+                            <button type="button" class="tt-col-elim" title="Eliminar el tiro (va a la Papelera)" @onclick:stopPropagation="true" @onclick="() => PedirEliminar(tiros.First(x => x.Id == t.Id))"><Ico Nombre="eliminar" /></button>
+                        }
+                    </div>
+                }
+            </header>
+            <div class="tt-col-torres">
+                @foreach (var x in lista)
+                {
+                    var est = EstadoDe(x.Id);
+                    var movida = asig.GetValueOrDefault(x.Id) != x.TiroId;
+                    var apagada = buscar.Trim() != "" && !coincideTiro && !x.Nombre.Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase);
+                    <button type="button" @key="x.Id" data-id="@x.Id"
+                            class="tt-t @(colorEstado && est is not null ? "" : "neutra") @(sel.Contains(x.Id) ? "sel" : "") @(movida ? "movida" : "") @(apagada ? "apagada" : "")"
+                            style="@(colorEstado ? Estilo(est) : "")" title="@Tip(x, est, movida)" @onclick="e => ClicTorre(x.Id, e)">
+                        @x.Nombre
+                    </button>
+                }
+                @if (lista.Count == 0)
+                {
+                    <div class="tt-col-vacia">@(edicion ? "Suelta torres aquí" : "Sin torres")</div>
+                }
+            </div>
+        </section>
+    };
+}

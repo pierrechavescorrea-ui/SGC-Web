@@ -1,0 +1,203 @@
+@page "/mod/{Clave}"
+@rendermode InteractiveServer
+@using SigWeb.Data.CreadorModulos
+@using SigWeb.Data.Seguridad
+@using SigWeb.Data.Tablas
+@using SigWeb.Models
+@using SigWeb.Components.Pages
+@implements IDisposable
+
+<PageTitle>@(modulo?.Nombre ?? "Módulo")</PageTitle>
+
+@if (modulo is null)
+{
+    <EncabezadoPagina Titulo="Módulo no disponible" Icono="cubo" />
+    <div class="alert alert-warning mt-3">Este módulo no existe, no está publicado o fue archivado por el administrador.</div>
+}
+else if (!PuedeVer)
+{
+    <EncabezadoPagina Titulo="@modulo.Nombre" Icono="@modulo.Icono" />
+    <div class="alert alert-warning mt-3">No tiene permiso para ver este módulo.</div>
+}
+else if (edicion is not null)
+{
+    @* ---------- Registro (nuevo o existente) ---------- *@
+    <EncabezadoPagina Titulo="@modulo.Nombre" Subtitulo="@(edicion.Id == 0 ? "Nuevo registro" : TituloRegistro)" Icono="@modulo.Icono" Atras="@("/" + modulo.Ruta)" OnAtras="CerrarRegistroAsync" />
+
+    <FormularioSig Titulo="@(edicion.Id == 0 ? "Nuevo registro" : edicion.Codigo)" Icono="formularios" OnCerrar="CerrarRegistroAsync" Clase="mc-form">
+        <Subtitulo>
+            @if (modulo.Definicion.Estados.Count > 0)
+            {
+                <span class="mc-estados" role="group" aria-label="Estado">
+                    @foreach (var s in modulo.Definicion.Estados)
+                    {
+                        var activo = s.Nombre == edicion.Estado;
+                        <button type="button" class="mc-estado @(activo ? "activo" : "")" style="@EstiloEstado(s, activo)" disabled="@(!PuedeCambiarA(s))"
+                                title="@(s.Final ? "Estado final: cierra el registro" : "Pasar a este estado")" @onclick="() => ElegirEstado(s)">@s.Nombre</button>
+                    }
+                </span>
+            }
+            @if (edicion.Id != 0)
+            {
+                <span class="mc-meta">Creado @Fecha(edicion.CreadoEn) por @(edicion.CreadoPor ?? "—") · modificado @Fecha(edicion.ModificadoEn) por @(edicion.ModificadoPor ?? "—")</span>
+            }
+        </Subtitulo>
+        <ChildContent>
+            <FormularioModulo Definicion="modulo.Definicion" Edicion="edicion" Modulo="modulo" SoloLectura="SoloLecturaRegistro" OnCambio="Cambio" />
+        </ChildContent>
+        <Acciones>
+            @if (edicion.Id != 0 && PuedeEliminar)
+            {
+                <button type="button" class="btn btn-outline-danger frm-pie-izq" title="Eliminar (va a la Papelera)" @onclick="() => pidiendoEliminar = true"><Ico Nombre="eliminar" /></button>
+            }
+            @if (mensaje is not null)
+            {
+                <span class="frm-pie-msg @(mensajeError ? "text-danger" : "text-success")" role="@(mensajeError ? "alert" : "status")">@mensaje</span>
+            }
+            <AvisoCambios Pendientes="@(cambios ? 1 : 0)" />
+            <button type="button" class="btn btn-secondary" title="Cancelar" data-modal-cancelar @onclick="CerrarRegistroAsync"><Ico Nombre="cancelar" /></button>
+            @if (!SoloLecturaRegistro)
+            {
+                <button type="button" class="btn btn-primary" title="Guardar" disabled="@ocupado" @onclick="GuardarAsync"><Ico Nombre="guardar" /></button>
+            }
+        </Acciones>
+    </FormularioSig>
+
+    @if (pidiendoEliminar)
+    {
+        <div class="modal-backdrop-custom" data-imp-emergente>
+            <div class="modal-box-custom mc-confirmar">
+                <div class="mb-2"><Ico Nombre="eliminar" /> <strong>@edicion.Codigo @TituloRegistro</strong></div>
+                <p class="small mb-3">El registro, sus vínculos y sus adjuntos van a la Papelera (se pueden restaurar desde allí).</p>
+                <div class="frm-pie frm-pie-plano">
+                    <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" data-modal-cancelar @onclick="() => pidiendoEliminar = false"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="btn btn-danger btn-sm" title="Eliminar (va a la Papelera)" @onclick="EliminarAsync"><Ico Nombre="eliminar" /></button>
+                </div>
+            </div>
+        </div>
+    }
+}
+else
+{
+    @* ---------- Lista ---------- *@
+    <EncabezadoPagina Titulo="@modulo.Nombre" Subtitulo="@modulo.Descripcion" Icono="@modulo.Icono">
+        <Acciones>
+            <span class="pg-vistas">
+                <button type="button" class="pg-btn @(vistaTablero ? "" : "activo")" title="Lista" @onclick="() => CambiarVista(false)"><Ico Nombre="tabla" /></button>
+                <button type="button" class="pg-btn @(vistaTablero ? "activo" : "")" title="Tablero (cifras y gráficos)" @onclick="() => CambiarVista(true)"><Ico Nombre="tablero" /></button>
+            </span>
+            <span class="pg-sep"></span>
+            <BotonCampos Activo="verCampos" Deshabilitado="motor is null || !PuedeCampos" OnClick="() => verCampos = true" />
+            @if (PuedeDescargar)
+            {
+                <BotonExportar Titulo="@modulo.Nombre" Motor="motor" Filas="() => Mostrados.Select(r => r.Id)" Deshabilitado="motor is null" />
+            }
+            @if (PuedeCrear)
+            {
+                <span class="pg-sep"></span>
+                <button type="button" class="pg-btn pg-btn-primario" title="Nuevo registro" @onclick="NuevoAsync"><Ico Nombre="agregar" /></button>
+            }
+        </Acciones>
+    </EncabezadoPagina>
+
+    @if (verCampos && motor is not null)
+    {
+        <PanelCampos Motor="motor" OnCerrar="() => verCampos = false" OnCambio="StateHasChanged" />
+    }
+
+    @if (mensaje is not null)
+    {
+        <div class="alert @(mensajeError ? "alert-danger" : "alert-success") py-2" role="@(mensajeError ? "alert" : "status")">@mensaje</div>
+    }
+
+    <div class="mc-filtros">
+        <input type="search" class="form-control form-control-sm mc-buscar" placeholder="Buscar…" aria-label="Buscar" data-recordar="buscar"
+               value="@buscar" @oninput="e => { buscar = e.Value?.ToString(); limite = 200; }" />
+        @if (modulo.Definicion.Estados.Count > 0)
+        {
+            <span class="mc-chips">
+                <button type="button" class="mc-chip @(filtroEstado is null ? "activo" : "")" @onclick="() => filtroEstado = null">Todos <small>@registros.Count</small></button>
+                @foreach (var s in modulo.Definicion.Estados)
+                {
+                    var n = registros.Count(r => r.Estado == s.Nombre);
+                    <button type="button" class="mc-chip @(filtroEstado == s.Nombre ? "activo" : "")" @onclick="() => filtroEstado = s.Nombre">
+                        <i class="mc-punto" style="@($"background:{ColorEstado(s).Fondo}")"></i>@s.Nombre <small>@n</small>
+                    </button>
+                }
+            </span>
+        }
+    </div>
+
+    @if (cargando)
+    {
+        <Esqueleto Tipo="tabla" Filas="8" />
+    }
+    else if (vistaTablero && motor is not null && registros.Count > 0)
+    {
+        <TableroModulo Modulo="modulo" Registros="Mostrados.ToList()" Motor="motor" OnEstado="VerEstado" />
+    }
+    else if (motor is null || registros.Count == 0)
+    {
+        <div class="mc-vacio">
+            <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos(modulo.Icono))</svg>
+            <div>Aún no hay registros en @modulo.Nombre.</div>
+            @if (PuedeCrear) { <button type="button" class="btn btn-primary btn-sm mt-2" title="Nuevo registro" @onclick="NuevoAsync"><Ico Nombre="agregar" /></button> }
+        </div>
+    }
+    else
+    {
+        var lista = Mostrados.ToList();
+        <div class="tabla-scroll tabla-auto">
+            <table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin mc-tabla">
+                <thead>
+                    <tr>
+                        @foreach (var c in Columnas)
+                        {
+                            <th scope="col" class="th-ordenable" aria-sort="@(ordenClave == c.Clave ? (ordenDesc ? "descending" : "ascending") : null)">
+                                @c.Nombre<span aria-hidden="true">@(Flecha(c.Clave))</span>
+                                <button type="button" class="th-orden-btn" title="@($"Ordenar por {c.Nombre}")" aria-label="@($"Ordenar por {c.Nombre}")" @onclick="() => Ordenar(c.Clave)">
+                                    <Ico Nombre="desplegar" />
+                                </button>
+                            </th>
+                        }
+                        <th scope="col" aria-label="Acciones"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in lista.Take(limite))
+                    {
+                        <tr @key="r.Id" @ondblclick="() => AbrirAsync(r.Id)">
+                            @foreach (var c in Columnas)
+                            {
+                                if (c.Clave == "Codigo" && c.Origen == OrigenCampoTabla.Nativo)
+                                {
+                                    <td class="small"><a href="@($"{modulo.Ruta}?registro={r.Id}")" class="mc-codigo" @onclick="() => AbrirAsync(r.Id)" @onclick:preventDefault="true">@r.Codigo</a></td>
+                                }
+                                else if (c.Clave == "Estado" && c.Origen == OrigenCampoTabla.Nativo)
+                                {
+                                    var s = modulo.Definicion.Estados.FirstOrDefault(x => x.Nombre == r.Estado);
+                                    <td class="small">@if (s is not null) { <span class="mc-pildora" style="@EstiloEstado(s, true)">@s.Nombre</span> } else { @r.Estado }</td>
+                                }
+                                else
+                                {
+                                    <CeldaCampo Motor="motor" Campo="c" Fila="r.Id" SoloLectura="true" />
+                                }
+                            }
+                            <td class="mc-acciones">
+                                <button type="button" class="btn btn-sm btn-outline-primary" title="@(PuedeEditar ? "Abrir / editar" : "Abrir")" @onclick="() => AbrirAsync(r.Id)"><Ico Nombre="@(PuedeEditar ? "editar" : "listado")" /></button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (lista.Count > limite)
+        {
+            <div class="mc-mas">
+                <span>@limite de @lista.Count</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => limite += 500">＋ 500</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => limite = int.MaxValue">Todas</button>
+            </div>
+        }
+    }
+}

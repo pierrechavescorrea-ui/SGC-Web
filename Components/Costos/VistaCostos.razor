@@ -1,0 +1,175 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Costos (órdenes, gastos, alquileres): valor prorrateado por día entre Desde y Hasta; cargado al
+   corte; sin fechas = comprometido sin cargar (como el Excel). PF1 = costo fijo diario. *@
+
+<div class="cp-filtros">
+    <input class="form-control form-control-sm" style="max-width:240px" placeholder="Buscar orden, proveedor, concepto…" @bind="buscar" @bind:event="oninput" />
+    <select class="form-select form-select-sm" style="max-width:200px" @bind="codigo">
+        <option value="0">Todos los códigos</option>
+        @foreach (var c in S.Codigos) { <option value="@c.Id">@c.Codigo · @c.Nombre</option> }
+    </select>
+    <select class="form-select form-select-sm" style="max-width:180px" @bind="cuadrilla">
+        <option value="">Todas las cuadrillas</option>
+        @foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }
+    </select>
+    <label class="cp-check"><input type="checkbox" @bind="soloVigentes" /> Vigentes al corte</label>
+    <label class="cp-check"><input type="checkbox" @bind="soloPf1" /> PF1</label>
+    <span class="cp-sub ms-auto">@Filas.Count() · comprometido @FormatoCostos.Dinero(Filas.Sum(c => c.Valor)) · cargado @FormatoCostos.Dinero(Filas.Sum(c => InstantaneaCostos.Cargado(c, Corte))) · día @FormatoCostos.Dinero(Filas.Where(c => InstantaneaCostos.Vigente(c, Corte)).Sum(InstantaneaCostos.ValorDia))</span>
+</div>
+
+<div class="tabla-scroll tabla-auto cp-marco">
+    <table class="table table-sm cp-tabla cp-costos">
+        <thead class="tabla-pin">
+            <tr>
+                <th class="cp-fija">Orden</th><th>Código</th><th>Proveedor</th><th>Concepto</th><th class="cp-num">Valor</th><th>Desde</th><th>Hasta</th>
+                <th class="cp-num">Días</th><th class="cp-num">Valor día</th><th class="cp-num">Cargado</th><th class="cp-num">Por cargar</th><th>Cuadrilla</th><th>PF1</th>
+                @if (Editando) { <th></th> }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Filas)
+            {
+                var e = Editando ? (c.Id <= 0 ? c : ed.GetValueOrDefault(c.Id)) : null;
+                var borrar = borrados.Contains(c.Id);
+                <tr class="@(c.Id <= 0 ? "cp-nueva" : "") @(borrar ? "cp-borrar" : "") @(InstantaneaCostos.Vigente(c, Corte) ? "" : "cp-apagada")">
+                    @if (e is not null)
+                    {
+                        <td class="cp-fija"><input class="form-control form-control-sm cp-in-cod" @bind="e.NumeroOrden" /></td>
+                        <td>
+                            <select class="form-select form-select-sm" @bind="e.CodigoPresupuestoId">
+                                <option value="">—</option>
+                                @foreach (var k in S.Codigos) { <option value="@k.Id">@k.Codigo</option> }
+                            </select>
+                        </td>
+                        <td><input class="form-control form-control-sm" @bind="e.Proveedor" /></td>
+                        <td><input class="form-control form-control-sm" @bind="e.Concepto" /></td>
+                        <td><input class="form-control form-control-sm cp-in-num" @bind="e.Valor" /></td>
+                        <td><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(e.Desde)" @onchange="x => e.Desde = Fec(x.Value)" /></td>
+                        <td><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(e.Hasta)" @onchange="x => e.Hasta = Fec(x.Value)" /></td>
+                    }
+                    else
+                    {
+                        <td class="cp-fija">@c.NumeroOrden</td>
+                        <td>@S.Codigos.FirstOrDefault(k => k.Id == c.CodigoPresupuestoId)?.Codigo</td>
+                        <td>@c.Proveedor</td>
+                        <td class="cp-desc" title="@c.Concepto">@c.Concepto</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(c.Valor)</td>
+                        <td>@FormatoCostos.Fecha(c.Desde)</td>
+                        <td>@FormatoCostos.Fecha(c.Hasta)</td>
+                    }
+                    @{ var x0 = e ?? c; var cargado = InstantaneaCostos.Cargado(x0, Corte); }
+                    <td class="cp-num">@(x0.Desde is DateTime d && x0.Hasta is DateTime h ? InstantaneaCostos.Dias(d, h) : "")</td>
+                    <td class="cp-num">@FormatoCostos.Dinero(InstantaneaCostos.ValorDia(x0))</td>
+                    <td class="cp-num">@FormatoCostos.Dinero(cargado)</td>
+                    <td class="cp-num">@FormatoCostos.Dinero(x0.Valor - cargado)</td>
+                    @if (e is not null)
+                    {
+                        <td>
+                            <select class="form-select form-select-sm" @bind="e.Cuadrilla">
+                                <option value="">—</option>
+                                @foreach (var q in S.Cuadrillas) { <option value="@q">@q</option> }
+                            </select>
+                        </td>
+                        <td><input type="checkbox" @bind="e.Pf1" /></td>
+                        <td>
+                            @if (c.Id <= 0)
+                            {
+                                <button type="button" class="btn btn-sm btn-link p-0" title="Quitar" @onclick="() => nuevos.Remove(c)"><Ico Nombre="cancelar" /></button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-sm btn-link p-0" title="@(borrar ? "No eliminar" : "Eliminar (a la Papelera al guardar)")" @onclick="() => { if (!borrados.Remove(c.Id)) borrados.Add(c.Id); }"><Ico Nombre="@(borrar ? "restaurar" : "eliminar")" /></button>
+                            }
+                        </td>
+                    }
+                    else
+                    {
+                        <td>@c.Cuadrilla</td>
+                        <td><span class="cp-flag @(c.Pf1 ? "si" : "")">@(c.Pf1 ? "PF1" : "")</span></td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private string buscar = "", cuadrilla = "";
+    private int codigo;
+    private bool soloVigentes, soloPf1;
+    private Dictionary<int, CostoOrden> ed = new();
+    private HashSet<int> borrados = new();
+    private List<CostoOrden> nuevos = new();
+    private int sigId;
+
+    public override string? SelectorExportar => "table.cp-costos";
+
+    private IEnumerable<CostoOrden> Filas
+    {
+        get
+        {
+            IEnumerable<CostoOrden> l = nuevos.Concat(S.Costos.OrderBy(c => c.Desde ?? DateTime.MaxValue).ThenBy(c => c.Id));
+            var q = buscar.Trim();
+            return l.Where(c => c.Id <= 0 || (
+                (codigo == 0 || c.CodigoPresupuestoId == codigo)
+                && (cuadrilla == "" || InstantaneaCostos.Norm(c.Cuadrilla) == cuadrilla)
+                && (!soloVigentes || InstantaneaCostos.Vigente(c, Corte))
+                && (!soloPf1 || c.Pf1)
+                && (q == "" || $"{c.NumeroOrden} {c.Proveedor} {c.Concepto}".Contains(q, StringComparison.OrdinalIgnoreCase))));
+        }
+    }
+
+    public override Task EditarAsync()
+    {
+        ed = S.Costos.ToDictionary(c => c.Id, c => new CostoOrden
+        {
+            Id = c.Id, NumeroOrden = c.NumeroOrden, CodigoPresupuestoId = c.CodigoPresupuestoId, Proveedor = c.Proveedor, Concepto = c.Concepto,
+            Valor = c.Valor, Desde = c.Desde, Hasta = c.Hasta, Cuadrilla = c.Cuadrilla, Pf1 = c.Pf1, ItemPagoId = c.ItemPagoId
+        });
+        borrados.Clear();
+        return base.EditarAsync();
+    }
+
+    public override async Task AgregarAsync()
+    {
+        if (!Editando) await EditarAsync();
+        nuevos.Insert(0, new CostoOrden { Id = --sigId, Desde = Corte.Date, CodigoPresupuestoId = codigo == 0 ? null : codigo, Cuadrilla = cuadrilla == "" ? null : cuadrilla });
+        await Avisar();
+    }
+
+    public override void Cancelar() { nuevos.Clear(); ed.Clear(); borrados.Clear(); base.Cancelar(); }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        foreach (var c in nuevos.Concat(ed.Values))
+            if (c.Desde is DateTime d && c.Hasta is DateTime h && h < d)
+                throw new InvalidOperationException($"Orden {c.NumeroOrden}: la fecha final es anterior a la inicial.");
+        foreach (var n in nuevos)
+        {
+            n.Id = 0;
+            n.Cuadrilla = string.IsNullOrWhiteSpace(n.Cuadrilla) ? null : n.Cuadrilla;
+            Db.CostosOrden.Add(n);
+        }
+        var ahora = DateTime.Now;
+        var originales = S.Costos.ToDictionary(c => c.Id);
+        var cambiados = ed.Values.Where(e => borrados.Contains(e.Id) || Distinto(e, originales[e.Id])).Select(e => e.Id).ToList();
+        foreach (var c in await Db.CostosOrden.Where(c => cambiados.Contains(c.Id)).ToListAsync())
+        {
+            if (borrados.Contains(c.Id)) { c.Eliminado = true; c.FechaEliminacion = ahora; continue; }
+            var e = ed[c.Id];
+            c.NumeroOrden = e.NumeroOrden; c.CodigoPresupuestoId = e.CodigoPresupuestoId; c.Proveedor = e.Proveedor; c.Concepto = e.Concepto;
+            c.Valor = e.Valor; c.Desde = e.Desde; c.Hasta = e.Hasta; c.Cuadrilla = string.IsNullOrWhiteSpace(e.Cuadrilla) ? null : e.Cuadrilla; c.Pf1 = e.Pf1;
+        }
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        nuevos.Clear(); ed.Clear(); borrados.Clear();
+    }
+
+    private static bool Distinto(CostoOrden a, CostoOrden b) =>
+        a.NumeroOrden != b.NumeroOrden || a.CodigoPresupuestoId != b.CodigoPresupuestoId || a.Proveedor != b.Proveedor || a.Concepto != b.Concepto
+        || a.Valor != b.Valor || a.Desde != b.Desde || a.Hasta != b.Hasta || a.Cuadrilla != b.Cuadrilla || a.Pf1 != b.Pf1;
+}

@@ -1,0 +1,198 @@
+@page "/admin/usuarios"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = ArranqueSeguridad.PoliticaAdmin)]
+
+<PageTitle>Usuarios · Administración</PageTitle>
+
+<div class="ad">
+<EncabezadoPagina Titulo="Usuarios y permisos" Subtitulo="@($"{usuarios.Count(u => u.Activo)} activos de {usuarios.Count}")" Icono="usuarios" Atras="/admin">
+    <Acciones>
+        <a class="pg-btn" href="admin/roles" title="Roles y matriz de permisos"><Ico Nombre="tabla" /></a>
+        <span class="pg-sep"></span>
+        <a class="pg-btn" href="admin/invitaciones" title="Invitar usuario"><Ico Nombre="agregar" /></a>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (Mensaje is not null)
+{
+    <div class="alert @(MensajeError ? "alert-danger" : "alert-success")" role="alert">@Mensaje</div>
+}
+
+<div class="ad-filtros">
+    <input class="form-control" placeholder="Buscar nombre o correo" @bind="texto" @bind:event="oninput" data-sin-flotante aria-label="Buscar" />
+    <select class="form-select" @bind="filtroProyecto" data-sin-flotante aria-label="Proyecto">
+        <option value="0">Todos los proyectos</option>
+        @foreach (var p in proyectos) { <option value="@p.Id">@p.Nombre</option> }
+    </select>
+    <select class="form-select" @bind="filtroEstado" data-sin-flotante aria-label="Estado">
+        <option value="">Todos</option>
+        <option value="activo">Activos</option>
+        <option value="inactivo">Inactivos</option>
+        <option value="bloqueado">Bloqueados</option>
+        <option value="admin">Administradores y auditores</option>
+        <option value="sinmfa">Sin verificación en 2 pasos</option>
+        <option value="sinproyecto">Sin proyecto</option>
+    </select>
+</div>
+
+<div class="ad-dos">
+    <aside class="ad-tarjeta ad-lateral">
+        @if (cargando) { <Esqueleto Tipo="texto" Filas="6" /> }
+        @foreach (var u in Filtrados())
+        {
+            <button type="button" class="ad-item @(sel?.Id == u.Id ? "activo" : "")" @onclick="() => AbrirAsync(u.Id)">
+                <span class="ad-avatar">@Inicial(u.Nombre)</span>
+                <span class="ad-item-txt"><span>@u.Nombre</span><small>@u.Email</small></span>
+                @if (u.Admin) { <span class="ad-chip acento" title="Administrador SGC">Admin</span> }
+                else if (u.Auditor) { <span class="ad-chip" title="Auditor SGC">Auditor</span> }
+                @if (u.Bloqueado) { <span class="ad-chip mal">Bloqueado</span> }
+                else if (!u.Activo) { <span class="ad-chip">Inactivo</span> }
+            </button>
+        }
+    </aside>
+
+    @if (sel is not null)
+    {
+        <div class="d-grid gap-3">
+            <section class="ad-tarjeta">
+                <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+                    <span class="ad-avatar" style="width:3rem;height:3rem;font-size:1.1rem">@Inicial(sel.Nombre)</span>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="fw-semibold">@sel.Nombre</div>
+                        <div class="small text-muted">@sel.Email · creado @Dia(sel.CreadoEn) · último ingreso @Fecha(sel.UltimoIngreso)</div>
+                    </div>
+                    <span class="ad-chip @(sel.Activo ? "ok" : "")">@(sel.Anonimizado ? "Anonimizado" : sel.Activo ? "Activo" : "Inactivo")</span>
+                    <span class="ad-chip @(sel.Mfa ? "ok" : "alerta")">@(sel.Mfa ? "2 pasos" : "Sin 2 pasos")</span>
+                    @if (sel.Bloqueado) { <span class="ad-chip mal">Bloqueado hasta @Fecha(sel.BloqueadoHasta?.UtcDateTime)</span> }
+                </div>
+                <div class="ad-form">
+                    <div class="mb-3"><label for="u-nom">Nombre completo</label><input id="u-nom" class="form-control" @bind="datos.Nombre" maxlength="150" disabled="@sel.Anonimizado" /></div>
+                    <div class="mb-3"><label for="u-car">Cargo</label><input id="u-car" class="form-control" @bind="datos.Cargo" maxlength="120" disabled="@sel.Anonimizado" /></div>
+                    <div class="mb-3"><label for="u-emp">Empresa</label><input id="u-emp" class="form-control" @bind="datos.Empresa" maxlength="150" disabled="@sel.Anonimizado" /></div>
+                </div>
+                <div class="d-flex gap-4 flex-wrap align-items-center">
+                    <label class="ad-check" title="Todo en todos los proyectos, incluida esta Administración"><input type="checkbox" @bind="datos.Admin" disabled="@(sel.Anonimizado || sel.Id == Actual.Id)" /> Administrador del SGC</label>
+                    <label class="ad-check" title="Ve y descarga todos los proyectos (sin configuración) y la auditoría de accesos"><input type="checkbox" @bind="datos.Auditor" disabled="@sel.Anonimizado" /> Auditor del SGC (solo lectura, todos los proyectos)</label>
+                    <button type="button" class="btn btn-primary ms-auto" title="Guardar datos y roles globales" @onclick="GuardarDatosAsync" disabled="@(Ocupado || sel.Anonimizado)"><Ico Nombre="guardar" /></button>
+                </div>
+            </section>
+
+            <section class="ad-tarjeta">
+                <h5 class="ad-tit">Proyectos y rol</h5>
+                @if (sel.Membresias.Count == 0) { <p class="small text-muted">Sin proyectos asignados@(sel.Admin || sel.Auditor ? " (su rol global le da acceso a todos)" : "").</p> }
+                else
+                {
+                    <table class="ad-tabla mb-3">
+                        <thead><tr><th>Proyecto</th><th>Rol</th><th>Vence</th><th>Activo</th><th>Ajustes</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var m in sel.Membresias)
+                        {
+                            <tr>
+                                <td>@NombreProyecto(m.ProyectoId)</td>
+                                <td>
+                                    <select class="form-select form-select-sm" @bind="m.RolId" @bind:after="() => GuardarMembresiaAsync(m)" data-sin-flotante aria-label="Rol">
+                                        @foreach (var r in roles) { <option value="@r.Id">@r.Nombre</option> }
+                                    </select>
+                                </td>
+                                <td><input type="date" class="form-control form-control-sm" @bind="m.Vence" @bind:after="() => GuardarMembresiaAsync(m)" data-sin-flotante aria-label="Vence" /></td>
+                                <td><input type="checkbox" @bind="m.Activo" @bind:after="() => GuardarMembresiaAsync(m)" aria-label="Activo" /></td>
+                                <td>
+                                    <button type="button" class="btn btn-sm @(m.Ajustes > 0 ? "btn-outline-danger" : "btn-outline-secondary")" title="Permisos por módulo de este usuario en el proyecto" @onclick="() => AbrirAjustes(m)">
+                                        <Ico Nombre="tabla" /> @(m.Ajustes > 0 ? m.Ajustes.ToString() : "")
+                                    </button>
+                                </td>
+                                <td class="ad-acc"><button type="button" class="btn btn-sm btn-outline-secondary" title="Quitar del proyecto" @onclick="() => QuitarMembresiaAsync(m)"><Ico Nombre="cancelar" /></button></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+                @if (!sel.Anonimizado)
+                {
+                    <div class="d-flex gap-2 flex-wrap align-items-end">
+                        <div style="flex:2 1 14rem"><label for="n-pro">Proyecto</label>
+                            <select id="n-pro" class="form-select" @bind="nuevoProyecto">
+                                <option value="0">—</option>
+                                @foreach (var p in proyectos.Where(p => sel.Membresias.All(m => m.ProyectoId != p.Id))) { <option value="@p.Id">@p.Nombre</option> }
+                            </select></div>
+                        <div style="flex:2 1 12rem"><label for="n-rol">Rol</label>
+                            <select id="n-rol" class="form-select" @bind="nuevoRol">
+                                @foreach (var r in roles) { <option value="@r.Id">@r.Nombre</option> }
+                            </select></div>
+                        <div style="flex:1 1 9rem"><label for="n-ven">Vence (opcional)</label><input id="n-ven" type="date" class="form-control" @bind="nuevoVence" /></div>
+                        <button type="button" class="btn btn-outline-secondary mb-3" title="Dar acceso al proyecto" @onclick="AgregarMembresiaAsync" disabled="@(nuevoProyecto == 0 || Ocupado)"><Ico Nombre="agregar" /></button>
+                    </div>
+                }
+            </section>
+
+            @if (ajustes is not null)
+            {
+                <section class="ad-tarjeta">
+                    <h5 class="ad-tit">Permisos de @sel.Nombre en @NombreProyecto(ajustes.Miembro.ProyectoId)
+                        <span class="small text-muted fw-normal">rol @roles.FirstOrDefault(r => r.Id == ajustes.Miembro.RolId)?.Nombre · clic = hereda → concede → niega</span>
+                        <span class="ms-auto d-flex gap-1">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Quitar todos los ajustes (solo el rol)" @onclick="LimpiarAjustes"><Ico Nombre="restaurar" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Cerrar" @onclick="() => ajustes = null"><Ico Nombre="cancelar" /></button>
+                            <button type="button" class="btn btn-sm btn-primary" title="Guardar permisos" @onclick="GuardarAjustesAsync" disabled="@Ocupado"><Ico Nombre="guardar" /></button>
+                        </span>
+                    </h5>
+                    <div class="ad-matriz-marco">
+                        <table class="ad-matriz">
+                            <thead><tr><th>Módulo</th>@foreach (var a in Acciones.Lista) { <th title="@a.Descripcion">@a.Corto</th> }</tr></thead>
+                            <tbody>
+                            @foreach (var g in Modulos().GroupBy(m => m.Grupo))
+                            {
+                                <tr class="ad-grupo"><td colspan="@(Acciones.Lista.Count + 1)">@g.Key</td></tr>
+                                @foreach (var mod in g)
+                                {
+                                    var deshabilitado = !Proyectos.Modulo(ajustes.Miembro.ProyectoId, mod.Clave).Habilitado;
+                                    <tr>
+                                        <td>@mod.Nombre @if (deshabilitado) { <span class="ad-sens" title="El módulo está apagado en este proyecto">apagado</span> }</td>
+                                        @foreach (var a in Acciones.Lista)
+                                        {
+                                            var estado = EstadoAjuste(mod.Clave, a.Accion);
+                                            <td><button type="button" class="ad-tri @estado" title="@TituloAjuste(estado, a.Nombre)" @onclick="() => Ciclar(mod.Clave, a.Accion)">@SimboloAjuste(estado)</button></td>
+                                        }
+                                    </tr>
+                                }
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            }
+
+            <section class="ad-tarjeta">
+                <h5 class="ad-tit">Seguridad de la cuenta</h5>
+                <div class="d-flex gap-2 flex-wrap">
+                    @if (!sel.Anonimizado)
+                    {
+                        <button type="button" class="btn btn-outline-secondary" title="@(sel.Activo ? "Desactivar la cuenta (no podrá entrar)" : "Activar la cuenta")" @onclick="AlternarActivoAsync" disabled="@(sel.Id == Actual.Id)"><Ico Nombre="@(sel.Activo ? "candado" : "candado-abierto")" /></button>
+                        @if (sel.Bloqueado) { <button type="button" class="btn btn-outline-secondary" title="Desbloquear" @onclick="DesbloquearAsync"><Ico Nombre="candado-abierto" /></button> }
+                        <button type="button" class="btn btn-outline-secondary" title="Enviar enlace para crear contraseña nueva" @onclick="EnviarRestablecerAsync"><Ico Nombre="enlace" /></button>
+                        @if (sel.Mfa) { <button type="button" class="btn btn-outline-secondary" title="Restablecer verificación en 2 pasos (teléfono perdido)" @onclick="RestablecerMfaAsync"><Ico Nombre="restaurar" /></button> }
+                        <button type="button" class="btn btn-outline-secondary" title="Cerrar todas sus sesiones" @onclick="CerrarSesionesAsync"><Ico Nombre="cancelar" /></button>
+                        @if (sel.Activo && !sel.Admin && sel.Id != Actual.Id) { <button type="button" class="btn btn-outline-secondary" title="Ver la aplicación como este usuario (solo lectura)" @onclick="VerComo"><Ico Nombre="informacion" /></button> }
+                        <a class="btn btn-outline-secondary" href="@($"admin/auditoria?usuario={Uri.EscapeDataString(sel.Email)}")" title="Accesos de este usuario"><Ico Nombre="listado" /></a>
+                    }
+                </div>
+                @if (!sel.Anonimizado && sel.Id != Actual.Id)
+                {
+                    <div class="ad-peligro mt-3">
+                        <h6>Suprimir datos personales (Ley 1581)</h6>
+                        <p class="small mb-2">Borra nombre, correo, cargo y empresa, cierra la cuenta y sus vínculos de Telegram. La auditoría se conserva sin datos identificables. No se puede deshacer.</p>
+                        <div class="d-flex gap-2 align-items-end flex-wrap">
+                            <div style="flex:1 1 16rem"><label for="u-conf">Escriba el correo para confirmar</label><input id="u-conf" class="form-control" @bind="confirmarAnonimizar" @bind:event="oninput" /></div>
+                            <button type="button" class="btn btn-outline-danger mb-3" title="Anonimizar" disabled="@(!string.Equals(confirmarAnonimizar?.Trim(), sel.Email, StringComparison.OrdinalIgnoreCase))" @onclick="AnonimizarAsync"><Ico Nombre="eliminar" /></button>
+                        </div>
+                    </div>
+                }
+            </section>
+        </div>
+    }
+    else if (!cargando)
+    {
+        <div class="ad-vacio">Elija un usuario de la lista.</div>
+    }
+</div>
+</div>

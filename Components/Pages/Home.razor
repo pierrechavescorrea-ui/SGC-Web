@@ -1,0 +1,515 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@implements IDisposable
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Inicio
+@using SigWeb.Models
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@inject IServiceScopeFactory Scopes
+@inject IWebHostEnvironment Env
+@inject SigWeb.Data.Seguridad.UsuarioActual Actual
+
+<PageTitle>Inicio</PageTitle>
+
+@* Cambio de proyecto desde el menú del ícono (administrador): js/cambioProyecto.js envía este formulario. *@
+<form id="sig-cambio-proyecto" method="post" action="cuenta/proyecto" data-enhance="false" class="d-none">
+    <AntiforgeryToken />
+    <input type="hidden" name="id" />
+    <input type="hidden" name="volver" />
+</form>
+
+@* Panel de inicio con widgets (datos en Data/Inicio/TableroInicio.cs, lógica en Home.razor.cs). Cada usuario arma
+   su panel: Editar muestra la paleta (agregar), la rejilla, el × (quitar) y el tirador (tamaño); se arrastra el
+   widget entero. Posiciones y tamaños los maneja js/inicio.js (sigPanel: rejilla de 12 columnas, los demás se
+   apartan y vuelven a encajar) y se guardan en el navegador. Blazor solo decide qué widgets hay. *@
+
+<EncabezadoPagina Titulo="Inicio" Icono="inicio" Subtitulo="@(DateTime.Today.ToString("dddd, dd 'de' MMMM 'de' yyyy"))">
+    <Acciones>
+        <button type="button" class="pg-btn @(verAjustes ? "activo" : "")" title="@($"Responsable de comunicados: {(datos.Responsable == "" ? "Todos" : datos.Responsable)}")" @onclick="AbrirAjustes"><Ico Nombre="mantenimiento" /></button>
+        @if (editando)
+        {
+            <button type="button" class="pg-btn" title="Restaurar panel" @onclick="Restaurar"><Ico Nombre="restaurar" /></button>
+        }
+        <span class="pg-sep"></span>
+        @if (editando)
+        {
+            <button type="button" class="pg-btn pg-btn-primario" title="Listo" @onclick="() => Editar(false)"><Ico Nombre="guardar" /></button>
+        }
+        else
+        {
+            <button type="button" class="pg-btn" title="Personalizar panel" @onclick="() => Editar(true)"><Ico Nombre="editar" /></button>
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert alert-warning py-1 px-2 small d-flex align-items-center gap-2">
+        <span class="flex-grow-1">@mensaje</span>
+        <button type="button" class="btn-close btn-sm" @onclick='() => mensaje = ""'></button>
+    </div>
+}
+
+@if (verAjustes)
+{
+    <div class="frm-linea ini-ajustes">
+        <label class="form-label mb-0 small">Responsable de comunicados</label>
+        <select class="form-select form-select-sm" @bind="ajResponsable">
+            @foreach (var r in datos.Responsables) { <option value="@r">@r</option> }
+            <option value="@TableroInicio.Todos">Todos</option>
+        </select>
+        <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => verAjustes = false"><Ico Nombre="cancelar" /></button>
+        <button type="button" class="btn btn-primary btn-sm" title="Guardar" @onclick="GuardarAjustes"><Ico Nombre="guardar" /></button>
+    </div>
+}
+
+<div class="ini-tablero pw-marco @(editando ? "pw-editando" : "")">
+    <div class="pw-panel" @ref="panel">
+        @foreach (var id in ids)
+        {
+            if (!catalogo.TryGetValue(id, out var w)) continue;
+            <div class="pw-w" data-w="@w.Id" data-ancho="@w.W" data-alto="@w.H" data-minw="@w.MinW" data-minh="@w.MinH" @key="w.Id">
+                @Contenido(w)
+                @if (editando)
+                {
+                    <button type="button" class="pw-quitar" title="Quitar" @onclick="() => Quitar(w.Id)">×</button>
+                    <span class="pw-tirador" title="Tamaño"></span>
+                }
+            </div>
+        }
+        @if (cargado && ids.Count == 0)
+        {
+            <div class="ini-vacio pw-sin" title="Personalizar panel" @onclick="() => Editar(true)"><Ico Nombre="agregar" /></div>
+        }
+    </div>
+
+    @if (editando)
+    {
+        <aside class="pw-paleta">
+            @foreach (var grupo in Disponibles().GroupBy(w => w.Grupo))
+            {
+                <div class="pw-paleta-grupo">@grupo.Key</div>
+                @foreach (var w in grupo)
+                {
+                    var ww = w;
+                    <button type="button" class="pw-paleta-item" title="Agregar" @onclick="() => Agregar(ww.Id)">
+                        <span class="pw-paleta-ico">@Trazo(ww.Icono, 16)</span>
+                        <span class="pw-paleta-txt">
+                            <span>@ww.Titulo</span>
+                            <small>@ww.W × @ww.H</small>
+                        </span>
+                        <Ico Nombre="agregar" />
+                    </button>
+                }
+            }
+            @if (!Disponibles().Any())
+            {
+                <div class="ini-vacio" title="Todos los widgets están en el panel"><Ico Nombre="aceptar" /></div>
+            }
+        </aside>
+    }
+</div>
+
+@code {
+    private const int MaxItems = 60;
+
+    private RenderFragment Contenido(Widget w) => __builder =>
+    {
+        switch (w.Tipo)
+        {
+            case TipoWidget.Kpi when datos.Kpis.FirstOrDefault(k => "kpi:" + k.Clave == w.Id) is { } k:
+                <a class="ini-kpi ini-@k.Tono" href="@k.Href" title="@k.Titulo">
+                    <span class="ini-kpi-ico">@Trazo(k.Icono, 18)</span>
+                    <span class="ini-kpi-txt">
+                        <span class="ini-kpi-t">@k.Titulo</span>
+                        <span class="ini-kpi-n">@k.Valor</span>
+                        <span class="ini-kpi-sub">@(k.Sub ?? " ")</span>
+                    </span>
+                </a>
+                break;
+            case TipoWidget.Lista when datos.Secciones.FirstOrDefault(s => "lista:" + s.Clave == w.Id) is { } s:
+                <section class="ini-panel">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@TrazoSeccion(s, 16)</span>
+                        <h6 class="ini-panel-tit" title="@s.Titulo">@s.Titulo</h6>
+                        <span class="ini-tab-n ini-@s.Tono">@s.Total</span>
+                        <a class="ini-ir" href="@s.Href" title="Gestionar"><Ico Nombre="ubicar" /></a>
+                    </header>
+                    @Filas(s)
+                </section>
+                break;
+            case TipoWidget.Bandeja:
+                <section class="ini-panel ini-bandeja">
+                    <header class="ini-tabs-cab">
+                        <div class="ini-tabs" role="tablist">
+                            @foreach (var sec in bandeja)
+                            {
+                                var ss = sec;
+                                <button type="button" role="tab" class="ini-tab @(ss.Clave == Sel?.Clave ? "activa" : "")" title="@ss.Titulo" @onclick="() => tab = ss.Clave">
+                                    @TrazoSeccion(ss, 17)
+                                    <span class="ini-tab-n ini-@ss.Tono">@ss.Total</span>
+                                </button>
+                            }
+                        </div>
+                        @if (Sel is { } sel)
+                        {
+                            <a class="ini-ir" href="@sel.Href" title="Gestionar"><Ico Nombre="ubicar" /></a>
+                        }
+                    </header>
+                    @if (Sel is { } actual) { @Filas(actual) }
+                    else { <div class="ini-vacio" title="Sin pendientes"><Ico Nombre="aceptar" /></div> }
+                </section>
+                break;
+            case TipoWidget.Pie:
+                <section class="ini-panel ini-pie ini-@(datos.Pie?.Tono ?? "gris")">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@Trazo("matriz", 16)</span>
+                        <h6 class="ini-panel-tit">Matriz PIE</h6>
+                        <a class="ini-ir" href="matriz-pie" title="Gestionar"><Ico Nombre="ubicar" /></a>
+                    </header>
+                    @if (datos.Pie is { } pie && pie.Pct is decimal pct)
+                    {
+                        <a class="ini-pie-resumen" href="@pie.Href" title="Matriz PIE">
+                            <span class="ini-anillo" style="--p:@(Math.Clamp(pct, 0m, 100m).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))">
+                                <span>@SigWeb.Data.Pie.CumplimientoPie.Formato(pct)</span>
+                            </span>
+                            <span class="ini-pie-datos">
+                                <span><b>@datos.PieTotal.Aplican.ToString("N0")</b> registros</span>
+                                <span><b>@pie.Total</b> torres con pendientes</span>
+                            </span>
+                        </a>
+                        <div class="ini-lista">
+                            @foreach (var it in pie.Items.Take(MaxItems))
+                            {
+                                <a class="ini-item ini-barra" href="@it.Href" title="@($"{it.Titulo} · {it.Detalle}")">
+                                    <span class="ini-barra-tit">@it.Titulo</span>
+                                    <span class="ini-barra-pista"><span class="ini-@it.Tono" style="width:@(Math.Clamp(it.Valor ?? 0, 0m, 100m).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></span></span>
+                                    <span class="ini-barra-pct">@SigWeb.Data.Pie.CumplimientoPie.Formato(it.Valor)</span>
+                                    <span class="ini-chip ini-@it.Tono" title="Pendientes">@it.Etiqueta</span>
+                                </a>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ini-vacio" title="Sin datos">@Trazo("matriz", 26)</div>
+                    }
+                </section>
+                break;
+            case TipoWidget.Mapa:
+                <section class="ini-panel ini-mapa">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@Trazo("riesgos", 16)</span>
+                        <h6 class="ini-panel-tit">Riesgos activos</h6>
+                        <span class="ini-tab-n ini-gris">@datos.MapaTotal</span>
+                        <a class="ini-ir" href="riesgos" title="Gestionar"><Ico Nombre="ubicar" /></a>
+                    </header>
+                    <div class="ini-rejilla">
+                        @foreach (var p in EscalaRiesgo.Probabilidades)
+                        {
+                            <span class="ini-eje" title="@($"Probabilidad {EscalaRiesgo.Nombre(p)}")">@EscalaRiesgo.Sigla(p)</span>
+                            @foreach (var i in EscalaRiesgo.Impactos)
+                            {
+                                var n = datos.Mapa[(int)p - 1, (int)i - 1];
+                                var nivel = EscalaRiesgo.Nivel(p, i);
+                                <a class="ini-celda @(n == 0 ? "vacia" : "")" href="@($"riesgos?p={(int)p}&i={(int)i}")"
+                                   style="--c:@EscalaRiesgo.Color(nivel); --ct:@EscalaRiesgo.ColorTexto(nivel);"
+                                   title="@($"{EscalaRiesgo.Nombre(p)} × {EscalaRiesgo.Nombre(i)} · {EscalaRiesgo.Nombre(nivel)}: {n}")">@(n == 0 ? "" : n.ToString())</a>
+                            }
+                        }
+                        <span></span>
+                        @foreach (var i in EscalaRiesgo.Impactos)
+                        {
+                            <span class="ini-eje" title="@($"Impacto {EscalaRiesgo.Nombre(i)}")">@EscalaRiesgo.Sigla(i)</span>
+                        }
+                    </div>
+                </section>
+                break;
+            case TipoWidget.Avance:
+                <section class="ini-panel ini-avance">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@Trazo("avance-obra", 16)</span>
+                        <h6 class="ini-panel-tit">Avance de obra</h6>
+                        <a class="ini-ir" href="avance-obra" title="Gestionar"><Ico Nombre="ubicar" /></a>
+                    </header>
+                    @if (avance is { } av && av.Pct is decimal pa)
+                    {
+                        <a class="ini-pie-resumen ini-@TonoPct(pa)" href="avance-obra" title="Avance ponderado del proyecto">
+                            <span class="ini-anillo" style="--p:@Inv(Math.Clamp(pa, 0m, 100m))"><span>@pa.ToString("0.#")%</span></span>
+                            <span class="ini-pie-datos">
+                                <span><b>@av.Iniciadas</b> de @av.Torres torres iniciadas</span>
+                                <span><b>@av.Terminadas</b> terminadas</span>
+                                @if (av.UltimoRegistro is DateTime ur) { <span>Último registro @ur.ToString("dd/MM/yyyy")</span> }
+                            </span>
+                        </a>
+                        <div class="ini-lista">
+                            @foreach (var g in av.Grupos)
+                            {
+                                var tono = TonoPct(g.Pct);
+                                <a class="ini-item ini-barra ini-barra-ancha" href="avance-obra?vista=matriz" title="@g.Nombre">
+                                    <span class="ini-barra-tit">@g.Nombre</span>
+                                    <span class="ini-barra-pista"><span class="ini-@tono" style="width:@Inv(Math.Clamp(g.Pct ?? 0, 0m, 100m))%"></span></span>
+                                    <span class="ini-barra-pct">@(g.Pct is decimal gp ? gp.ToString("0.#") + "%" : "—")</span>
+                                </a>
+                            }
+                        </div>
+                    }
+                    else { @Espera("avance", "avance-obra") }
+                </section>
+                break;
+            case TipoWidget.Resumen when ResumenesInicio.Lista.FirstOrDefault(d => d.Id == w.Id) is { } rd:
+                <section class="ini-panel ini-resumen">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@Trazo(rd.Icono, 16)</span>
+                        <h6 class="ini-panel-tit">@rd.Titulo</h6>
+                        <a class="ini-ir" href="@rd.Ruta" title="Gestionar"><Ico Nombre="ubicar" /></a>
+                    </header>
+                    @if (resumenes.TryGetValue(rd.Id, out var rs) && rs is not null && !rs.Vacio)
+                    {
+                        <div class="ini-evm-fichas ini-res-fichas" style="--ini-res-cols:@Math.Min(rs.Fichas.Count, 5)">
+                            @foreach (var f in rs.Fichas)
+                            {
+                                <a class="ini-evm-ficha ini-@f.Tono" href="@(f.Href ?? rd.Ruta)" title="@(f.Titulo ?? f.Etiqueta)"><small>@f.Etiqueta</small><b>@f.Valor</b></a>
+                            }
+                        </div>
+                        @if (rs.Nota is not null) { <div class="ini-res-nota">@rs.Nota</div> }
+                        @if (rs.Barras.Count > 0)
+                        {
+                            var max = rs.Barras.Max(b => b.Valor);
+                            <div class="ini-lista">
+                                @foreach (var b in rs.Barras)
+                                {
+                                    <a class="ini-item ini-barra ini-barra-ancha" href="@(b.Href ?? rd.Ruta)" title="@b.Etiqueta: @b.Texto">
+                                        <span class="ini-barra-tit">@b.Etiqueta</span>
+                                        <span class="ini-barra-pista"><span class="ini-@b.Tono" style="width:@Inv(max > 0 ? (decimal)(100 * b.Valor / max) : 0m)%"></span></span>
+                                        <span class="ini-barra-pct">@b.Texto</span>
+                                    </a>
+                                }
+                            </div>
+                        }
+                    }
+                    else if (rs is not null && rs.Nota is not null && leidos.Contains("r:" + rd.Id)) { <div class="ini-vacio ini-res-nota">@rs.Nota</div> }
+                    else { @Espera("r:" + rd.Id, rd.Icono) }
+                </section>
+                break;
+            case TipoWidget.Evm:
+                <section class="ini-panel ini-evm">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@Trazo("costos", 16)</span>
+                        <h6 class="ini-panel-tit">Valor ganado</h6>
+                        <a class="ini-ir" href="costos?vista=tablero" title="Gestionar"><Ico Nombre="ubicar" /></a>
+                    </header>
+                    @if (evm is { } e)
+                    {
+                        <div class="ini-evm-fichas">
+                            <a class="ini-evm-ficha ini-@TonoIndice(e.Cpi)" href="costos?vista=tablero" title="Índice de desempeño del costo (EV / AC)">
+                                <small>CPI</small><b>@(e.Cpi?.ToString("0.00") ?? "—")</b>
+                            </a>
+                            <a class="ini-evm-ficha ini-@TonoIndice(e.Spi)" href="costos?vista=tablero" title="Índice de desempeño del cronograma (EV / PV)">
+                                <small>SPI</small><b>@(e.Spi?.ToString("0.00") ?? "—")</b>
+                            </a>
+                            <a class="ini-evm-ficha ini-gris" href="costos?vista=tablero" title="Estimado al terminar (AC + (BAC − EV) / CPI)">
+                                <small>EAC</small><b>@Millones(e.Eac)</b>
+                            </a>
+                            <a class="ini-evm-ficha ini-@(e.Vac is decimal v && v < 0 ? "rojo" : "verde")" href="costos?vista=tablero" title="Variación al terminar (BAC − EAC)">
+                                <small>VAC</small><b>@Millones(e.Vac)</b>
+                            </a>
+                        </div>
+                        <div class="ini-evm-barras">
+                            <span class="ini-evm-et" title="Avance físico a precios constantes">Físico</span>
+                            <span class="ini-barra-pista"><span class="ini-verde" style="width:@Inv(Math.Clamp(e.AvanceFisico * 100, 0m, 100m))%"></span></span>
+                            <span class="ini-barra-pct">@((e.AvanceFisico * 100).ToString("0.#"))%</span>
+                            <span class="ini-evm-et" title="Avance programado del PDT vigente">Programado</span>
+                            <span class="ini-barra-pista"><span class="ini-gris" style="width:@Inv(Math.Clamp((e.AvanceProgramado ?? 0) * 100, 0m, 100m))%"></span></span>
+                            <span class="ini-barra-pct">@(e.AvanceProgramado is decimal ap ? (ap * 100).ToString("0.#") + "%" : "—")</span>
+                            <span class="ini-evm-et" title="Presupuesto al terminar">BAC</span>
+                            <span class="ini-evm-valor">@Millones(e.Bac)</span>
+                            <span></span>
+                        </div>
+                    }
+                    else { @Espera("evm", "costos") }
+                </section>
+                break;
+            case TipoWidget.Indicador:
+                var idInd = int.TryParse(w.Id[4..], out var ii) ? ii : 0;
+                <section class="ini-panel ini-ind">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@Trazo("indicadores", 16)</span>
+                        <h6 class="ini-panel-tit" title="@w.Titulo">@w.Titulo</h6>
+                        <a class="ini-ir" href="@($"indicadores?indicador={idInd}")" title="Gestionar"><Ico Nombre="ubicar" /></a>
+                    </header>
+                    @if (series is not null && series.TryGetValue(idInd, out var sr))
+                    {
+                        var ult = sr.Ultimo;
+                        var max = sr.Meses.Where(m => m.Valor is not null).Select(m => Math.Abs(m.Valor!.Value)).DefaultIfEmpty(0).Max();
+                        if (sr.Indicador.Meta is decimal mm && Math.Abs(mm) > max) max = Math.Abs(mm);
+                        <a class="ini-ind-cab ini-@(ult?.Cumple switch { true => "verde", false => "rojo", _ => "gris" })" href="@($"indicadores?indicador={idInd}")">
+                            <b>@(ult is null ? "—" : SigWeb.Data.Indicadores.CalculoIndicadores.Formato(sr.Indicador, ult.Valor))</b>
+                            <span>@(ult?.Etiqueta ?? "Sin medición") · meta @sr.Meta</span>
+                        </a>
+                        <div class="ini-ind-barras">
+                            @foreach (var m in sr.Meses)
+                            {
+                                var h = max > 0 && m.Valor is decimal vv ? Math.Clamp(Math.Abs(vv) / max * 100, 4m, 100m) : 0m;
+                                <span class="ini-ind-mes @(m.Mide ? "" : "no-mide")" title="@($"{m.Etiqueta}: {(m.Valor is null ? "—" : SigWeb.Data.Indicadores.CalculoIndicadores.Formato(sr.Indicador, m.Valor))}")">
+                                    <span class="ini-ind-col"><span class="ini-@(m.Cumple switch { true => "verde", false => "rojo", _ => "gris" })" style="height:@Inv(h)%"></span></span>
+                                    <small>@m.Etiqueta[..Math.Min(1, m.Etiqueta.Length)]</small>
+                                </span>
+                            }
+                            @if (sr.Indicador.Meta is decimal mt && max > 0)
+                            {
+                                <span class="ini-ind-meta" style="bottom:calc(22px + (100% - 26px) * @Inv(Math.Clamp(Math.Abs(mt) / max, 0m, 1m)))" title="@($"Meta {sr.Meta}")"></span>
+                            }
+                        </div>
+                    }
+                    else { @Espera("ind", "indicadores") }
+                </section>
+                break;
+            case TipoWidget.Calendario:
+                <section class="ini-panel ini-cal">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@Trazo("calendario", 16)</span>
+                        <button type="button" class="ini-ir" title="Mes anterior" @onclick="() => MoverMes(-1)">‹</button>
+                        <h6 class="ini-panel-tit text-center">@mesCal.ToString("MMMM yyyy")</h6>
+                        <button type="button" class="ini-ir" title="Mes siguiente" @onclick="() => MoverMes(1)">›</button>
+                        @if (mesCal != new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1))
+                        {
+                            <button type="button" class="ini-ir" title="Hoy" @onclick="() => MoverMes(((DateTime.Today.Year - mesCal.Year) * 12) + DateTime.Today.Month - mesCal.Month)">•</button>
+                        }
+                    </header>
+                    @if (eventos is { } evs)
+                    {
+                        var inicio = mesCal.AddDays(-(((int)mesCal.DayOfWeek + 6) % 7));
+                        var porDia = evs.GroupBy(x => x.Fecha.Date).ToDictionary(g => g.Key, g => g.ToList());
+                        <div class="ini-cal-mes">
+                            @foreach (var d in new[] { "L", "M", "M", "J", "V", "S", "D" }) { <span class="ini-cal-dsem">@d</span> }
+                            @for (var k = 0; k < 42; k++)
+                            {
+                                var dia = inicio.AddDays(k);
+                                if (k >= 35 && dia.Month != mesCal.Month) break;
+                                var del = porDia.GetValueOrDefault(dia);
+                                var tono = del is null ? "" : del.Any(x => x.Tono == "rojo") ? "rojo" : del.Any(x => x.Tono == "ambar") ? "ambar" : del.Any(x => x.Tono == "verde") ? "verde" : "gris";
+                                var dd = dia;
+                                <button type="button" class="ini-cal-dia @(dia.Month != mesCal.Month ? "fuera" : "") @(dia == DateTime.Today ? "hoy" : "") @(diaCal == dia ? "sel" : "") @(del is null ? "" : "ini-" + tono)"
+                                        title="@(del is null ? dia.ToString("dd/MM/yyyy") : $"{dia:dd/MM/yyyy}: {del.Count}")" @onclick="() => diaCal = diaCal == dd ? null : dd">
+                                    <span>@dia.Day</span>
+                                    @if (del is not null) { <i>@del.Count</i> }
+                                </button>
+                            }
+                        </div>
+                        var lista = diaCal is DateTime dc ? (porDia.GetValueOrDefault(dc) ?? new()) : evs.Where(x => x.Fecha.Month == mesCal.Month && x.Fecha.Year == mesCal.Year && (mesCal > DateTime.Today || x.Fecha.Date >= DateTime.Today.AddDays(-30))).ToList();
+                        @if (lista.Count == 0)
+                        {
+                            <div class="ini-vacio" title="Sin vencimientos"><Ico Nombre="aceptar" /></div>
+                        }
+                        else
+                        {
+                            <div class="ini-lista">
+                                @foreach (var ev in lista)
+                                {
+                                    <a class="ini-item ini-fila ini-cal-ev ini-@ev.Tono" href="@ev.Href" title="@($"{ev.Fecha:dd/MM/yyyy} · {ev.Titulo} · {ev.Detalle}")">
+                                        <span class="ini-cal-ico">@Trazo(ev.Tipo, 14)</span>
+                                        <span class="ini-fila-tit">@ev.Titulo</span>
+                                        <span class="ini-fila-det">@ev.Detalle</span>
+                                        <span class="ini-chip ini-@ev.Tono">@ev.Fecha.ToString("dd/MM")</span>
+                                    </a>
+                                }
+                            </div>
+                        }
+                    }
+                    else { @Espera("calendario", "inicio") }
+                </section>
+                break;
+            case TipoWidget.Accesos:
+                <section class="ini-panel ini-accesos">
+                    <header class="ini-panel-cab">
+                        <span class="ini-panel-ico">@Trazo("favorito", 16)</span>
+                        <h6 class="ini-panel-tit">Accesos rápidos</h6>
+                    </header>
+                    @if (favoritos.Count == 0 && recientes.Count == 0)
+                    {
+                        <div class="ini-vacio" title="Marca favoritos con la estrella del encabezado de cada pantalla">@Trazo("favorito", 28)</div>
+                    }
+                    else
+                    {
+                        <div class="ini-lista">
+                            @foreach (var f in favoritos)
+                            {
+                                <a class="ini-item ini-acceso" href="@f.Url" title="@f.Titulo">
+                                    <span class="ini-acceso-ico fav">★</span>
+                                    <span class="ini-fila-tit">@f.Titulo</span>
+                                    <span class="ini-fila-det">@f.Modulo</span>
+                                </a>
+                            }
+                            @if (favoritos.Count > 0 && recientes.Count > 0) { <span class="ini-acceso-sep"></span> }
+                            @foreach (var f in recientes.Where(r => !favoritos.Any(x => x.Url == r.Url)))
+                            {
+                                <a class="ini-item ini-acceso" href="@f.Url" title="@f.Titulo">
+                                    <span class="ini-acceso-ico">↺</span>
+                                    <span class="ini-fila-tit">@f.Titulo</span>
+                                    <span class="ini-fila-det">@f.Modulo</span>
+                                </a>
+                            }
+                        </div>
+                    }
+                </section>
+                break;
+            default:
+                <div class="ini-panel"><div class="ini-vacio" title="Sin datos"><Ico Nombre="aceptar" /></div></div>
+                break;
+        }
+    };
+
+    private RenderFragment Filas(TableroInicio.Seccion s) => __builder =>
+    {
+        if (s.Items.Count == 0)
+        {
+            <div class="ini-vacio" title="Sin pendientes"><Ico Nombre="aceptar" /></div>
+            return;
+        }
+        <div class="ini-lista">
+            @foreach (var it in s.Items.Take(MaxItems))
+            {
+                <a class="ini-item ini-fila ini-@it.Tono" href="@it.Href" title="@(it.Detalle is null ? it.Titulo : $"{it.Titulo} · {it.Detalle}")">
+                    <span class="ini-fila-tit">@it.Titulo</span>
+                    <span class="ini-fila-det">@it.Detalle</span>
+                    <span class="ini-chip ini-@it.Tono">@it.Etiqueta</span>
+                </a>
+            }
+            @if (s.Items.Count > MaxItems)
+            {
+                <a class="ini-mas" href="@s.Href" title="Ver todos">+@(s.Items.Count - MaxItems)</a>
+            }
+        </div>
+    };
+
+
+    private RenderFragment Espera(string clave, string icono) => __builder =>
+    {
+        if (!leidos.Contains(clave))
+        {
+            <Esqueleto Tipo="texto" Filas="3" Etiqueta="Cargando…" />
+        }
+        else
+        {
+            <div class="ini-vacio" title="Sin datos">@Trazo(icono, 26)</div>
+        }
+    };
+
+    private static string Inv(decimal v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    private static string TonoPct(decimal? p) => p switch { null => "gris", >= 90 => "verde", >= 60 => "ambar", _ => "rojo" };
+    private static string TonoIndice(decimal? i) => i switch { null => "gris", >= 1m => "verde", >= 0.9m => "ambar", _ => "rojo" };
+    private static string Millones(decimal? v) => v is decimal x ? (x / 1_000_000m).ToString("N0") + " M" : "—";
+
+    private static RenderFragment Trazo(string clave, int tam) => __builder =>
+    {
+        <svg viewBox="0 0 24 24" width="@tam" height="@tam" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">@((MarkupString)EncabezadoPagina.Trazos(clave))</svg>
+    };
+
+    private static RenderFragment TrazoSeccion(TableroInicio.Seccion sec, int tam) => __builder =>
+    {
+        <svg viewBox="0 0 24 24" width="@tam" height="@tam" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">@((MarkupString)IconoSeccion(sec.Clave, sec.Icono))</svg>
+    };
+}

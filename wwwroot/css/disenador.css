@@ -1,0 +1,99 @@
+/* Diseñador de formularios (Configuración › Catálogos › Formularios). Clases df-*.
+   El boceto usa el motor y las clases pw-* del panel de Inicio (css/inicio.css, variables --ini-* de .ini-tablero). */
+.df { display: grid; grid-template-columns: 230px minmax(0, 1fr) 290px; gap: 14px; align-items: start; }
+@media (max-width: 1200px) { .df { grid-template-columns: 200px minmax(0, 1fr); } .df-props { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .df { grid-template-columns: 1fr; } }
+
+/* Lista de módulos (como el Dossier) */
+.df-mods { position: sticky; top: 8px; max-height: calc(100vh - 140px); overflow: auto; padding: 8px; border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 12px; background: var(--frm-sup, var(--bs-body-bg)); }
+.df-grupo { font-size: .68rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--frm-ac, #EC1C24); margin: 10px 4px 4px; }
+.df-grupo:first-child { margin-top: 2px; }
+.df-modulo { font-size: .74rem; font-weight: 600; color: var(--frm-texto-2, var(--bs-secondary-color)); margin: 6px 6px 2px; }
+.df-form { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; border: 0; background: none; padding: 5px 8px 5px 14px; border-radius: 8px; font-size: .82rem; color: var(--frm-texto, var(--bs-body-color)); }
+.df-form > span:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-form:hover { background: var(--frm-sup-2, var(--bs-tertiary-bg)); }
+.df-form.activo { background: color-mix(in srgb, var(--frm-ac, #EC1C24) 12%, transparent); font-weight: 700; }
+.df-ver { font-size: .66rem; font-weight: 700; padding: 0 6px; border-radius: 999px; background: var(--frm-ac, #EC1C24); color: #fff; }
+
+/* Centro */
+.df-centro { min-width: 0; }
+/* Barra del formulario (título + acciones), avisos y motivo: fijos al bajar por el boceto, siempre a la mano. */
+.df-fija { position: sticky; top: 0; z-index: 20; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 12px;
+    background: var(--frm-sup, var(--t-superficie, var(--bs-body-bg))); box-shadow: 0 4px 12px -8px rgba(0,0,0,.35); }
+.df-fija > .alert, .df-fija > .frm-linea { margin: 8px 0 0; }
+.df-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.df-tit { display: flex; flex-direction: column; line-height: 1.15; }
+.df-tit > span { font-weight: 700; font-size: 1.05rem; }
+.df-tit > small { color: var(--frm-texto-2, var(--bs-secondary-color)); font-size: .75rem; }
+.df-pend { font-size: .75rem; font-weight: 700; color: var(--frm-ac, #EC1C24); }
+.df-acciones { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+.df-vacio { padding: 40px 20px; text-align: center; color: var(--frm-texto-2, var(--bs-secondary-color)); border: 1px dashed var(--frm-borde, var(--bs-border-color)); border-radius: 12px; }
+.df-historial { border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 10px; padding: 6px 10px; margin-bottom: 10px; max-height: 220px; overflow: auto; }
+.df-hist-fila { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: .82rem; border-bottom: 1px dashed var(--frm-borde, var(--bs-border-color)); }
+.df-hist-fila:last-child { border-bottom: 0; }
+
+/* Boceto: se parece al formulario real */
+.df-boceto { border: 1px solid var(--frm-borde, var(--bs-border-color)); border-left: 4px solid var(--frm-ac, #EC1C24); border-radius: 12px; background: var(--frm-sup, var(--bs-body-bg)); padding: 14px 16px; }
+.df-paso { padding: 10px 0 14px; border-top: 1px dashed var(--frm-borde, var(--bs-border-color)); }
+.df-paso:first-child { border-top: 0; padding-top: 0; }
+.df-paso.df-arrastrando { opacity: .45; }
+.df-paso-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; border-radius: 8px; padding: 2px 4px; }
+.df-paso.df-sel > .df-paso-cab { background: color-mix(in srgb, var(--frm-ac, #EC1C24) 10%, transparent); }
+.df-asa { cursor: grab; color: var(--frm-texto-2, var(--bs-secondary-color)); font-size: 1rem; user-select: none; }
+.df-num { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 800; background: color-mix(in srgb, var(--frm-ac, #EC1C24) 14%, transparent); color: var(--frm-ac, #EC1C24); }
+.df-paso-tit { font-weight: 800; font-size: .8rem; letter-spacing: .05em; text-transform: uppercase; }
+.df-chip { font-size: .66rem; padding: 0 7px; border-radius: 999px; border: 1px solid var(--frm-borde, var(--bs-border-color)); color: var(--frm-texto-2, var(--bs-secondary-color)); }
+.df-chip-nuevo { border-color: var(--frm-ac, #EC1C24); color: var(--frm-ac, #EC1C24); }
+.df-chip-ligado { display: inline-flex; align-items: center; gap: 4px; border-color: var(--bs-info, #0dcaf0); color: var(--bs-info-text-emphasis, #055160); }
+.df-chip-ligado svg { width: 12px; height: 12px; }
+.df-bloque-cuerpo { padding: 14px; border-radius: 10px; background: repeating-linear-gradient(135deg, var(--frm-sup-2, #f5f7fa) 0 10px, transparent 10px 20px); color: var(--frm-texto-2, var(--bs-secondary-color)); font-size: .8rem; text-align: center; border: 1px dashed var(--frm-borde, var(--bs-border-color)); }
+.df-libre, .df-ocultos, .df-disp { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.df-ocultos { margin-top: 8px; font-size: .75rem; color: var(--frm-texto-2, var(--bs-secondary-color)); }
+.df-chip-campo { border: 1px solid var(--frm-borde, var(--bs-border-color)); background: var(--frm-sup-2, var(--bs-tertiary-bg)); border-radius: 999px; padding: 2px 10px; font-size: .78rem; display: inline-flex; align-items: center; gap: 4px; color: var(--frm-texto, var(--bs-body-color)); }
+.df-chip-campo.df-sel, .df-chip-campo:hover { border-color: var(--frm-ac, #EC1C24); }
+
+/* Rejilla del paso (motor pw-*) */
+.df-rejilla { min-height: 70px; }
+.df-campo { cursor: grab; }
+.df-campo > .df-mock { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 6px 12px;
+    border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 10px; background: var(--frm-sup, var(--bs-body-bg)); box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+.df-campo.df-nuevo > .df-mock { border-style: dashed; border-color: color-mix(in srgb, var(--frm-ac, #EC1C24) 55%, var(--frm-borde, #ddd)); }
+.df-campo.df-sel > .df-mock { outline: 2px solid var(--frm-ac, #EC1C24); outline-offset: 1px; }
+.df-mock-etq { font-size: .72rem; font-weight: 600; color: var(--frm-texto-2, var(--bs-secondary-color)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 3px; }
+.df-mock-caja { height: 14px; border-radius: 4px; background: var(--frm-sup-2, #eef1f5); position: relative; }
+.df-t-lista .df-mock-caja::after { content: "▾"; position: absolute; right: 6px; top: -4px; font-size: .8rem; color: var(--frm-texto-2, #6b7686); }
+.df-t-fecha .df-mock-caja::after { content: "▦"; position: absolute; right: 6px; top: -3px; font-size: .7rem; color: var(--frm-texto-2, #6b7686); }
+.df-t-numero .df-mock-caja::after { content: "123"; position: absolute; right: 6px; top: -1px; font-size: .6rem; color: var(--frm-texto-2, #6b7686); }
+.df-t-area .df-mock-caja { flex: 1 1 auto; min-height: 14px; }
+.df-candado { display: inline-flex; color: var(--frm-texto-2, #6b7686); }
+.df-candado .ico-svg { width: 11px; height: 11px; }
+.df .pw-editando .pw-w > .df-mock { pointer-events: none; user-select: none; }
+
+/* Propiedades */
+.df-props { position: sticky; top: 8px; padding: 12px; border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 12px; background: var(--frm-sup, var(--bs-body-bg)); max-height: calc(100vh - 140px); overflow: auto; }
+.df-props h6 { font-weight: 700; margin: 0 0 8px; }
+.df-props-campos { display: flex; flex-direction: column; gap: 8px; }
+.df-props-campos .frm-campo { flex: 1 1 0; min-width: 0; }
+.df-dato { display: flex; justify-content: space-between; gap: 8px; font-size: .8rem; }
+.df-dato > span { color: var(--frm-texto-2, var(--bs-secondary-color)); }
+.df-t-archivos .df-mock-caja { flex: 1 1 auto; min-height: 14px; border: 1px dashed var(--frm-borde, #ccd); background: transparent; }
+.df-t-archivos .df-mock-caja::after { content: "📎 Adjuntar"; position: absolute; left: 8px; bottom: 2px; font-size: .62rem; color: var(--frm-texto-2, #6b7686); }
+/* Campos según la opción */
+.df-condicion { font-size: .62rem; color: var(--frm-ac, #EC1C24); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.df-dep { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--frm-borde, var(--bs-border-color)); display: flex; flex-direction: column; gap: 4px; }
+.df-dep-tit { font-size: .75rem; font-weight: 700; color: var(--frm-texto-2, var(--bs-secondary-color)); }
+.df-dep-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: .8rem; }
+.df-dep-op { font-weight: 600; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-dep-nuevo { display: flex; gap: 4px; width: 100%; }
+.df-dep-nuevo .form-control { flex: 1 1 auto; min-width: 0; }
+.df-dep-nuevo .form-select { flex: 0 0 110px; }
+
+/* Pregunta "¿aplicar a todas las opciones?" y fila "Todas" en Campos según la opción. */
+.df-todas-op { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.df-todas-btn { display: flex; align-items: center; gap: 10px; text-align: left; padding: 12px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--frm-borde, var(--bs-border-color)); background: var(--frm-sup, var(--bs-body-bg)); color: inherit; }
+.df-todas-btn:hover, .df-todas-btn.activo { border-color: var(--t-acento, var(--sig-rojo, #EC1C24)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--t-acento, #EC1C24) 18%, transparent); }
+.df-todas-btn span { display: flex; flex-direction: column; line-height: 1.25; }
+.df-todas-btn small { color: var(--frm-texto-2, var(--bs-secondary-color)); font-size: .75rem; }
+.df-dep-todas .df-dep-op { font-style: italic; }
+@media (max-width: 560px) { .df-todas-op { grid-template-columns: 1fr; } }

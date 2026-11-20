@@ -1,0 +1,503 @@
+@page "/certificaciones"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Documentos
+@using SigWeb.Data.Impacto
+@using SigWeb.Models
+@inject AppDbContext DbPropio
+@inject SigWeb.Data.Seguridad.FabricaDbCompartida Compartida
+@inject IWebHostEnvironment Env
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject AnalizadorImpacto Impacto
+
+@* Vitrina de los certificados de sistemas de gestión de la empresa. Cada certificado es un documento
+   del Listado maestro (Tipo documental "Certificados"): Actualizar, obsoletos y "Ver todos" abren
+   esas pantallas de Documentos (/documentos?doc=…&abrir=…) y Volver regresa aquí. *@
+<PageTitle>Certificaciones</PageTitle>
+
+<EncabezadoPagina Titulo="Certificaciones" Icono="certificaciones" Atras="/">
+    <Acciones>
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(vista == "vitrina" ? "activo" : "")" title="Vitrina" aria-label="Vitrina" @onclick='() => CambiarVista("vitrina")'><Ico Nombre="tablero" /></button>
+            <button type="button" class="pg-btn @(vista == "lista" ? "activo" : "")" title="Lista" aria-label="Lista" @onclick='() => CambiarVista("lista")'><Ico Nombre="listado" /></button>
+        </span>
+        @if (vista == "vitrina")
+        {
+            <button type="button" class="pg-btn" title="Pantalla completa" aria-label="Pantalla completa" @onclick="PantallaCompleta"><Ico Nombre="pantalla-completa" /></button>
+        }
+        <button type="button" class="pg-btn @(form is not null && form.Id == 0 ? "activo" : "")" title="Agregar certificado" aria-label="Agregar" @onclick="Nuevo"><Ico Nombre="agregar" /></button>
+    </Acciones>
+</EncabezadoPagina>
+@if (EsCompartido)
+{
+    <div class="alert alert-secondary py-2 small" data-sin-aviso>Certificados de la empresa, compartidos con todos los proyectos. Aquí son de consulta; se actualizan en el espacio de la Empresa.</div>
+}
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert @(error ? "alert-danger" : "alert-success") py-1 small">@mensaje</div>
+}
+
+@if (form is not null)
+{
+    <FormularioSig Titulo="@(form.Id == 0 ? "Nuevo certificado" : "Editar certificado")" Icono="@(form.Id == 0 ? "agregar" : "editar")" Clase="mb-3" OnCerrar="() => form = null" Formulario="certificaciones" Fila="form.Id">
+        <ChildContent>
+            <SeccionFormulario Titulo="Certificado">
+                <CampoFormulario Etiqueta="Norma" Ancho="col-md-3" Obligatorio="true" Destacado="true"><input class="form-control" list="dl-cv-norma" @bind="form.Norma" @bind:event="oninput" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Sistema" Ancho="col-md-3"><input class="form-control" list="dl-cv-sistema" @bind="form.Sistema" /></CampoFormulario>
+                <CampoFormulario Etiqueta="N.º de certificado" Ancho="col-md-3"><input class="form-control" @bind="form.Numero" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Organismo certificador" Ancho="col-md-3"><input class="form-control" list="dl-cv-org" @bind="form.Organismo" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Emisión" Ancho="col-md-3"><input type="date" class="form-control" @bind="form.Emision" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Vencimiento" Ancho="col-md-3"><input type="date" class="form-control" @bind="form.Vencimiento" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Alcance" Ancho="col-md-6"><textarea class="form-control" rows="2" @bind="form.Alcance"></textarea></CampoFormulario>
+            </SeccionFormulario>
+            <SeccionFormulario Titulo="Documento">
+                <CampoFormulario Etiqueta="Documento del listado" Ancho="col-md-4">
+                    <select class="form-select" @bind="form.DocumentoId">
+                        <option value="0">Nuevo documento</option>
+                        @foreach (var d in docsElegibles)
+                        {
+                            <option value="@d.Id">@(string.IsNullOrWhiteSpace(d.Codigo) ? $"Documento #{d.Id}" : d.Codigo)</option>
+                        }
+                    </select>
+                </CampoFormulario>
+                @if (form.DocumentoId == 0)
+                {
+                    <CampoFormulario Etiqueta="Código del documento" Ancho="col-md-4"><input class="form-control" placeholder="@CodigoSugerido(form)" @bind="form.Codigo" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Certificado vigente (PDF o imagen)" Ancho="col-md-4">
+                        <label class="form-control cv-archivo mb-0" title="Elegir archivo">
+                            <Ico Nombre="adjuntar" /> <span class="pildora-txt">@(form.Archivo?.Name ?? "")</span>
+                            <InputFile class="d-none" accept=".pdf,.png,.jpg,.jpeg,.webp" OnChange="e => form.Archivo = e.File" />
+                        </label>
+                    </CampoFormulario>
+                }
+            </SeccionFormulario>
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => form = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@(guardando || string.IsNullOrWhiteSpace(form.Norma))" @onclick="Guardar">
+                @if (guardando) { <span class="spinner-border spinner-border-sm" role="status"></span> } else { <Ico Nombre="guardar" /> }
+            </button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@if (elim is not null)
+{
+    <div class="card mb-3 cv-elim">
+        <div class="card-body py-2">
+            <PanelImpacto Informe="elim.Informe" OnEntendido="v => elim.Entendido = v" />
+            <div class="frm-pie frm-pie-plano">
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => elim = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-danger btn-sm" title="Enviar a la Papelera" disabled="@(elim.Informe.RequiereEntender && !elim.Entendido)" @onclick="ConfirmarEliminar"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="cv-filtros" role="group">
+    @foreach (var (clave, nombre) in Filtros)
+    {
+        var k = clave;
+        <button type="button" class="cv-chip @(filtro == k ? "activo" : "")" @onclick="() => filtro = k">
+            @nombre <span class="cv-chip-n">@certs.Count(c => Cumple(c, k))</span>
+        </button>
+    }
+</div>
+
+@{ var visibles = certs.Where(c => Cumple(c, filtro)).ToList(); }
+
+@if (vista == "vitrina")
+{
+    <div class="cv-sala" @ref="sala">
+        @if (visibles.Count == 0)
+        {
+            <div class="pg-vacio cv-vacio" title="Sin certificados">
+                <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos("certificaciones"))</svg>
+            </div>
+        }
+        else
+        {
+            <div class="cv-pared">
+                @foreach (var c in visibles)
+                {
+                    var cert = c;
+                    var est = EstadoDe(cert);
+                    var arch = VigenteDe(cert);
+                    <div class="cv-obra" @key="cert.Id">
+                        <div class="cv-foco" aria-hidden="true"></div>
+                        <div class="cv-marco" tabindex="0">
+                            <div class="cv-paspartu">
+                                @if (arch is not null && EsImagen(arch.NombreOriginal))
+                                {
+                                    <img class="cv-mini" src="@arch.RutaArchivo" alt="" loading="lazy" />
+                                }
+                                else if (arch is not null && EsPdf(arch.NombreOriginal))
+                                {
+                                    <div class="cv-mini cv-mini-pdf" data-pdf="@arch.RutaArchivo">@Lamina(cert)</div>
+                                }
+                                else
+                                {
+                                    <div class="cv-mini">@Lamina(cert)</div>
+                                }
+                            </div>
+                            @if (est.Sello is not null)
+                            {
+                                <span class="cv-sello cv-@est.Clase">@est.Sello</span>
+                            }
+                            <div class="cv-acciones">@OpcionesDoc(cert, arch)</div>
+                        </div>
+                        <div class="cv-placa">
+                            <b>@cert.Norma</b>
+                            @{ var linea = string.Join(" · ", new[] { cert.Sistema, string.IsNullOrWhiteSpace(cert.Numero) ? null : "N.º " + cert.Numero }.Where(t => !string.IsNullOrWhiteSpace(t))); }
+                            @if (linea.Length > 0) { <span>@linea</span> }
+                            @if (!string.IsNullOrWhiteSpace(cert.Organismo)) { <span>@cert.Organismo</span> }
+                            @if (cert.Vencimiento is DateTime v)
+                            {
+                                <span>@(est.Clase == "vencido" ? "Venció" : "Vence") @v.ToString("dd/MM/yyyy")</span>
+                                <div class="cv-barra" title="@est.Titulo"><i class="cv-@est.Clase" style="width:@est.Porcentaje.ToString(System.Globalization.CultureInfo.InvariantCulture)%"></i></div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="tabla-scroll tabla-auto">
+        <table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin cv-tabla">
+            <thead>
+                <tr><th>Norma</th><th>Sistema</th><th>N.º</th><th>Organismo</th><th>Alcance</th><th>Emisión</th><th>Vencimiento</th><th>Estado</th><th>Documento</th><th style="width:250px;"></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var c in visibles)
+                {
+                    var cert = c;
+                    var est = EstadoDe(cert);
+                    <tr @key="cert.Id">
+                        <td class="fw-bold">@cert.Norma</td>
+                        <td>@cert.Sistema</td>
+                        <td>@cert.Numero</td>
+                        <td>@cert.Organismo</td>
+                        <td class="small">@cert.Alcance</td>
+                        <td class="text-nowrap">@(cert.Emision?.ToString("dd/MM/yyyy"))</td>
+                        <td class="text-nowrap">@(cert.Vencimiento?.ToString("dd/MM/yyyy"))</td>
+                        <td>@if (est.Sello is not null) { <span class="cv-pildora cv-@est.Clase">@est.Sello</span> }</td>
+                        <td>@CodigoDoc(cert)</td>
+                        <td class="text-nowrap cv-fila-acc">@OpcionesDoc(cert, VigenteDe(cert))</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<datalist id="dl-cv-norma"><option value="ISO 9001:2015"></option><option value="ISO 14001:2015"></option><option value="ISO 45001:2018"></option>@foreach (var o in certs.Select(c => c.Norma).Distinct()) { <option value="@o"></option> }</datalist>
+<datalist id="dl-cv-sistema"><option value="Calidad"></option><option value="Ambiental"></option><option value="Seguridad y salud en el trabajo"></option>@foreach (var o in Distintos(c => c.Sistema)) { <option value="@o"></option> }</datalist>
+<datalist id="dl-cv-org">@foreach (var o in Distintos(c => c.Organismo)) { <option value="@o"></option> }</datalist>
+
+@code {
+    // Multiproyecto: en un proyecto que toma este módulo de la Empresa, se lee la base de la Empresa (solo lectura).
+    private AppDbContext? _db;
+    private AppDbContext Db => _db ??= Compartida.ParaModulo("certificaciones") ?? DbPropio;
+    private bool EsCompartido => !ReferenceEquals(Db, DbPropio);
+
+    private const string TipoCertificados = "Certificados";
+    private const long MaxArchivo = 50L * 1024 * 1024;
+    private const int DiasAviso = 90;
+
+    private static readonly (string Clave, string Nombre)[] Filtros =
+        { ("todas", "Todas"), ("vigente", "Vigentes"), ("porvencer", "Por vencer"), ("vencido", "Vencidas") };
+
+    private List<Certificacion> certs = new();
+    private Dictionary<int, DocumentoMaestro> docPorId = new();
+    private Dictionary<int, VersionDocumento> vigentePorDoc = new();   // documento → archivo vigente actual (el primero)
+    private List<DocumentoMaestro> docsElegibles = new();
+    private string vista = "vitrina", filtro = "todas", mensaje = "";
+    private bool error, guardando;
+    private ElementReference sala;
+
+    [SupplyParameterFromQuery(Name = "vista")] public string? VistaQ { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (VistaQ is "lista" or "vitrina") vista = VistaQ;
+        Cargar();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (vista == "vitrina") await JS.InvokeVoidAsync("sigVitrina.miniaturas", sala);
+        }
+        catch { }
+    }
+
+    private void Cargar()
+    {
+        Db.ChangeTracker.Clear();
+        certs = Db.Certificaciones.AsNoTracking().OrderBy(c => c.Orden).ThenBy(c => c.Norma).ThenBy(c => c.Id).ToList();
+        var idsDoc = certs.Where(c => c.DocumentoMaestroId != null).Select(c => c.DocumentoMaestroId!.Value).Distinct().ToList();
+        docPorId = Db.DocumentosMaestro.AsNoTracking().Where(d => idsDoc.Contains(d.Id)).ToDictionary(d => d.Id);
+        docsElegibles = Db.DocumentosMaestro.AsNoTracking().Where(d => d.TipoDocumental == TipoCertificados).OrderBy(d => d.Codigo).ToList();
+
+        // Vigente actual = el de la revisión más reciente (mayor fecha; a igual fecha, la última creada),
+        // igual que Documentos (ActualesDe); sin revisiones, el vigente cargado más reciente.
+        var revs = Db.RevisionesDocumento.AsNoTracking().Where(r => idsDoc.Contains(r.DocumentoMaestroId)).ToList()
+            .GroupBy(r => r.DocumentoMaestroId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Fecha ?? DateTime.MinValue).ThenByDescending(r => r.Creada).ThenByDescending(r => r.Id)
+                .Select((r, i) => (r.Id, i)).ToDictionary(x => x.Id, x => x.i));
+        vigentePorDoc = Db.VersionesDocumento.AsNoTracking()
+            .Where(v => idsDoc.Contains(v.DocumentoMaestroId) && v.Clase == ClaseArchivoDocumento.Vigente).ToList()
+            .GroupBy(v => v.DocumentoMaestroId)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(v => v.RevisionDocumentoId is int r && revs.TryGetValue(g.Key, out var rango) && rango.TryGetValue(r, out var i) ? i : int.MaxValue)
+                .ThenByDescending(v => v.FechaCarga).ThenByDescending(v => v.Id).First());
+    }
+
+    private async Task CambiarVista(string v)
+    {
+        vista = v;
+        await JS.RecordarVistaAsync("/certificaciones", new Dictionary<string, object?> { ["vista"] = v == "vitrina" ? null : v });
+    }
+
+    private async Task PantallaCompleta()
+    {
+        try { await JS.InvokeVoidAsync("sigVitrina.pantallaCompleta", sala); } catch { }
+    }
+
+    // ---------- Estado de vigencia ----------
+    private sealed record Estado(string Clase, string? Sello, string Titulo, double Porcentaje);
+
+    private static Estado EstadoDe(Certificacion c)
+    {
+        if (c.Vencimiento is not DateTime v) return new Estado("sinfecha", null, "", 0);
+        var dias = (v.Date - DateTime.Today).Days;
+        double pct = 100;
+        if (c.Emision is DateTime e && v > e)
+            pct = Math.Clamp((v.Date - DateTime.Today).TotalDays / (v.Date - e.Date).TotalDays * 100, 0, 100);
+        if (dias < 0) return new Estado("vencido", "Vencido", $"Venció hace {-dias} días", 100);
+        if (dias <= DiasAviso) return new Estado("porvencer", dias == 1 ? "1 día" : $"{dias} días", $"Faltan {dias} días", Math.Max(pct, 4));
+        return new Estado("vigente", "Vigente", $"Faltan {dias} días", Math.Max(pct, 4));
+    }
+
+    private static bool Cumple(Certificacion c, string filtro) => filtro == "todas" || EstadoDe(c).Clase == filtro;
+
+    private IEnumerable<string> Distintos(Func<Certificacion, string?> sel) =>
+        certs.Select(sel).Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!).Distinct(StringComparer.OrdinalIgnoreCase);
+
+    // ---------- Documento y archivos ----------
+    private VersionDocumento? VigenteDe(Certificacion c) =>
+        c.DocumentoMaestroId is int d && docPorId.ContainsKey(d) && vigentePorDoc.TryGetValue(d, out var v) ? v : null;
+
+    private bool TieneDoc(Certificacion c) => c.DocumentoMaestroId is int d && docPorId.ContainsKey(d);
+
+    private string? CodigoDoc(Certificacion c) =>
+        c.DocumentoMaestroId is int d && docPorId.TryGetValue(d, out var doc) ? (string.IsNullOrWhiteSpace(doc.Codigo) ? $"#{doc.Id}" : doc.Codigo) : null;
+
+    private static bool EsPdf(string nombre) => Path.GetExtension(nombre).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+    private static bool EsImagen(string nombre) => Path.GetExtension(nombre).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".webp" or ".gif";
+
+    private void AbrirDocumento(Certificacion c, string abrir)
+    {
+        if (EsCompartido) return;   // el documento vive en la base de la Empresa
+        if (c.DocumentoMaestroId is int d) Nav.NavigateTo($"/documentos?doc={d}&abrir={abrir}");
+    }
+
+    // Lámina de respaldo (sin archivo, o mientras se dibuja la primera página del PDF).
+    private RenderFragment Lamina(Certificacion c) => __builder =>
+    {
+        <div class="cv-lamina">
+            <span class="cv-lamina-e">Certificado</span>
+            <span class="cv-lamina-sello">ISO</span>
+            <span class="cv-lamina-n">@c.Norma</span>
+            <i style="width:80%"></i><i style="width:60%"></i><i style="width:70%"></i>
+        </div>
+    };
+
+    // Opciones de documento del certificado (vitrina: al pasar el mouse; lista: en la fila).
+    private RenderFragment OpcionesDoc(Certificacion c, VersionDocumento? arch) => __builder =>
+    {
+        var conDoc = TieneDoc(c);
+        if (arch is not null)
+        {
+            <a class="cv-btn" href="@arch.RutaArchivo" target="_blank" rel="noopener" title="Ver actual"><Ico Nombre="ubicar" /></a>
+        }
+        else
+        {
+            <button type="button" class="cv-btn" disabled title="Sin archivo vigente"><Ico Nombre="ubicar" /></button>
+        }
+        <button type="button" class="cv-btn" title="Actualizar" disabled="@(!conDoc)" @onclick='() => AbrirDocumento(c, "actualizar")'><Ico Nombre="nueva-version" /></button>
+        if (arch is not null)
+        {
+            <a class="cv-btn" href="@arch.RutaArchivo" download="@arch.NombreOriginal" title="Descargar"><Ico Nombre="importar" /></a>
+        }
+        else
+        {
+            <button type="button" class="cv-btn" disabled title="Sin archivo vigente"><Ico Nombre="importar" /></button>
+        }
+        <button type="button" class="cv-btn" title="Versiones obsoletas" disabled="@(!conDoc)" @onclick='() => AbrirDocumento(c, "obsoletos")'><Ico Nombre="versiones" /></button>
+        <button type="button" class="cv-btn" title="Ver todos" disabled="@(!conDoc)" @onclick='() => AbrirDocumento(c, "todos")'><Ico Nombre="carpeta" /></button>
+        <button type="button" class="cv-btn" title="Editar" @onclick="() => Editar(c)"><Ico Nombre="editar" /></button>
+        <button type="button" class="cv-btn" title="Eliminar" @onclick="() => PedirEliminar(c)"><Ico Nombre="eliminar" /></button>
+    };
+
+    // ---------- Formulario ----------
+    private sealed class FormCert
+    {
+        public int Id;
+        public string Norma { get; set; } = "";
+        public string? Sistema { get; set; }
+        public string? Alcance { get; set; }
+        public string? Organismo { get; set; }
+        public string? Numero { get; set; }
+        public DateTime? Emision { get; set; }
+        public DateTime? Vencimiento { get; set; }
+        public int DocumentoId { get; set; }   // 0 = crear un documento nuevo
+        public string? Codigo { get; set; }
+        public IBrowserFile? Archivo { get; set; }
+    }
+
+    private FormCert? form;
+
+    private void Nuevo()
+    {
+        if (form is not null && form.Id == 0) { form = null; return; }
+        elim = null; mensaje = "";
+        form = new FormCert();
+    }
+
+    private void Editar(Certificacion c)
+    {
+        elim = null; mensaje = "";
+        form = new FormCert
+        {
+            Id = c.Id, Norma = c.Norma, Sistema = c.Sistema, Alcance = c.Alcance, Organismo = c.Organismo, Numero = c.Numero,
+            Emision = c.Emision, Vencimiento = c.Vencimiento, DocumentoId = TieneDoc(c) ? c.DocumentoMaestroId!.Value : 0
+        };
+        // Un documento enlazado de otro tipo también debe poder elegirse.
+        if (TieneDoc(c) && docsElegibles.All(d => d.Id != c.DocumentoMaestroId)) docsElegibles.Insert(0, docPorId[c.DocumentoMaestroId!.Value]);
+    }
+
+    private static string CodigoSugerido(FormCert f) =>
+        "CERT " + (string.IsNullOrWhiteSpace(f.Norma) ? "" : f.Norma.Trim());
+
+    private static string? Limpio(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private async Task Guardar()
+    {
+        if (form is null || string.IsNullOrWhiteSpace(form.Norma)) return;
+        var f = form;
+        guardando = true; mensaje = "";
+        try
+        {
+            Db.ChangeTracker.Clear();
+            int? docId = f.DocumentoId == 0 ? null : f.DocumentoId;
+            if (docId is null)
+            {
+                var codigo = Limpio(f.Codigo) ?? CodigoSugerido(f);
+                if (await Db.DocumentosMaestro.AnyAsync(d => d.Codigo != null && d.Codigo.ToLower() == codigo.ToLower()))
+                { mensaje = $"Ya existe un documento con el código {codigo}."; error = true; return; }
+                await AsegurarTipoCertificados();
+                var doc = new DocumentoMaestro { Codigo = codigo, TipoDocumental = TipoCertificados };
+                Db.DocumentosMaestro.Add(doc);
+                await Db.SaveChangesAsync();
+                docId = doc.Id;
+                if (f.Archivo is not null)
+                {
+                    var rev = new RevisionDocumento { DocumentoMaestroId = doc.Id, Fecha = f.Emision };
+                    Db.RevisionesDocumento.Add(rev);
+                    await Db.SaveChangesAsync();
+                    Db.VersionesDocumento.Add(new VersionDocumento
+                    {
+                        DocumentoMaestroId = doc.Id, Clase = ClaseArchivoDocumento.Vigente, RevisionDocumentoId = rev.Id, Fecha = f.Emision,
+                        NombreOriginal = f.Archivo.Name, RutaArchivo = await GuardarArchivo(f.Archivo)
+                    });
+                    await Db.SaveChangesAsync();
+                }
+            }
+
+            Certificacion c;
+            if (f.Id == 0)
+            {
+                c = new Certificacion { Orden = certs.Count == 0 ? 0 : certs.Max(x => x.Orden) + 1 };
+                Db.Certificaciones.Add(c);
+            }
+            else
+            {
+                c = await Db.Certificaciones.FirstAsync(x => x.Id == f.Id);
+            }
+            c.Norma = f.Norma.Trim(); c.Sistema = Limpio(f.Sistema); c.Alcance = Limpio(f.Alcance); c.Organismo = Limpio(f.Organismo);
+            c.Numero = Limpio(f.Numero); c.Emision = f.Emision; c.Vencimiento = f.Vencimiento; c.DocumentoMaestroId = docId;
+            await Db.SaveChangesAsync();
+            mensaje = $"{c.Norma} guardado."; error = false;
+            form = null;
+            Cargar();
+        }
+        catch (Exception ex) { mensaje = "No se pudo guardar: " + ex.Message; error = true; }
+        finally { guardando = false; }
+    }
+
+    // El tipo documental "Certificados" debe existir en su catálogo (las listas de Documentos salen de él).
+    private async Task AsegurarTipoCertificados()
+    {
+        var existe = await Db.Catalogos.AnyAsync(i => i.Tipo == MigracionDocumentos.CatTipo && i.Nombre.ToLower() == TipoCertificados.ToLower());
+        if (!existe)
+        {
+            Db.Catalogos.Add(new ItemCatalogo { Tipo = MigracionDocumentos.CatTipo, Nombre = TipoCertificados });
+            await Db.SaveChangesAsync();
+        }
+    }
+
+    // Misma carpeta y nombre único que Documentos.
+    private async Task<string> GuardarArchivo(IBrowserFile archivo)
+    {
+        var carpeta = Path.Combine(Env.WebRootPath, "uploads", "documentos");
+        Directory.CreateDirectory(carpeta);
+        var nombre = $"{Guid.NewGuid()}{Path.GetExtension(archivo.Name)}";
+        await using (var s = archivo.OpenReadStream(MaxArchivo))
+        await using (var destino = File.Create(Path.Combine(carpeta, nombre)))
+            await s.CopyToAsync(destino);
+        return $"/uploads/documentos/{nombre}";
+    }
+
+    // ---------- Eliminar (a la Papelera, con impacto) ----------
+    private sealed class Eliminacion
+    {
+        public int Id;
+        public InformeImpacto Informe = new();
+        public bool Entendido;
+    }
+
+    private Eliminacion? elim;
+
+    private async Task PedirEliminar(Certificacion c)
+    {
+        form = null; mensaje = "";
+        elim = new Eliminacion { Id = c.Id, Informe = await Impacto.Certificacion(c.Id) };
+    }
+
+    private async Task ConfirmarEliminar()
+    {
+        if (elim is null) return;
+        try
+        {
+            Db.ChangeTracker.Clear();
+            var c = await Db.Certificaciones.FirstOrDefaultAsync(x => x.Id == elim.Id);
+            if (c is not null)
+            {
+                c.Eliminado = true; c.FechaEliminacion = DateTime.Now;
+                await Db.SaveChangesAsync();
+                mensaje = $"{c.Norma} enviado a la Papelera."; error = false;
+            }
+        }
+        catch (Exception ex) { mensaje = "No se pudo eliminar: " + ex.Message; error = true; }
+        elim = null;
+        Cargar();
+    }
+}

@@ -1,0 +1,50 @@
+﻿@using Microsoft.AspNetCore.Components
+
+@if (!Ocultos.Contains(Id))
+{
+    var widget = Catalogo[Id];
+    <div class="pw-w est-widget" data-w="@Id" data-ancho="@widget.Ancho" data-alto="@widget.Alto"
+         data-minw="@widget.MinAncho" data-minh="@widget.MinAlto">
+        @ChildContent
+        @if (Editando)
+        {
+            <button type="button" class="pw-quitar" title="@($"Quitar {widget.Nombre}")" @onclick="() => OnQuitar.InvokeAsync(Id)">×</button>
+            <span class="pw-tirador" title="Redimensionar"></span>
+        }
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "";
+    [Parameter, EditorRequired] public IReadOnlySet<string> Ocultos { get; set; } = default!;
+    [Parameter] public bool Editando { get; set; }
+    [Parameter] public EventCallback<string> OnQuitar { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    internal sealed record Definicion(string Nombre, string Icono, int Ancho = 2, int Alto = 2, int MinAncho = 1, int MinAlto = 1);
+
+    internal static IReadOnlyDictionary<string, Definicion> Catalogo { get; } = new Dictionary<string, Definicion>
+    {
+        ["n"] = new("Número de datos", "indicador"),
+        ["media"] = new("Media", "indicador"),
+        ["mediana"] = new("Mediana", "indicador"),
+        ["moda"] = new("Moda", "indicador"),
+        ["desviacion"] = new("Desviación estándar", "indicador"),
+        ["cv"] = new("Coeficiente de variación", "indicador"),
+        ["asimetria"] = new("Asimetría", "indicador"),
+        ["curtosis"] = new("Curtosis", "indicador"),
+        ["normalidad"] = new("Distribución", "indicador"),
+        ["cpk"] = new("Cpk", "indicador"),
+        ["hist"] = new("Histograma y distribución normal", "grafico", 8, 11, 2, 3),
+        ["lectura"] = new("Lectura de los datos", "listado", 4, 11, 2, 2),
+        ["prob"] = new("Probabilidad de ocurrencia", "grafico", 6, 10, 2, 3),
+        ["qq"] = new("Gráfico Q-Q normal", "grafico", 6, 9, 2, 3),
+        ["caja"] = new("Diagrama de caja", "grafico", 12, 5, 2, 2),
+        ["descriptiva"] = new("Tendencia central y dispersión", "tabla", 6, 8, 2, 2),
+        ["forma"] = new("Posición y forma", "tabla", 6, 8, 2, 2),
+        ["inferencia"] = new("Inferencia, normalidad y capacidad", "tabla", 6, 7, 2, 2),
+        ["frecuencias"] = new("Tabla de frecuencias", "tabla", 6, 7, 2, 2),
+        ["grupos"] = new("Comparación por grupos", "tabla", 12, 4, 2, 2),
+        ["formulas"] = new("Fórmulas", "listado", 12, 5, 2, 2),
+    };
+}

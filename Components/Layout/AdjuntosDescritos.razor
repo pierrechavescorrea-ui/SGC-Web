@@ -1,0 +1,59 @@
+@* Lista de archivos con su descripción (fotos y anexos de hallazgos, soportes de eficacia).
+   El archivo se sube al disco de una vez (Id 0 = pendiente) y el formulario dueño lo registra al guardar.
+   Quitar uno ya guardado lo pasa a Quitados (el dueño lo manda a la Papelera al guardar). *@
+@typeparam T where T : SigWeb.Models.IAdjuntoDescrito, new()
+@inject IWebHostEnvironment Env
+
+<div class="adj-desc">
+    @foreach (var x in Items.ToList())
+    {
+        var ax = x;
+        var img = SigWeb.Data.Planes.AlmacenAnexos.EsImagen(ax.RutaArchivo);
+        <div class="adj-desc-fila @(ax.Id == 0 ? "adj-desc-nuevo" : "")" @key="ax">
+            <a class="adj-desc-mini" href="@ax.RutaArchivo" target="_blank" rel="noopener" title="Abrir @ax.NombreOriginal">
+                @if (img) { <img src="@ax.RutaArchivo" alt="" loading="lazy" /> }
+                else { <Ico Nombre="documento" /> }
+            </a>
+            <div class="adj-desc-txt">
+                <a class="adj-desc-nombre" href="@ax.RutaArchivo" target="_blank" rel="noopener"
+                   title="@(ax.Id == 0 ? "Se guarda con el formulario" : ax.FechaRegistro.ToString("dd/MM/yyyy"))">@ax.NombreOriginal</a>
+                <textarea class="form-control form-control-sm" rows="1" data-sin-flotante placeholder="Descripción: qué muestra, dónde y cuándo"
+                          @bind="ax.Descripcion" @bind:event="oninput"></textarea>
+            </div>
+            <button type="button" class="ens-mini" title="Quitar" @onclick="() => Quitar(ax)"><Ico Nombre="eliminar" /></button>
+        </div>
+    }
+    <label class="adj-desc-agregar mb-0" title="@Titulo">
+        <Ico Nombre="adjuntar" /> <span>@Titulo</span>
+        <InputFile class="d-none" multiple accept="@Accept" OnChange="Subir" />
+    </label>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<T> Items { get; set; } = new();
+    [Parameter, EditorRequired] public List<T> Quitados { get; set; } = new();
+    // Carpeta bajo wwwroot/uploads.
+    [Parameter, EditorRequired] public string Carpeta { get; set; } = "";
+    [Parameter] public string Titulo { get; set; } = "Adjuntar fotos o anexos";
+    [Parameter] public string Accept { get; set; } = "image/*,.pdf,.doc,.docx,.xls,.xlsx";
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    private void Quitar(T x)
+    {
+        Items.Remove(x);
+        if (x.Id > 0) Quitados.Add(x);
+    }
+
+    private async Task Subir(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            foreach (var f in e.GetMultipleFiles(20))
+            {
+                var (nombre, ruta) = await SigWeb.Data.Planes.AlmacenAnexos.GuardarAsync(f, Env.WebRootPath, Carpeta);
+                Items.Add(new T { NombreOriginal = nombre, RutaArchivo = ruta });
+            }
+        }
+        catch (Exception ex) { await OnError.InvokeAsync("No se pudo adjuntar: " + ex.Message); }
+    }
+}

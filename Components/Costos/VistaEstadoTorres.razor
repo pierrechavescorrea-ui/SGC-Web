@@ -1,0 +1,395 @@
+@inherits VistaCostosBase
+@using Microsoft.AspNetCore.Components.Web
+@using SigWeb.Data.AvanceObra
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+@inject IJSRuntime JS
+
+@* Estado de las torres (hoja C. CONTROL "CONTROL DE AVANCE"): todos los tiros y todas las torres en una sola
+   pantalla, sin scroll (js/estadoTorres.js da el alto; las fichas se reparten el alto de la columna y la letra
+   se ajusta con unidades de contenedor). Estados = catálogo "Estado de torre" (GestorEstadosTorre).
+   Fuera de edición: clic en la leyenda resalta y clic en una torre avisa a la página (OnTorre: Avance de obra abre
+   la ficha de avance físico y PIE). En edición: clic = seleccionar (Mayús = rango; cabecera del tiro
+   = todo el tiro; leyenda = todas las de ese estado) y la barra flotante "Pasar a…" cambia el estado. *@
+
+<div class="et @(Editando ? "editando" : "")">
+    <div class="et-barra">
+        <div class="et-kpis">
+            <span class="et-kpi"><b>@total</b> torres</span>
+            <span class="et-kpi"><b>@FormatoCostos.Pct(total > 0 ? (decimal)nCivil / total : null, 0)</b> obra civil terminada (@nCivil)</span>
+            <span class="et-kpi"><b>@FormatoCostos.Pct(total > 0 ? (decimal)nMontadas / total : null, 0)</b> montadas (@nMontadas)</span>
+            <span class="et-kpi"><b>@FormatoCostos.Km(kmTotal)</b> · @grupos.Count tiros</span>
+        </div>
+        <input class="form-control form-control-sm et-buscar" placeholder="Buscar torre" @bind="buscar" @bind:event="oninput" />
+        @if (Editando)
+        {
+            <label class="et-fecha" title="Fecha del cambio (queda en el historial de la torre)">
+                <Ico Nombre="calendario" />
+                <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(fechaCambio)" @onchange="e => fechaCambio = Fec(e.Value) ?? fechaCambio" />
+            </label>
+            <button type="button" class="et-btn" title="Seleccionar todas" @onclick="SeleccionarTodas"><Ico Nombre="seleccionar-todo" /></button>
+        }
+        <button type="button" class="et-btn" title="Estados: nombres, colores, orden y en qué cuentan" disabled="@(cambios.Count > 0)" @onclick="() => verGestor = true"><Ico Nombre="paleta" /></button>
+        <button type="button" class="et-btn @(verLateral ? "activo" : "")" title="@(verLateral ? "Ocultar leyenda" : "Mostrar leyenda")" @onclick="() => verLateral = !verLateral"><Ico Nombre="capas" /></button>
+    </div>
+
+    <div class="et-cuerpo @(verLateral ? "" : "sin-lateral")">
+        <div class="et-tablero" style="--cols:@Math.Max(1, grupos.Count)">
+            @foreach (var g in grupos)
+            {
+                var montadas = g.Torres.Count(t => Etapa(t) is EstadoTorres.Etapa e && EstadoTorres.Montada(e));
+                <section class="et-col">
+                    <header class="et-col-cab" title="@(g.Nombre + (Editando ? " · clic = seleccionar el tiro" : ""))" @onclick="() => SeleccionarTiro(g)">
+                        <div class="et-col-l1">
+                            <span class="et-col-num">@(g.Numero?.ToString() ?? "–")</span>
+                            @if (Editando && g.Numero is int n)
+                            {
+                                <input class="et-km" value="@(km.TryGetValue(n, out var v) ? v.ToString("0.##") : "")" placeholder="km" title="Longitud del tiro (km)"
+                                       @onclick:stopPropagation="true" @onchange="e => CambiarKm(n, e.Value)" />
+                            }
+                            else
+                            {
+                                <span class="et-col-km" title="@(g.KmCalculado ? "Aproximado: distancia entre las torres del tiro" : "Longitud del tiro")">@(g.KmCalculado ? "≈" : "")@FormatoCostos.Km(g.Km)</span>
+                            }
+                        </div>
+                        <div class="et-col-barra">
+                            @foreach (var (nombre, k) in g.Torres.GroupBy(EstadoDe).Select(x => (x.Key, x.Count())).OrderBy(x => Orden(x.Key)))
+                            {
+                                <i style="flex:@k 1 0;@Estilo(nombre)" title="@(nombre ?? "Sin estado"): @k"></i>
+                            }
+                        </div>
+                        <div class="et-col-pie" title="Montadas / torres del tiro"><b>@montadas</b>/@g.Torres.Count</div>
+                    </header>
+                    <div class="et-col-torres" style="--max:@maxFilas">
+                        @foreach (var t in g.Torres)
+                        {
+                            var est = EstadoDe(t);
+                            var et = Etapa(t);
+                            var alerta = AlertaDe(t);
+                            var apagada = (resaltado is not null && !Igual(est, resaltado))
+                                || (buscar.Trim() != "" && !Coincide(t));
+                            <button type="button" @key="t.Id"
+                                    class="et-t @(est is null ? "sin" : "") @(et is EstadoTorres.Etapa e2 && EstadoTorres.EnProceso(e2) ? "proc" : "") @(alerta ? "alerta" : "") @(apagada ? "apagada" : "") @(cambios.ContainsKey(t.Id) ? "cambiada" : "") @(sel.Contains(t.Id) ? "sel" : "")"
+                                    style="@Estilo(est)" title="@Tip(t, est, alerta)" @onclick="e => ClicTorre(t.Id, e)" aria-haspopup="@(Editando ? null : "dialog")">
+                                @Nombre(t)
+                            </button>
+                        }
+                    </div>
+                </section>
+            }
+        </div>
+
+        @if (verLateral)
+        {
+            <aside class="et-lateral">
+                <div class="et-lat-tit">Estados</div>
+                @foreach (var e in Leyenda())
+                {
+                    var n = conteo.GetValueOrDefault(Clave(e.Nombre));
+                    <button type="button" class="et-ley @(Igual(resaltado, e.Nombre) ? "activo" : "") @(n == 0 ? "vacio" : "")"
+                            title="@(Editando ? "Seleccionar las torres en este estado" : "Resaltar")" @onclick="() => ClicLeyenda(e.Nombre)">
+                        <i class="et-mues @(e.Proceso ? "proc" : "")" style="@Estilo(e.Nombre)"></i>
+                        <span class="et-ley-nom">@Bonito(e.Nombre)</span>
+                        <span class="et-ley-n">@(n == 0 ? "" : n.ToString())</span>
+                    </button>
+                }
+                @if (sinEstado > 0)
+                {
+                    <div class="et-ley vacio"><i class="et-mues sin"></i><span class="et-ley-nom">Sin estado</span><span class="et-ley-n">@sinEstado</span></div>
+                }
+                @if (nAlerta > 0)
+                {
+                    <div class="et-ley" title="Texto rojo de la hoja C. CONTROL"><i class="et-mues alerta-m">A</i><span class="et-ley-nom">Marca roja</span><span class="et-ley-n">@nAlerta</span></div>
+                }
+
+                <div class="et-lat-tit mt-2">Ejecución de torres</div>
+                @foreach (var (nombre, n) in Ejecucion())
+                {
+                    <div class="et-ej">
+                        <span class="et-ej-nom">@nombre</span><b>@n</b>
+                        <span class="et-ej-barra"><i style="width:@(total > 0 ? Math.Round(100.0 * n / total) : 0)%"></i></span>
+                    </div>
+                }
+            </aside>
+        }
+    </div>
+
+    @if (Editando && sel.Count > 0)
+    {
+        <div class="et-accion">
+            <span class="et-accion-n"><b>@sel.Count</b> @(sel.Count == 1 ? "torre" : "torres")</span>
+            <select class="form-select form-select-sm" value="" @onchange="e => Pasar(e.Value?.ToString())" title="Pasar las torres seleccionadas a otro estado">
+                <option value="">Pasar a…</option>
+                @foreach (var e in Leyenda()) { <option value="@e.Nombre">@Bonito(e.Nombre)</option> }
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-danger" title="Poner o quitar la marca roja" @onclick="AlternarAlerta">Marca roja</button>
+            <button type="button" class="btn-close" title="Quitar la selección" @onclick="() => sel.Clear()"></button>
+        </div>
+    }
+</div>
+
+@if (verGestor)
+{
+    <GestorEstadosTorre S="S" OnCerrar="() => verGestor = false" OnGuardado="GestorGuardado" />
+}
+
+@code {
+    // Clic en una torre fuera de edición (Avance de obra muestra su ficha junto al punto del clic).
+    public sealed record ClicTorreEstado(int Id, double X, double Y);
+    [Parameter] public EventCallback<ClicTorreEstado> OnTorre { get; set; }
+
+    private sealed record GrupoTiro(int? Id, int? Numero, string Nombre, List<ElementoTrazado> Torres, decimal? Km, bool KmCalculado);
+    private sealed record Ley(string Nombre, bool Proceso);
+
+    private List<GrupoTiro> grupos = new();
+    private List<ElementoTrazado> orden = new();                     // todas las torres en el orden del tablero (rango con Mayús)
+    private Dictionary<int, EstadoTorreManual> actual = new();       // estado vigente al corte por torre
+    private Dictionary<string, ItemCatalogo> catalogo = new();
+    private List<Ley> leyenda = new();
+    private Dictionary<string, int> conteo = new();
+    private Dictionary<int, (string Estado, bool Alerta)> cambios = new();
+    private HashSet<int> sel = new();
+    private int? ultimo;
+    private Dictionary<int, decimal> km = new();
+    private bool kmCambiado, verGestor, verLateral = true;
+    private int total, nCivil, nMontadas, sinEstado, nAlerta, maxFilas = 1;
+    private decimal? kmTotal;
+    private string buscar = "";
+    private string? resaltado;
+    private DateTime fechaCambio = DateTime.Today;
+
+    public override bool PuedeAgregar => false;
+
+    protected override void OnParametersSet()
+    {
+        if (!DatosNuevos()) return;
+        Armar();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool first)
+    {
+        try { await JS.InvokeVoidAsync("sigEtAjustar"); } catch { }
+    }
+
+    private void Armar()
+    {
+        catalogo = new(StringComparer.Ordinal);
+        foreach (var c in S.EstadosCatalogo) catalogo.TryAdd(Clave(c.Nombre), c);
+        actual = S.EstadosManuales.Where(e => e.Desde.Date <= Corte.Date)
+            .GroupBy(e => e.ElementoTrazadoId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.Desde).ThenByDescending(e => e.Id).First());
+        km = EstadoTorres.Longitudes(S.Config.LongitudTiros);
+
+        var tiros = S.Tiros.ToDictionary(t => t.Id);
+        grupos = S.Torres.GroupBy(t => t.TiroId is int id && tiros.ContainsKey(id) ? id : (int?)null)
+            .Select(g =>
+            {
+                var tiro = g.Key is int id ? tiros[id] : null;
+                var num = tiro is null ? null : EstadoTorres.NumeroTiro(tiro.Nombre);
+                var lista = g.ToList();
+                decimal? k = num is int n && km.TryGetValue(n, out var v) ? v : null;
+                var calc = k is null && lista.Count > 1;
+                if (calc) k = Distancia(lista);
+                return (Orden: tiro?.Orden ?? int.MaxValue, G: new GrupoTiro(g.Key, num, tiro?.Nombre ?? "Sin tiro", lista, k, calc));
+            })
+            .OrderBy(x => x.Orden).ThenBy(x => x.G.Numero ?? int.MaxValue).Select(x => x.G).ToList();
+        orden = grupos.SelectMany(g => g.Torres).ToList();
+        maxFilas = Math.Max(1, grupos.Count == 0 ? 1 : grupos.Max(g => g.Torres.Count));
+        Contar();
+    }
+
+    private void Contar()
+    {
+        total = orden.Count;
+        conteo = orden.Select(EstadoDe).Where(e => e is not null).GroupBy(e => Clave(e)).ToDictionary(g => g.Key, g => g.Count());
+        sinEstado = orden.Count(t => EstadoDe(t) is null);
+        nAlerta = orden.Count(AlertaDe);
+        nCivil = orden.Count(t => Etapa(t) is EstadoTorres.Etapa e && EstadoTorres.CivilTerminada(e));
+        nMontadas = orden.Count(t => Etapa(t) is EstadoTorres.Etapa e && EstadoTorres.Montada(e));
+        kmTotal = grupos.Any(g => g.Km is not null) ? grupos.Sum(g => g.Km ?? 0) : null;
+
+        // Leyenda: el catálogo en su orden (o los de fábrica si aún no hay) + estados guardados que ya no están en él.
+        var l = (S.EstadosCatalogo.Count > 0 ? S.EstadosCatalogo.Select(c => c.Nombre) : EstadoTorres.Fabrica.Select(f => f.Nombre)).ToList();
+        foreach (var k in conteo.Keys.Where(k => !l.Any(x => Clave(x) == k)))
+            l.Add(orden.Select(EstadoDe).FirstOrDefault(e => Clave(e) == k) ?? k);
+        leyenda = l.Select(n => new Ley(n, EstadoTorres.EnProceso(EstadoTorres.EtapaDe(n, S.EstadosCatalogo)))).ToList();
+    }
+
+    // ---------- Lectura ----------
+    private string? EstadoDe(ElementoTrazado t) =>
+        cambios.TryGetValue(t.Id, out var c) ? c.Estado : actual.TryGetValue(t.Id, out var e) && !string.IsNullOrWhiteSpace(e.Estado) ? e.Estado : null;
+    private bool AlertaDe(ElementoTrazado t) => cambios.TryGetValue(t.Id, out var c) ? c.Alerta : actual.TryGetValue(t.Id, out var e) && e.Alerta;
+    private EstadoTorres.Etapa? Etapa(ElementoTrazado t) => EstadoDe(t) is string s ? EstadoTorres.EtapaDe(s, S.EstadosCatalogo) : null;
+
+    private List<Ley> Leyenda() => leyenda;
+    private static string Clave(string? s) => EstadoTorres.Clave(s);
+    private static bool Igual(string? a, string? b) => a is not null && b is not null && Clave(a) == Clave(b);
+    private static string Nombre(ElementoTrazado t) => ImportadorF054.ClaveTorre(string.IsNullOrWhiteSpace(t.Nombre) ? t.Codigo ?? "" : t.Nombre!);
+    private bool Coincide(ElementoTrazado t) =>
+        Nombre(t).Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase) || S.NombreTorre(t.Id).Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private string Estilo(string? estado)
+    {
+        if (estado is null) return "";
+        if (catalogo.TryGetValue(Clave(estado), out var c) && !string.IsNullOrWhiteSpace(c.ColorFondo))
+            return $"--f:{c.ColorFondo};--c:{(string.IsNullOrWhiteSpace(c.ColorTexto) ? "#222" : c.ColorTexto)};--w:{(c.Negrita ? 700 : 500)}";
+        var d = EstadoTorres.Fabrica.FirstOrDefault(x => Clave(x.Nombre) == Clave(estado));
+        return d is null ? "--f:#d9dde3;--c:#333" : $"--f:{d.Fondo};--c:{d.Texto}";
+    }
+
+    private int Orden(string? estado)
+    {
+        if (estado is null) return int.MaxValue;
+        var i = leyenda.FindIndex(x => Clave(x.Nombre) == Clave(estado));
+        return i < 0 ? int.MaxValue - 1 : i;
+    }
+
+    private static string Bonito(string s) => s.Length == 0 ? s : char.ToUpper(s[0]) + s[1..].ToLowerInvariant().Replace("mod", "MOD");
+
+    private IEnumerable<(string, int)> Ejecucion()
+    {
+        var et = orden.Select(Etapa).Where(e => e is not null).Select(e => e!.Value).ToList();
+        yield return ("Obra civil terminada", et.Count(EstadoTorres.CivilTerminada));
+        yield return ("Obra civil en proceso", et.Count(e => e == EstadoTorres.Etapa.CivilProceso));
+        yield return ("Cambio de cimentación", et.Count(e => e == EstadoTorres.Etapa.CambioCimentacion));
+        yield return ("Montaje terminado", et.Count(EstadoTorres.Montada));
+        yield return ("Montaje en proceso", et.Count(e => e == EstadoTorres.Etapa.MontajeProceso));
+        yield return ("Restricción", et.Count(e => e == EstadoTorres.Etapa.Restriccion));
+    }
+
+    private string Tip(ElementoTrazado t, string? est, bool alerta)
+    {
+        var s = S.NombreTorre(t.Id) + " · " + (est is null ? "sin estado" : Bonito(est)) + (Editando || !OnTorre.HasDelegate ? "" : " · clic = avance físico y PIE");
+        var e = actual.GetValueOrDefault(t.Id);
+        if (e is not null) s += $" · desde {e.Desde:dd/MM/yyyy}";
+        if (alerta) s += " · marca roja";
+        if (!string.IsNullOrWhiteSpace(e?.Nota) && e!.Nota != EstadoTorres.NotaCarga) s += " · " + e.Nota;
+        return s;
+    }
+
+    // Longitud aproximada: Σ distancias entre torres consecutivas del tiro (SUPUESTO si no hay km digitados).
+    private static decimal? Distancia(List<ElementoTrazado> l)
+    {
+        double m = 0;
+        for (int i = 1; i < l.Count; i++)
+        {
+            var (a, b) = (l[i - 1], l[i]);
+            if (a.Latitud == 0 || b.Latitud == 0) return null;
+            var r = Math.PI / 180;
+            var dLat = (b.Latitud - a.Latitud) * r; var dLon = (b.Longitud - a.Longitud) * r;
+            var h = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) + Math.Cos(a.Latitud * r) * Math.Cos(b.Latitud * r) * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            m += 2 * 6371000 * Math.Asin(Math.Sqrt(h));
+        }
+        return (decimal)Math.Round(m / 1000, 2);
+    }
+
+    // ---------- Selección y cambios ----------
+    private async Task ClicTorre(int id, MouseEventArgs e)
+    {
+        if (!Editando) { await OnTorre.InvokeAsync(new ClicTorreEstado(id, e.ClientX, e.ClientY)); return; }
+        if (e.ShiftKey && ultimo is int u)
+        {
+            int a = orden.FindIndex(t => t.Id == u), b = orden.FindIndex(t => t.Id == id);
+            if (a >= 0 && b >= 0) foreach (var t in orden.Skip(Math.Min(a, b)).Take(Math.Abs(a - b) + 1)) sel.Add(t.Id);
+        }
+        else if (!sel.Remove(id)) sel.Add(id);
+        ultimo = id;
+    }
+
+    private void SeleccionarTiro(GrupoTiro g)
+    {
+        if (!Editando) return;
+        var ids = g.Torres.Select(t => t.Id).ToList();
+        if (ids.All(sel.Contains)) sel.ExceptWith(ids); else sel.UnionWith(ids);
+    }
+
+    private void SeleccionarTodas()
+    {
+        if (sel.Count == orden.Count) sel.Clear(); else sel = orden.Select(t => t.Id).ToHashSet();
+    }
+
+    private void ClicLeyenda(string nombre)
+    {
+        if (Editando)
+        {
+            var ids = orden.Where(t => Igual(EstadoDe(t), nombre)).Select(t => t.Id).ToList();
+            if (ids.Count > 0 && ids.All(sel.Contains)) sel.ExceptWith(ids); else sel.UnionWith(ids);
+        }
+        else resaltado = Igual(resaltado, nombre) ? null : nombre;
+    }
+
+    private void Fijar(int id, string? est, bool alerta)
+    {
+        if (est is null) return;
+        var orig = actual.GetValueOrDefault(id);
+        if (orig is not null && Igual(orig.Estado, est) && orig.Alerta == alerta) cambios.Remove(id);
+        else cambios[id] = (est, alerta);
+    }
+
+    private void Pasar(string? estado)
+    {
+        if (string.IsNullOrWhiteSpace(estado)) return;
+        foreach (var id in sel) Fijar(id, estado, AlertaDe(S.TorrePorId[id]));
+        sel.Clear();
+        Contar();
+    }
+
+    private void AlternarAlerta()
+    {
+        var poner = sel.Any(id => !AlertaDe(S.TorrePorId[id]));
+        foreach (var id in sel)
+        {
+            var t = S.TorrePorId[id];
+            if (EstadoDe(t) is string est) Fijar(id, est, poner);
+        }
+        Contar();
+    }
+
+    private void CambiarKm(int tiro, object? v)
+    {
+        if (Dec(v) is decimal d && d > 0) km[tiro] = d; else km.Remove(tiro);
+        kmCambiado = true;
+    }
+
+    private async Task GestorGuardado()
+    {
+        verGestor = false;
+        await OnCambio.InvokeAsync();
+    }
+
+    public override Task EditarAsync()
+    {
+        cambios.Clear(); sel.Clear(); kmCambiado = false; resaltado = null;
+        fechaCambio = Corte.Date;
+        return base.EditarAsync();
+    }
+
+    public override void Cancelar()
+    {
+        cambios.Clear(); sel.Clear(); kmCambiado = false;
+        km = EstadoTorres.Longitudes(S.Config.LongitudTiros);
+        Contar();
+        base.Cancelar();
+    }
+
+    // Cada cambio queda como un estado con su fecha (historial); si la torre ya tiene uno con esa misma fecha, se corrige.
+    protected override async Task GuardarCambiosAsync()
+    {
+        var f = fechaCambio.Date;
+        foreach (var (id, c) in cambios)
+        {
+            var mismo = Db.EstadosTorreManual.Where(e => e.ElementoTrazadoId == id && e.Desde == f).OrderByDescending(e => e.Id).FirstOrDefault();
+            if (mismo is not null) { mismo.Estado = c.Estado; mismo.Alerta = c.Alerta; }
+            else Db.EstadosTorreManual.Add(new EstadoTorreManual { ElementoTrazadoId = id, Estado = c.Estado, Alerta = c.Alerta, Desde = f });
+        }
+        if (kmCambiado)
+        {
+            var cfg = Db.ConfiguracionCostos.OrderBy(x => x.Id).FirstOrDefault();
+            if (cfg is null) Db.ConfiguracionCostos.Add(cfg = new ConfiguracionCostos());
+            cfg.LongitudTiros = EstadoTorres.EscribirLongitudes(km);
+        }
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        cambios.Clear(); sel.Clear(); kmCambiado = false;
+    }
+}

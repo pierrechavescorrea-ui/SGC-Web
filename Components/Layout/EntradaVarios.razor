@@ -1,0 +1,27 @@
+@* Entrada de una lista que acepta varios valores (CampoTabla.Multiple): fichas + lista para agregar (SelectorMultiple).
+   El valor viaja como texto "A; B" (MotorTabla.UnirVarios / Partes). Lo usan los modos edición de las listas. *@
+@using SigWeb.Data.Tablas
+
+<SelectorMultiple Valores="valores" Opciones="Opciones" OnCambio="Cambio" />
+
+@code {
+    [Parameter] public string? Valor { get; set; }
+    [Parameter] public IEnumerable<string> Opciones { get; set; } = Array.Empty<string>();
+    // EventCallback: la página que lo usa se repinta (p. ej. activa "Guardar cambios" con el conteo).
+    [Parameter] public EventCallback<string?> AlCambiar { get; set; }
+
+    private List<string> valores = new();
+    private string? leido;
+
+    // Solo se relee si el valor cambió desde fuera (no después de cada clic propio).
+    protected override void OnParametersSet()
+    {
+        if (Valor != leido) { valores = MotorTabla.Partes(Valor); leido = Valor; }
+    }
+
+    private async Task Cambio()
+    {
+        leido = MotorTabla.UnirVarios(valores);
+        await AlCambiar.InvokeAsync(leido);
+    }
+}

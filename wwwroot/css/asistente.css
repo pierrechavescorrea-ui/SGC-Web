@@ -1,0 +1,82 @@
+/* Asistente de ayuda interno (Components/Layout/AsistenteAyudaPanel.razor). Colores del tema con respaldo Bootstrap. */
+.asis-panel {
+    position: fixed; top: 12px; right: 12px; bottom: 12px; z-index: 1080;
+    width: min(420px, calc(100vw - 24px));
+    display: flex; flex-direction: column;
+    background: var(--t-solido, var(--t-superficie, var(--bs-body-bg, #fff)));
+    color: var(--t-texto, var(--bs-body-color, #212529));
+    border: 1px solid var(--t-borde, var(--bs-border-color, #dee2e6));
+    border-radius: 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, .25); overflow: hidden;
+    animation: asis-entra .18s ease-out;
+}
+@keyframes asis-entra { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+
+.asis-cab { display: flex; align-items: center; gap: 10px; padding: 12px 12px 12px 16px;
+            border-bottom: 1px solid var(--t-borde, var(--bs-border-color, #dee2e6));
+            background: var(--t-superficie-2, var(--bs-tertiary-bg, #f8f9fa)); }
+.asis-cab-ico { display: inline-flex; width: 32px; height: 32px; border-radius: 50%; align-items: center; justify-content: center;
+                background: var(--t-acento, var(--sig-rojo, #EC1C24)); color: #fff; flex: none; }
+.asis-cab-txt { display: flex; flex-direction: column; line-height: 1.2; flex: 1; min-width: 0; }
+.asis-cab-txt small { color: var(--t-texto-2, var(--bs-secondary-color, #6c757d)); font-size: .75rem; }
+.asis-cab-btn { border: 0; background: transparent; color: inherit; padding: 6px; border-radius: 8px; opacity: .75; }
+.asis-cab-btn:hover { opacity: 1; background: color-mix(in srgb, currentColor 10%, transparent); }
+
+.asis-mensajes { position: relative; flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.asis-msg { max-width: 92%; padding: 10px 12px; border-radius: 12px; font-size: .88rem; line-height: 1.45; overflow-wrap: anywhere; }
+.asis-yo { align-self: flex-end; background: var(--t-acento, var(--sig-rojo, #EC1C24)); color: #fff; border-bottom-right-radius: 4px; white-space: pre-wrap; }
+.asis-el { align-self: flex-start; background: var(--t-superficie-2, var(--bs-tertiary-bg, #f1f3f5)); border-bottom-left-radius: 4px; max-width: 100%; }
+
+.asis-fuente { display: flex; align-items: center; gap: 6px; font-size: .74rem; font-weight: 600; letter-spacing: .01em;
+               color: var(--t-texto-2, var(--bs-secondary-color, #6c757d)); margin-bottom: 6px; }
+.asis-fuente svg { width: 14px; height: 14px; }
+.asis-cuerpo p { margin: 0 0 .5rem; }
+.asis-cuerpo ol, .asis-cuerpo ul { margin: 0 0 .5rem; padding-left: 1.25rem; }
+.asis-cuerpo li { margin: .15rem 0; }
+.asis-cuerpo li::marker { color: var(--t-acento, var(--sig-rojo, #EC1C24)); font-weight: 700; }
+.asis-cuerpo code { font-size: .82em; padding: 0 .3em; border-radius: 4px; background: color-mix(in srgb, currentColor 10%, transparent); color: inherit; }
+.asis-cuerpo strong { font-weight: 650; }
+.asis-tabla { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .25rem 0 .6rem; }
+.asis-tabla th, .asis-tabla td { border: 1px solid var(--t-borde, var(--bs-border-color, #dee2e6)); padding: 4px 6px; vertical-align: top; text-align: left; }
+.asis-tabla th { background: color-mix(in srgb, currentColor 6%, transparent); }
+.asis-nota { border-left: 3px solid var(--t-acento, var(--sig-rojo, #EC1C24)); padding: 4px 8px; margin: .25rem 0 .5rem; font-size: .82rem; opacity: .9; }
+.asis-aviso { margin-top: 6px; padding: 6px 8px; border-radius: 8px; font-size: .8rem;
+              background: color-mix(in srgb, var(--bs-warning, #ffc107) 18%, transparent); }
+
+.asis-ir { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; font-size: .82rem; font-weight: 600; text-decoration: none;
+           color: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+.asis-ir svg { width: 15px; height: 15px; }
+.asis-sugs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.asis-sugs-tit { width: 100%; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+                 color: var(--t-texto-2, var(--bs-secondary-color, #6c757d)); }
+.asis-sug { border: 1px solid var(--t-borde, var(--bs-border-color, #dee2e6)); background: var(--t-solido, var(--bs-body-bg, #fff));
+            color: inherit; border-radius: 999px; padding: 4px 10px; font-size: .78rem; text-align: left; line-height: 1.3; }
+.asis-sug:hover { border-color: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+
+.asis-pie { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--t-borde, var(--bs-border-color, #dee2e6)); }
+.asis-pie .form-control { flex: 1; }
+
+@media (max-width: 600px) {
+    .asis-panel { top: 0; right: 0; bottom: 0; width: 100vw; border-radius: 0; }
+}
+@media print { .asis-panel, .asis-boton { display: none !important; } }
+
+/* Enlaces directos a opciones (MarkdownAyuda → a.asis-op; atajos «Ir directo»; botón ir junto a cada sugerencia). */
+.asis-op { color: var(--t-acento, var(--sig-rojo, #EC1C24)); text-decoration: underline dotted; text-underline-offset: 3px; }
+.asis-op:hover { text-decoration-style: solid; }
+.asis-sug-par { display: inline-flex; align-items: stretch; gap: 2px; max-width: 100%; }
+.asis-sug-ir { display: inline-flex; align-items: center; padding: 0 7px; border-radius: 999px; text-decoration: none;
+               border: 1px solid var(--t-borde, var(--bs-border-color, #dee2e6)); background: var(--t-solido, var(--bs-body-bg, #fff));
+               color: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+.asis-sug-ir:hover { border-color: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+.asis-sug-ir svg, .asis-atajo svg { width: 13px; height: 13px; }
+.asis-atajo { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; font-weight: 600;
+              color: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+
+/* Control señalado al llegar desde el asistente (js/asistente.js). Sin transform/filter: no rompe ventanitas fijas. */
+.asis-resalte { outline: 3px solid var(--t-acento, var(--sig-rojo, #EC1C24)) !important; outline-offset: 3px;
+                animation: asis-pulso 1.1s ease-in-out 3; }
+@keyframes asis-pulso {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--t-acento, #EC1C24) 55%, transparent); }
+    50% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--t-acento, #EC1C24) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .asis-panel, .asis-resalte { animation: none; } }

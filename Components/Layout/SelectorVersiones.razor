@@ -1,0 +1,88 @@
+@* Selector de versiones de un documento (Organigrama, Partes interesadas…). A la vista solo la vigente,
+   el borrador y la que se está mirando si es otra; el resto en un desplegable con número, estado,
+   fecha, autor y motivo, con búsqueda cuando hay muchas. *@
+
+<span class="selv">
+    @foreach (var v in Visibles)
+    {
+        var vv = v;
+        <button type="button" class="selv-chip selv-@vv.Estado.ToLowerInvariant() @(vv.Id == SeleccionadaId ? "activo" : "")" disabled="@Deshabilitado"
+                title="@Tooltip(vv)" @onclick="() => Elegir(vv.Id)">
+            <b>@vv.Nombre</b><span>@vv.Estado</span>
+        </button>
+    }
+    @if (Items.Count > Visibles.Count)
+    {
+        <span class="selv-wrap">
+            <button type="button" class="selv-chip selv-mas @(abierto ? "activo" : "")" disabled="@Deshabilitado" title="Todas las versiones" @onclick="Alternar">
+                <Ico Nombre="versiones" /><b>@Items.Count</b>
+            </button>
+            @if (abierto)
+            {
+                <span class="selv-fondo" @onclick="() => abierto = false"></span>
+                <span class="selv-menu" role="listbox">
+                    @if (Items.Count > 8)
+                    {
+                        <input class="form-control form-control-sm selv-buscar" placeholder="Buscar versión, autor o motivo..." data-sin-flotante @bind="buscar" @bind:event="oninput" />
+                    }
+                    <span class="selv-lista">
+                        @foreach (var v in Filtradas)
+                        {
+                            var vv = v;
+                            <button type="button" class="selv-fila selv-@vv.Estado.ToLowerInvariant() @(vv.Id == SeleccionadaId ? "activo" : "")" role="option" @onclick="() => Elegir(vv.Id)">
+                                <b class="selv-num">@vv.Nombre</b>
+                                <span class="selv-est">@vv.Estado</span>
+                                <span class="selv-fecha">@vv.Fecha</span>
+                                <span class="selv-autor" title="@vv.Autor">@vv.Autor</span>
+                                <span class="selv-motivo" title="@vv.Motivo">@vv.Motivo</span>
+                            </button>
+                        }
+                    </span>
+                </span>
+            }
+        </span>
+    }
+</span>
+
+@code {
+    // Etiqueta: cómo se nombra la versión si no es "v{Numero}" (p. ej. "Rev. 03" en Riesgos).
+    public sealed record Item(int Id, int Numero, string Estado, string Fecha, string? Autor, string? Motivo, string? Etiqueta = null)
+    {
+        public string Nombre => string.IsNullOrWhiteSpace(Etiqueta) ? $"v{Numero}" : Etiqueta!;
+    }
+
+    [Parameter] public IReadOnlyList<Item> Items { get; set; } = Array.Empty<Item>();
+    [Parameter] public int? SeleccionadaId { get; set; }
+    [Parameter] public bool Deshabilitado { get; set; }
+    [Parameter] public EventCallback<int> OnSeleccionar { get; set; }
+
+    private bool abierto;
+    private string buscar = "";
+
+    // Vigente, borrador y la seleccionada (si es una obsoleta), en orden de número.
+    private List<Item> Visibles => Items
+        .Where(v => v.Estado is "Vigente" or "Borrador" || v.Id == SeleccionadaId)
+        .OrderBy(v => v.Numero).ToList();
+
+    private IEnumerable<Item> Filtradas
+    {
+        get
+        {
+            var q = Items.OrderByDescending(v => v.Numero).AsEnumerable();
+            var b = buscar.Trim();
+            if (b.Length == 0) return q;
+            return q.Where(v => $"{v.Nombre} {v.Estado} {v.Fecha} {v.Autor} {v.Motivo}".Contains(b, StringComparison.CurrentCultureIgnoreCase));
+        }
+    }
+
+    private static string Tooltip(Item v) =>
+        string.Join(" · ", new[] { v.Nombre, v.Estado, v.Fecha, v.Autor, v.Motivo }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    private void Alternar() { abierto = !abierto; if (abierto) buscar = ""; }
+
+    private async Task Elegir(int id)
+    {
+        abierto = false;
+        if (id != SeleccionadaId) await OnSeleccionar.InvokeAsync(id);
+    }
+}

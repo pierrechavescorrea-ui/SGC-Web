@@ -1,0 +1,162 @@
+[
+ {
+  "codigo": "N-01",
+  "lat": 5.95,
+  "lon": -73.6,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "0.00",
+   "Cota CG": "1393.50",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "El Roble",
+   "Vano — Adelante (m)": "419.52",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "0.9796"
+  }
+ },
+ {
+  "codigo": "N-02",
+  "lat": 5.9531919,
+  "lon": -73.5979856,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "419.52",
+   "Cota CG": "1493.69",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "El Roble",
+   "Vano — Adelante (m)": "344.35",
+   "Condición del suelo": "Húmedo",
+   "Ángulo de Deflexión (deg)": "0.3478"
+  }
+ },
+ {
+  "codigo": "N-03",
+  "lat": 5.9558296,
+  "lon": -73.596361,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "763.87",
+   "Cota CG": "1420.61",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "El Roble",
+   "Vano — Adelante (m)": "334.17",
+   "Condición del suelo": "Húmedo",
+   "Ángulo de Deflexión (deg)": "2.4081"
+  }
+ },
+ {
+  "codigo": "N-04",
+  "lat": 5.9583759,
+  "lon": -73.5947624,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "1098.04",
+   "Cota CG": "1488.19",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "El Roble",
+   "Vano — Adelante (m)": "430.24",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "0.8818"
+  }
+ },
+ {
+  "codigo": "N-05",
+  "lat": 5.9616284,
+  "lon": -73.5926633,
+  "tiro": "Tiro 1",
+  "campos": {
+   "Abscisa Progresiva (m)": "1528.28",
+   "Cota CG": "1390.91",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "La Cumbre",
+   "Vano — Adelante (m)": "443.32",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "2.7926"
+  }
+ },
+ {
+  "codigo": "N-06",
+  "lat": 5.9650269,
+  "lon": -73.5905761,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "1971.60",
+   "Cota CG": "1524.01",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "La Cumbre",
+   "Vano — Adelante (m)": "351.77",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "0.4088"
+  }
+ },
+ {
+  "codigo": "N-07",
+  "lat": 5.9677509,
+  "lon": -73.5889656,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "2323.37",
+   "Cota CG": "1438.15",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "La Cumbre",
+   "Vano — Adelante (m)": "380.26",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "3.2285"
+  }
+ },
+ {
+  "codigo": "N-08",
+  "lat": 5.9706384,
+  "lon": -73.5871306,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "2703.63",
+   "Cota CG": "1526.24",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "La Cumbre",
+   "Vano — Adelante (m)": "405.07",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "0.3152"
+  }
+ },
+ {
+  "codigo": "N-09",
+  "lat": 5.9737691,
+  "lon": -73.5852659,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "3108.70",
+   "Cota CG": "1513.96",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "Buenavista",
+   "Vano — Adelante (m)": "418.01",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "2.3094"
+  }
+ },
+ {
+  "codigo": "N-10",
+  "lat": 5.9769439,
+  "lon": -73.5832497,
+  "tiro": "Tiro 2",
+  "campos": {
+   "Abscisa Progresiva (m)": "3526.71",
+   "Cota CG": "1421.91",
+   "Departamento": "Departamento Demo",
+   "Municipio": "Municipio Norte Demo",
+   "Vereda": "Buenavista",
+   "Vano — Adelante (m)": "336.42",
+   "Condición del suelo": "Seco",
+   "Ángulo de Deflexión (deg)": "3.9409"
+  }
+ }
+]

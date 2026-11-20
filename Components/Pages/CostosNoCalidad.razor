@@ -1,0 +1,418 @@
+@page "/costos-no-calidad"
+@rendermode InteractiveServer
+@using SigWeb.Data.CostosNoCalidad
+@using SigWeb.Models
+
+<div class="cnc @(pantallaCompleta ? "ens-pantalla" : "")">
+<EncabezadoPagina Titulo="Costos de no calidad" Icono="costos-no-calidad" Subtitulo="@Subtitulo" OnAtras="AtrasCb">
+    <Acciones>
+        <button type="button" class="pg-btn @(pantallaCompleta ? "activo" : "")" title="@(pantallaCompleta ? "Salir de pantalla completa" : "Pantalla completa")" @onclick="() => pantallaCompleta = !pantallaCompleta"><Ico Nombre="pantalla-completa" /></button>
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(vista == "plan" ? "activo" : "")" title="Plan por plan" @onclick='() => CambiarVista("plan")'><Ico Nombre="indicador" /></button>
+            <button type="button" class="pg-btn @(vista == "tabla" ? "activo" : "")" title="Tabla" @onclick='() => CambiarVista("tabla")'><Ico Nombre="tabla" /></button>
+            <button type="button" class="pg-btn @(vista == "graficos" ? "activo" : "")" title="Gráficos" @onclick='() => CambiarVista("graficos")'><Ico Nombre="grafico" /></button>
+        </span>
+        <button type="button" class="pg-btn @(verFiltros ? "activo" : "")" title="Filtros" @onclick="() => verFiltros = !verFiltros"><Ico Nombre="filtro" /></button>
+        <span class="pg-sep"></span>
+        <a class="pg-btn" href="editor?pestana=formularios&form=planes-accion" title="Campos del paso «@(datos?.PasoTitulo ?? ModuloCostosNoCalidad.TituloSugerido)» (Configuración › Editor): marque «Resumen» en los que cuentan"><Ico Nombre="formularios" /></a>
+        <button type="button" class="pg-btn" title="Exportar a Excel (lo filtrado)" disabled="@(datos is null || !Filtrados.Any())" @onclick="ExportarAsync"><Ico Nombre="exportar-excel" /></button>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (datos is null)
+{
+    <Esqueleto Tipo="tarjetas" Filas="4" />
+}
+else if (!datos.Ligado)
+{
+    <div class="cnc-vacio">
+        <Ico Nombre="enlace" />
+        <div>
+            <b>Ningún paso de Planes de acción está ligado a este módulo.</b>
+            <div class="small text-muted">En Configuración › Editor › Planes de acción, elija el paso de costos y en «Módulo que lo lee» seleccione Costos de no calidad. Luego marque «Resumen» en los campos numéricos que deben sumar.</div>
+        </div>
+        <a class="btn btn-sm btn-primary" href="editor?pestana=formularios&form=planes-accion" title="Abrir el diseñador del formulario"><Ico Nombre="formularios" /></a>
+    </div>
+}
+else if (datos.Campos.Count == 0)
+{
+    <div class="cnc-vacio">
+        <Ico Nombre="informacion" />
+        <div>
+            <b>El paso «@datos.PasoTitulo» no tiene campos numéricos marcados «Resumen».</b>
+            <div class="small text-muted">@(datos.CamposEnPaso == 0 ? "El paso aún no tiene campos." : $"Tiene {datos.CamposEnPaso} campo(s): marque «Resumen» en los que son costos (y en los de texto o lista con los que quiera agrupar).")</div>
+        </div>
+        <a class="btn btn-sm btn-primary" href="editor?pestana=formularios&form=planes-accion" title="Abrir el diseñador del formulario"><Ico Nombre="formularios" /></a>
+    </div>
+}
+else
+{
+    var fil = Filtrados.ToArray();
+    var total = fil.Sum(p => p.Total);
+
+    @if (verFiltros)
+    {
+        <div class="cnc-filtros">
+            <input class="form-control form-control-sm cnc-buscar" placeholder="Buscar código, hallazgo, origen…" data-sin-flotante data-recordar="buscar" @bind="buscar" @bind:event="oninput" />
+            <select class="form-select form-select-sm" data-sin-flotante @bind="fAnio" title="Año del hallazgo">
+                <option value="0">Todos los años</option>
+                @foreach (var a in anios) { <option value="@a">@a</option> }
+            </select>
+            <select class="form-select form-select-sm" data-sin-flotante @bind="fOrigen" title="Origen del hallazgo">
+                <option value="">Todos los orígenes</option>
+                @foreach (var o in origenes) { <option value="@o">@o</option> }
+            </select>
+            <select class="form-select form-select-sm" data-sin-flotante @bind="fTipo" title="Tipo de hallazgo">
+                <option value="">Todos los tipos</option>
+                @foreach (var o in tipos) { <option value="@o">@o</option> }
+            </select>
+            <select class="form-select form-select-sm" data-sin-flotante @bind="fProceso" title="Proceso">
+                <option value="">Todos los procesos</option>
+                @foreach (var o in procesos) { <option value="@o">@o</option> }
+            </select>
+            <select class="form-select form-select-sm" data-sin-flotante @bind="fEstado" title="Estado del plan">
+                <option value="">Todos los estados</option>
+                @foreach (var e in Enum.GetValues<EstadoAccionPlan>()) { <option value="@e">@EscalaAccion.Nombre(e)</option> }
+            </select>
+            <label class="form-check mb-0 cnc-check" title="Ocultar los planes sin valores en el paso de costos">
+                <input type="checkbox" class="form-check-input" @bind="soloConCosto" /> <span class="form-check-label">Solo con costo</span>
+            </label>
+            @if (HayFiltros)
+            {
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Quitar filtros" @onclick="QuitarFiltros"><Ico Nombre="cancelar" /></button>
+            }
+        </div>
+    }
+
+    <VistaWidgets @ref="vw" Modulo="costos-no-calidad" DisenarVista="@DisenarQ" Contenido="WidgetCnc" OnCambio="AlCambiarVista">
+        @Tablero(fil, total)
+
+        @if (vista == "tabla")
+        {
+            @VistaTabla(fil, total)
+        }
+        else if (vista == "graficos")
+        {
+            @VistaGraficos(fil)
+        }
+        else
+        {
+            @VistaPlan(fil, total)
+        }
+    </VistaWidgets>
+}
+</div>
+
+@code {
+    // Solo fragmentos aquí; la lógica va en CostosNoCalidad.razor.cs.
+
+    // ---------- Widgets de las vistas configurables (VistaWidgets; tipos en VistasModelo.TiposPorModulo) ----------
+    private RenderFragment WidgetCnc(SigWeb.Data.Vistas.Widget w) => __builder =>
+    {
+        var fil = Filtrados.ToArray();
+        var total = fil.Sum(p => p.Total);
+        switch (w.Tipo)
+        {
+            case "tablero": @Tablero(fil, total) break;
+            case "plan": @VistaPlan(fil, total) break;
+            case "tabla": @VistaTabla(fil, total) break;
+            case "composicion":
+                var comp = Composicion(fil);
+                if (comp.Length == 0) { <div class="cnc-sub">Sin costos con estos filtros.</div> }
+                else { @BarraComposicion(comp, true) }
+                break;
+            case "grafico":
+                var g = w.Kpi ?? "pareto";
+                <div class="com-grafico-lienzo vw-lienzo"><canvas id="@("cnc-g-" + g)"></canvas></div>
+                break;
+            case "kpi":
+                var conCosto = fil.Count(p => p.Total != 0);
+                var principal = Composicion(fil).FirstOrDefault(c => c.Rubro != Otros);
+                var pico = fil.Where(p => p.Total != 0).GroupBy(p => new DateTime(p.Fecha.Year, p.Fecha.Month, 1)).Select(x => (Mes: x.Key, V: x.Sum(p => p.Total))).OrderByDescending(x => x.V).FirstOrDefault();
+                var (et, val, sub) = (w.Kpi ?? "total") switch
+                {
+                    "planes" => ("Planes con costo", conCosto.ToString("N0", Co), $"de {fil.Length} planes"),
+                    "promedio" => ("Promedio por plan", conCosto == 0 ? "—" : Compacto(total / conCosto), "planes con costo"),
+                    "rubro" => ("Rubro principal", principal?.Rubro ?? "—", principal is null ? "" : $"{Compacto(principal.Valor)} · {principal.Pct.ToString("P0", Co)}"),
+                    "mes" => ("Mes pico", pico.V == 0 ? "—" : pico.Mes.ToString("MMM yyyy", Co), pico.V == 0 ? "" : Compacto(pico.V)),
+                    _ => ("Costo de no calidad · " + EtiquetaPeriodo, ServicioCostosNoCalidad.Moneda(total), ""),
+                };
+                <div class="vw-kpi"><small>@(w.Titulo ?? et)</small><b title="@val">@val</b><span>@sub</span></div>
+                break;
+        }
+    };
+
+    // ---------- Tablero: cifra principal + tendencia · 4 indicadores alineados · composición por rubro ----------
+    private RenderFragment Tablero(PlanCosto[] fil, double total) => __builder =>
+    {
+        var conCosto = fil.Count(p => p.Total != 0);
+        var comp = Composicion(fil);
+        var principal = comp.FirstOrDefault(c => c.Rubro != Otros);
+        var meses = fil.Where(p => p.Total != 0).GroupBy(p => new DateTime(p.Fecha.Year, p.Fecha.Month, 1)).Select(g => (Mes: g.Key, V: g.Sum(p => p.Total))).OrderByDescending(x => x.V).ToArray();
+        var tend = Tendencia();
+        var sp = Sparkline(tend);
+        var vari = Variacion();
+        var (desde, hasta) = Periodo();
+        <div class="cnc-tablero-marco"><section class="cnc-tablero">
+            <div class="cnc-hero">
+                <span class="cnc-eti">Costo de no calidad · @EtiquetaPeriodo</span>
+                <span class="cnc-cifra" title="@ServicioCostosNoCalidad.Moneda(total)">@ServicioCostosNoCalidad.Moneda(total)</span>
+                <div class="cnc-hero-pie">
+                    @if (vari is { } v)
+                    {
+                        <span class="cnc-delta @(v.Pct > 0 ? "sube" : v.Pct < 0 ? "baja" : "")" title="Más costo es peor">@(v.Pct > 0 ? "▲" : v.Pct < 0 ? "▼" : "＝") @Math.Abs(v.Pct).ToString("P0", Co) <small>@v.Contra</small></span>
+                    }
+                    else
+                    {
+                        <span class="cnc-sub">Sin periodo anterior para comparar</span>
+                    }
+                </div>
+                <figure class="cnc-spark" title="Costo por mes · @desde.ToString("MMM yyyy", Co) – @hasta.ToString("MMM yyyy", Co)">
+                    <div class="cnc-spark-lienzo">
+                    <svg viewBox="0 0 120 36" preserveAspectRatio="none" aria-hidden="true">
+                        <path d="@sp.Area" class="cnc-spark-area" />
+                        <path d="@sp.Linea" class="cnc-spark-linea" />
+                    </svg>
+                    <span class="cnc-spark-punto" style="left:@Pct(sp.Ux / 120 * 100)%; top:@Pct(sp.Uy / 36 * 100)%"></span>
+                    </div>
+                    <figcaption><span>@desde.ToString("MMM yy", Co)</span><span>@hasta.ToString("MMM yy", Co)</span></figcaption>
+                </figure>
+            </div>
+
+            <div class="cnc-tiles">
+                <div class="cnc-tile">
+                    <span class="cnc-eti">Planes con costo</span>
+                    <span class="cnc-valor">@conCosto <small>de @fil.Length</small></span>
+                    <span class="cnc-medidor" title="@(fil.Length == 0 ? "" : ((double)conCosto / fil.Length).ToString("P0", Co))"><span style="width:@Pct(fil.Length == 0 ? 0 : 100.0 * conCosto / fil.Length)%"></span></span>
+                </div>
+                <div class="cnc-tile">
+                    <span class="cnc-eti">Promedio por plan</span>
+                    <span class="cnc-valor" title="@(conCosto == 0 ? "" : ServicioCostosNoCalidad.Moneda(total / conCosto))">@(conCosto == 0 ? "—" : Compacto(total / conCosto))</span>
+                    <span class="cnc-sub">planes con costo</span>
+                </div>
+                <div class="cnc-tile">
+                    <span class="cnc-eti">Rubro principal</span>
+                    <span class="cnc-valor cnc-valor-txt">@if (principal is not null) { <i class="cnc-muestra" style="background:@principal.Color"></i> @principal.Rubro } else { <text>—</text> }</span>
+                    <span class="cnc-sub">@(principal is null ? "" : $"{Compacto(principal.Valor)} · {principal.Pct.ToString("P0", Co)}")</span>
+                </div>
+                <div class="cnc-tile">
+                    <span class="cnc-eti">Mes pico</span>
+                    <span class="cnc-valor cnc-valor-txt">@(meses.Length == 0 ? "—" : meses[0].Mes.ToString("MMM yyyy", Co))</span>
+                    <span class="cnc-sub">@(meses.Length == 0 ? "" : Compacto(meses[0].V))</span>
+                </div>
+            </div>
+
+            <div class="cnc-comp">
+                <span class="cnc-eti">Composición por rubro</span>
+                @if (comp.Length == 0) { <div class="cnc-sub">Sin costos con estos filtros.</div> }
+                else { @BarraComposicion(comp, true) }
+            </div>
+        </section></div>
+    };
+
+    // Barra segmentada (un todo en partes) + leyenda en el mismo orden. alta = 28 px con el % dentro donde cabe.
+    private RenderFragment BarraComposicion(ParteRubro[] partes, bool alta) => __builder =>
+    {
+        <div class="cnc-seg @(alta ? "cnc-seg-alta" : "")" role="img" aria-label="@string.Join(", ", partes.Select(x => $"{x.Rubro} {x.Pct.ToString("P0", Co)}"))">
+            @foreach (var x in partes)
+            {
+                <span class="cnc-seg-parte" style="flex-grow:@Pct(x.Pct * 1000); background:@x.Color" title="@x.Rubro · @ServicioCostosNoCalidad.Moneda(x.Valor) · @x.Pct.ToString("P1", Co)">@if (alta && x.Pct >= 0.08) { @x.Pct.ToString("P0", Co) }</span>
+            }
+        </div>
+        <ul class="cnc-leyenda">
+            @foreach (var x in partes)
+            {
+                <li title="@ServicioCostosNoCalidad.Moneda(x.Valor)"><i class="cnc-muestra" style="background:@x.Color"></i>@x.Rubro @if (!alta || x.Pct < 0.08) { <small>@x.Pct.ToString("P0", Co)</small> }</li>
+            }
+        </ul>
+    };
+
+    // ---------- Plan por plan (como Planes de acción) ----------
+    private RenderFragment VistaPlan(PlanCosto[] lista, double totalVista) => __builder =>
+    {
+        var foco = lista.FirstOrDefault(x => x.Id == selId) ?? lista.FirstOrDefault();
+        var maxLista = Maximo(lista);
+        <div class="ind-foco pv-foco cnc-foco">
+            <nav class="ind-rail">
+                <div class="cnc-orden">
+                    <button type="button" class="cnc-orden-btn @(ordenCosto ? "activo" : "")" title="Ordenar por costo (mayor primero)" @onclick="() => ordenCosto = true">$</button>
+                    <button type="button" class="cnc-orden-btn @(!ordenCosto ? "activo" : "")" title="Ordenar por fecha (reciente primero)" @onclick="() => ordenCosto = false"><Ico Nombre="calendario" /></button>
+                </div>
+                @foreach (var pl in lista)
+                {
+                    var p = pl;
+                    var pct = maxLista == 0 ? 0 : Math.Clamp(Math.Abs(p.Total) / maxLista * 100, 0, 100);
+                    <button type="button" class="ind-rail-item pv-rail cnc-rail @(foco?.Id == p.Id ? "activo" : "")" @onclick="() => selId = p.Id" @ondblclick="() => AbrirPlan(p.Id)">
+                        <span class="pv-rail-cab">
+                            <span class="pv-cod">@p.Codigo</span>
+                            <span class="cnc-punto" style="background:@EscalaAccion.Color(p.Estado)" title="@EscalaAccion.Nombre(p.Estado)"></span>
+                            <span class="pv-fecha">@p.Fecha.ToString("dd/MM/yyyy")</span>
+                        </span>
+                        <span class="ind-rail-nom">@p.Descripcion</span>
+                        <span class="cnc-rail-valor">@(p.Total == 0 ? "Sin costo" : ServicioCostosNoCalidad.Moneda(p.Total))</span>
+                        <span class="cnc-barra"><span style="width:@(Pct(pct))%;"></span></span>
+                    </button>
+                }
+                @if (lista.Length == 0)
+                {
+                    <span class="text-muted small p-2">Sin planes con estos filtros.</span>
+                }
+            </nav>
+            @if (foco is not null)
+            {
+                var p = foco;
+                var pos = Array.FindIndex(lista, x => x.Id == p.Id);
+                var rubrosPlan = RubrosDePlan(p);
+                var maxR = rubrosPlan.Length == 0 ? 0 : rubrosPlan.Max(x => Math.Abs(x.V));
+                <section class="ind-det">
+                    <div class="ind-det-cab">
+                        <button type="button" class="ind-nav" title="Anterior" disabled="@(pos <= 0)" @onclick="() => selId = lista[pos - 1].Id">‹</button>
+                        <div class="ind-det-tits">
+                            <h2 class="ind-det-nom"><button type="button" class="doc-vinculo pv-titulo" title="Ver el plan en Planes de acción" @onclick="() => VerPlan(p.Id)">@p.Codigo</button> <span class="pv-desc-tit">@p.Descripcion</span></h2>
+                            <div class="ind-chips">
+                                @if (!string.IsNullOrWhiteSpace(p.Tipo)) { <span class="ind-chip pv-chip-fuerte">@p.Tipo</span> }
+                                @if (!string.IsNullOrWhiteSpace(p.Origen)) { <span class="ind-chip">@p.Origen</span> }
+                                @foreach (var pr in SelectorMultiple.Leer(p.Proceso)) { <span class="ind-chip">@pr</span> }
+                                <span class="ind-chip">@p.Fecha.ToString("dd/MM/yyyy")</span>
+                                @foreach (var dm in datos!.Dimensiones)
+                                {
+                                    @if (p.Dimensiones.TryGetValue(dm.Id, out var dv)) { <span class="ind-chip" title="@dm.Nombre">@dm.Nombre: @TextoDimension(dm, dv)</span> }
+                                }
+                            </div>
+                        </div>
+                        <span class="ind-det-pos">@(pos + 1) / @lista.Length</span>
+                        <button type="button" class="ind-nav" title="Siguiente" disabled="@(pos >= lista.Length - 1)" @onclick="() => selId = lista[pos + 1].Id">›</button>
+                    </div>
+
+                    @{ var compPlan = ComposicionPlan(p); }
+                    <div class="cnc-plan-res">
+                        <div class="cnc-plan-cifra">
+                            <span class="cnc-eti">Costo del plan</span>
+                            <span class="cnc-plan-valor">@(p.Total == 0 ? "—" : ServicioCostosNoCalidad.Moneda(p.Total))</span>
+                            <span class="cnc-sub">@(totalVista == 0 || p.Total == 0 ? $"Sin valores en «{datos!.PasoTitulo}»" : $"{(p.Total / totalVista).ToString("P1", Co)} del total a la vista")</span>
+                        </div>
+                        <dl class="cnc-plan-datos">
+                            <div><dt>Rubros</dt><dd>@compPlan.Length <small>de @datos!.Rubros.Count()</small></dd></div>
+                            <div><dt>Principal</dt><dd>@if (compPlan.Length > 0) { <i class="cnc-muestra" style="background:@compPlan[0].Color"></i> @compPlan[0].Rubro } else { <text>—</text> }</dd></div>
+                            <div><dt>Estado</dt><dd><EstadoAccion Estado="p.Estado" /></dd></div>
+                            <div><dt>Eficacia</dt><dd>@(p.Eficaz == true ? "Eficaz" : p.Eficaz == false ? "No eficaz" : "Sin verificar")</dd></div>
+                        </dl>
+                        @if (compPlan.Length > 0) { <div class="cnc-plan-barra">@BarraComposicion(compPlan, false)</div> }
+                    </div>
+
+                    <div class="cnc-det-cuerpo">
+                        <div class="pv-bloque-tit">Costos por rubro · «@datos!.PasoTitulo»</div>
+                        @if (rubrosPlan.Length == 0)
+                        {
+                            <div class="text-muted small">Este plan no tiene valores en los campos marcados «Resumen» del paso.</div>
+                        }
+                        <div class="cnc-rubros">
+                            @foreach (var r in rubrosPlan)
+                            {
+                                <div class="cnc-rubro">
+                                    <span class="cnc-rubro-nom" title="@r.Rubro"><i class="cnc-muestra" style="background:@ColorDe(r.Rubro)"></i>@r.Rubro</span>
+                                    <span class="cnc-rubro-barra"><span style="width:@(Pct(maxR == 0 ? 0 : Math.Abs(r.V) / maxR * 100))%; background:@ColorDe(r.Rubro);"></span></span>
+                                    <span class="cnc-rubro-val">@ServicioCostosNoCalidad.Moneda(r.V)</span>
+                                    <span class="cnc-rubro-pct">@(p.Total == 0 ? "" : (r.V / p.Total).ToString("P0", Co))</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="cnc-det-pie">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Ver el plan en Planes de acción" @onclick="() => VerPlan(p.Id)"><Ico Nombre="plan-accion" /></button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="Editar los costos (formulario del plan)" @onclick="() => AbrirPlan(p.Id)"><Ico Nombre="editar" /></button>
+                        </div>
+                    </div>
+                </section>
+            }
+        </div>
+    };
+
+    // ---------- Tabla: un plan por fila, un rubro por columna ----------
+    private RenderFragment VistaTabla(PlanCosto[] lista, double totalVista) => __builder =>
+    {
+        var rubros = RubrosOrdenados(lista).Select(r => r.Rubro).ToArray();
+        var dims = datos!.Dimensiones.ToArray();
+        <div class="tabla-scroll tabla-auto">
+            <table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin cnc-tabla">
+                <thead>
+                    <tr>
+                        <th>Código</th><th>Fecha</th><th>Hallazgo</th><th>Origen</th><th>Tipo</th><th>Proceso</th><th>Estado</th>
+                        @foreach (var dm in dims) { <th>@dm.Nombre</th> }
+                        @foreach (var r in rubros) { <th class="text-end">@r</th> }
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pl in lista)
+                    {
+                        var p = pl;
+                        <tr class="@(selId == p.Id ? "table-active" : "")" @onclick="() => selId = p.Id" @ondblclick="() => AbrirPlan(p.Id)">
+                            <td class="fw-bold"><button type="button" class="doc-vinculo" title="Ver el plan" @onclick:stopPropagation="true" @onclick="() => VerPlan(p.Id)">@p.Codigo</button></td>
+                            <td>@p.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td class="rg-multi cnc-td-desc">@p.Descripcion</td>
+                            <td>@p.Origen</td>
+                            <td>@p.Tipo</td>
+                            <td class="rg-multi">@p.Proceso</td>
+                            <td><EstadoAccion Estado="p.Estado" /></td>
+                            @foreach (var dm in dims) { <td class="rg-multi">@(p.Dimensiones.TryGetValue(dm.Id, out var dv) ? TextoDimension(dm, dv) : "")</td> }
+                            @foreach (var r in rubros) { var v = datos.ValorRubro(p, r); <td class="text-end">@(v == 0 ? "" : ServicioCostosNoCalidad.Moneda(v))</td> }
+                            <td class="text-end fw-bold">@(p.Total == 0 ? "" : ServicioCostosNoCalidad.Moneda(p.Total))</td>
+                        </tr>
+                    }
+                    @if (lista.Length == 0)
+                    {
+                        <tr><td colspan="@(8 + dims.Length + rubros.Length)" class="text-muted small text-center py-2"><em>Sin planes con estos filtros.</em></td></tr>
+                    }
+                </tbody>
+                @if (lista.Length > 0)
+                {
+                    <tfoot>
+                        <tr class="cnc-total">
+                            <td colspan="@(7 + dims.Length)">Total (@lista.Count(p => p.Total != 0) con costo)</td>
+                            @foreach (var r in rubros) { <td class="text-end">@ServicioCostosNoCalidad.Moneda(datos.TotalRubro(lista, r))</td> }
+                            <td class="text-end">@ServicioCostosNoCalidad.Moneda(totalVista)</td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    };
+
+    // ---------- Gráficos ----------
+    private RenderFragment VistaGraficos(PlanCosto[] lista) => __builder =>
+    {
+        <div class="cnc-graficos">
+            <div class="cnc-agrupar">
+                <span class="small text-muted">Agrupar por</span>
+                <select class="form-select form-select-sm" data-sin-flotante value="@agrupar" @onchange="CambiarAgrupacion">
+                    <option value="@AgOrigen">Origen del hallazgo</option>
+                    <option value="@AgTipo">Tipo de hallazgo</option>
+                    <option value="@AgProceso">Proceso</option>
+                    <option value="@AgEstado">Estado del plan</option>
+                    @foreach (var dm in datos!.Dimensiones) { <option value="@("d:" + dm.Id)">@dm.Nombre</option> }
+                </select>
+            </div>
+            <div class="cnc-graficos-rejilla">
+                @GraficoCaja("cnc-g-pareto", "Costo por rubro (Pareto)", "cnc:pareto", true)
+                @GraficoCaja("cnc-g-mes", TituloMes, "cnc:mes", true)
+                @GraficoCaja("cnc-g-grupo", "Costo por " + NombreAgrupacion, "cnc:grupo", false)
+                @GraficoCaja("cnc-g-planes", "Planes con mayor costo", "cnc:planes", false)
+            </div>
+            @if (!lista.Any(p => p.Total != 0))
+            {
+                <div class="text-muted small mt-2">Sin costos registrados con estos filtros.</div>
+            }
+        </div>
+    };
+
+    private RenderFragment GraficoCaja(string id, string titulo, string clave, bool ancho) => __builder =>
+    {
+        <div class="com-grafico @(ancho ? "com-grafico-ancho" : "")">
+            <div class="com-grafico-cab">
+                <div class="com-grafico-tit">@titulo</div>
+                <button type="button" class="gx-mas" title="Elementos del gráfico" data-grafico="@id" data-clave="@clave" data-accion="elementos-grafico">+</button>
+            </div>
+            <div class="com-grafico-lienzo"><canvas id="@id"></canvas></div>
+        </div>
+    };
+}

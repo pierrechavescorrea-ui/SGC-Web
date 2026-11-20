@@ -1,0 +1,165 @@
+@using SigWeb.Data.Comunicados
+@using SigWeb.Models
+@inject IServiceScopeFactory Scopes
+@inject IJSRuntime JS
+
+<div class="cs-panel" aria-busy="@ocupado">
+    <div class="cs-barra">
+        <h2 class="h5 mb-0">Consecutivos</h2><span class="flex-grow-1"></span>
+        <button class="pg-btn" title="Plantillas" disabled="@ocupado" @onclick="AbrirPlantillas"><Ico Nombre="mantenimiento" /></button>
+        <button class="pg-btn" title="Actualizar" disabled="@ocupado" @onclick="Cargar"><Ico Nombre="listado" /></button>
+        <button class="pg-btn pg-btn-primario" title="Nuevo consecutivo" disabled="@(ocupado || faltaMigracion)" @onclick="Nuevo"><Ico Nombre="agregar" /></button>
+        <button class="pg-btn" title="Cerrar consecutivos" @onclick="OnCerrar"><Ico Nombre="cancelar" /></button>
+    </div>
+    @if (mensaje.Length > 0) { <div class="alert alert-warning py-2" role="alert">@mensaje</div> }
+    @if (ocupado) { <Esqueleto Tipo="tabla" Filas="5" Etiqueta="Cargando consecutivos…" /> }
+    @if (asignado is not null)
+    {
+        <div class="cs-asignado"><span>Consecutivo reservado</span><strong>@asignado</strong><button class="pg-btn" title="Copiar consecutivo" @onclick="Copiar"><Ico Nombre="versiones" /></button></div>
+    }
+    @if (nueva is not null)
+    {
+        <FormularioSig Titulo="Nuevo consecutivo" Icono="agregar" Formulario="consecutivos">
+            <ChildContent><fieldset disabled="@ocupado" class="cs-campos">
+                <SeccionFormulario Titulo="Comunicado">
+                    <CampoFormulario Etiqueta="Plantilla" Obligatorio="true">
+                        <select class="form-select" disabled="@(activas.Count == 1 || ocupado)" @bind="nueva.PlantillaConsecutivoId" @bind:after="CambiarPlantilla">
+                            @foreach (var p in activas) { <option value="@p.Id">@p.Prefijo</option> }
+                        </select>
+                    </CampoFormulario>
+                    <CampoFormulario Etiqueta="Fecha de envío prevista"><input type="date" class="form-control" @bind="nueva.FechaEnvioPrevista" @bind:after="Previsualizar" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Código previsto"><strong class="cs-codigo">@previsto</strong><small class="text-muted">El número definitivo se fija al guardar.</small></CampoFormulario>
+                    <CampoFormulario Etiqueta="Asunto" Obligatorio="true" Ancho="col-md-8"><input class="form-control" required @bind="nueva.Asunto" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Dirigido a"><input class="form-control" @bind="nueva.DirigidoA" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Tipo"><input class="form-control" @bind="nueva.Tipo" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Solicitado por" Obligatorio="true"><input class="form-control" required @bind="nueva.SolicitadoPor" /></CampoFormulario>
+                </SeccionFormulario>
+                <SeccionFormulario Titulo="Respuesta">
+                    <CampoFormulario Etiqueta="¿Responde a un comunicado?" Ancho="col-md-12"><input type="checkbox" class="form-check-input" @bind="responde" @bind:after="LimpiarRespuesta" /></CampoFormulario>
+                    @if (responde)
+                    {
+                        <CampoFormulario Etiqueta="Buscar comunicado" Ancho="col-md-12">
+                            <div class="cs-barra"><input class="form-control" placeholder="Consecutivo o descripción" @bind="busquedaRespuesta" /><button class="pg-btn" title="Buscar comunicado" disabled="@ocupado" @onclick="BuscarRespuesta"><Ico Nombre="acercar" /></button></div>
+                            @if (nueva.RespondeA is not null) { <div class="cs-seleccion">Seleccionado: @nueva.RespondeA</div> }
+                            @foreach (var c in resultados)
+                            {
+                                <div class="cs-resultado"><span><strong>@c.Consecutivo</strong> · @Fecha(c.Fecha) · @c.Descripcion</span><button class="pg-btn" title="Elegir comunicado" @onclick="() => ElegirRespuesta(c)"><Ico Nombre="aceptar" /></button></div>
+                            }
+                            @if (busquedaRealizada && resultados.Count == 0) { <small class="text-muted">Sin coincidencias.</small> }
+                        </CampoFormulario>
+                    }
+                    <CampoFormulario Etiqueta="Requiere respuesta"><select class="form-select" @bind="requiere"><option value="">Sin definir</option><option value="si">Sí</option><option value="no">No</option></select></CampoFormulario>
+                    <CampoFormulario Etiqueta="Responsable de responder"><input class="form-control" @bind="nueva.ResponsableRespuesta" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Observaciones" Ancho="col-md-12"><textarea class="form-control" rows="2" @bind="nueva.Observaciones"></textarea></CampoFormulario>
+                </SeccionFormulario>
+            </fieldset></ChildContent>
+            <Acciones>
+                <button class="btn btn-secondary" title="Cancelar" disabled="@ocupado" @onclick="() => nueva = null"><Ico Nombre="cancelar" /></button>
+                <button class="btn btn-primary" title="Guardar" disabled="@(ocupado || activas.Count == 0)" @onclick="Reservar"><Ico Nombre="guardar" /></button>
+            </Acciones>
+        </FormularioSig>
+    }
+    @if (accion is not null)
+    {
+        <FormularioSig Titulo="@(anulando ? "Anular consecutivo" : "Confirmar envío")">
+            <ChildContent><fieldset disabled="@ocupado" class="cs-campos"><SeccionFormulario Titulo="@accion.Codigo">
+                @if (anulando) { <CampoFormulario Etiqueta="Motivo" Obligatorio="true" Ancho="col-md-12"><textarea class="form-control" required @bind="motivo"></textarea></CampoFormulario> }
+                else { <CampoFormulario Etiqueta="Fecha real de envío"><input type="date" class="form-control" @bind="fechaReal" /></CampoFormulario> }
+            </SeccionFormulario></fieldset></ChildContent>
+            <Acciones><button class="btn btn-secondary" title="Cancelar" disabled="@ocupado" @onclick="() => accion = null"><Ico Nombre="cancelar" /></button><button class="btn btn-primary" title="Guardar" disabled="@ocupado" @onclick="CerrarReserva"><Ico Nombre="guardar" /></button></Acciones>
+        </FormularioSig>
+    }
+    @if (verPlantillas && !faltaMigracion)
+    {
+        <div class="cs-barra"><h3 class="h6 mb-0">Plantillas</h3><button class="pg-btn" title="Nueva plantilla" disabled="@ocupado" @onclick="() => plantilla = new()"><Ico Nombre="agregar" /></button><button class="pg-btn" title="Cerrar plantillas" @onclick="() => verPlantillas = false"><Ico Nombre="cancelar" /></button></div>
+        <div class="tabla-scroll"><table class="table table-sm tabla-pin"><thead><tr><th>Prefijo</th><th>Al cambiar de año</th><th>Cifras</th><th>Activa</th><th></th></tr></thead><tbody>
+            @foreach (var p in plantillas) { <tr><td>@p.Prefijo</td><td>@(p.ReiniciaCadaAnio ? "Reinicia en 1" : "Continúa")</td><td>@(p.CifrasNumero <= 1 ? "Sin ceros" : p.CifrasNumero.ToString())</td><td>@(p.Activa ? "Sí" : "No")</td><td><button class="pg-btn" title="Editar plantilla" disabled="@ocupado" @onclick="() => EditarPlantilla(p)"><Ico Nombre="editar" /></button></td></tr> }
+        </tbody></table></div>
+        @if (plantilla is not null)
+        {
+            <FormularioSig Titulo="@(plantilla.Id == 0 ? "Confirmar nueva plantilla" : "Editar plantilla")">
+                <ChildContent><fieldset disabled="@ocupado" class="cs-campos"><SeccionFormulario Titulo="Código">
+                    <CampoFormulario Etiqueta="Remite"><input class="form-control" @bind="plantilla.Remite" @bind:event="oninput" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Destinatario"><input class="form-control" @bind="plantilla.Destinatario" @bind:event="oninput" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Proyecto"><input class="form-control" @bind="plantilla.Proyecto" @bind:event="oninput" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Código de proyecto"><input class="form-control" @bind="plantilla.CodigoProyecto" @bind:event="oninput" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Al cambiar de año">
+                        <select class="form-select" @bind="plantilla.ReiniciaCadaAnio">
+                            <option value="False">Continuar la numeración</option>
+                            <option value="True">Reiniciar en 1</option>
+                        </select>
+                    </CampoFormulario>
+                    <CampoFormulario Etiqueta="Iniciar en">
+                        <input type="number" min="1" class="form-control" placeholder="Siguiente al último del listado" @bind="plantilla.NumeroInicial" @bind:after="CalcularProximoPlantilla" />
+                    </CampoFormulario>
+                    <CampoFormulario Etiqueta="Cifras del número">
+                        <select class="form-select" @bind="plantilla.CifrasNumero">
+                            <option value="0">Sin ceros (1854)</option>
+                            <option value="3">3 cifras (001)</option>
+                            <option value="4">4 cifras (0001)</option>
+                            <option value="5">5 cifras (00001)</option>
+                        </select>
+                    </CampoFormulario>
+                    <CampoFormulario Etiqueta="Activa"><input type="checkbox" class="form-check-input" @bind="plantilla.Activa" /></CampoFormulario>
+                    <CampoFormulario Etiqueta="Próximo consecutivo" Ancho="col-md-12"><strong>@(proximoPlantilla ?? ServicioConsecutivos.Codigo(plantilla, plantilla.NumeroInicial ?? 1, ServicioConsecutivos.Anio2(DateTime.Today)))</strong></CampoFormulario>
+                </SeccionFormulario></fieldset></ChildContent>
+                <Acciones><button class="btn btn-secondary" title="Cancelar" disabled="@ocupado" @onclick="() => plantilla = null"><Ico Nombre="cancelar" /></button><button class="btn btn-primary" title="Guardar" disabled="@ocupado" @onclick="GuardarPlantilla"><Ico Nombre="guardar" /></button></Acciones>
+            </FormularioSig>
+        }
+    }
+    <div class="cs-barra">
+        <div class="cs-filtros" role="group" aria-label="Estado">
+            @foreach (var f in filtros) { <label class="cs-filtro @(estado == f.Valor ? "cs-activo" : "")"><input type="radio" name="cs-estado" checked="@(estado == f.Valor)" @onchange="() => estado = f.Valor" />@f.Texto</label> }
+        </div>
+        <input class="form-control form-control-sm cs-buscar" placeholder="Buscar consecutivo, asunto, persona…" aria-label="Buscar reservas" @bind="busqueda" @bind:event="oninput" />
+    </div>
+    @if (!string.IsNullOrEmpty(confirmado))
+    {
+        <div class="cs-confirmado" role="status">
+            <span>✓ <strong>@confirmado</strong> quedó en el listado de Comunicados.</span>
+            <button class="btn btn-sm btn-outline-secondary" title="Ver en el listado" @onclick="() => OnVerComunicado.InvokeAsync(confirmado)"><Ico Nombre="listado" /></button>
+        </div>
+    }
+    <div class="tabla-scroll"><table class="table table-sm cs-tabla">
+        <thead><tr><th>Consecutivo</th><th>Fecha</th><th>Asunto</th><th>Responde a</th><th>Respuesta</th><th>Solicitado por</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var r in Filtradas)
+        {
+            var vencida = r.Estado == EstadoConsecutivo.Reservado && r.FechaEnvioPrevista.Date < DateTime.Today;
+            <tr class="@(vencida ? "cs-vencida" : "")">
+                <td class="cs-col-cod">
+                    <div class="cs-cod">@r.Codigo</div>
+                    <span class="cs-chip cs-@r.Estado.ToString().ToLowerInvariant()" title="@r.MotivoAnulacion">@r.Estado</span>
+                    @if (vencida) { <span class="cs-alerta">sin confirmar</span> }
+                </td>
+                <td class="text-nowrap">
+                    @if (r.Estado == EstadoConsecutivo.Enviado && r.FechaEnvio is not null) { <span title="Fecha de envío">@Fecha(r.FechaEnvio)</span><div class="cs-sub">prevista @Fecha(r.FechaEnvioPrevista)</div> }
+                    else { <span title="Fecha de envío prevista">@Fecha(r.FechaEnvioPrevista)</span> }
+                </td>
+                <td class="cs-col-asunto">
+                    <div class="cs-asunto">@r.Asunto</div>
+                    @if (!string.IsNullOrWhiteSpace(r.DirigidoA)) { <div class="cs-sub">→ @r.DirigidoA</div> }
+                </td>
+                <td class="cs-col-resp">@(string.IsNullOrWhiteSpace(r.RespondeA) ? "—" : r.RespondeA)</td>
+                <td class="text-nowrap">
+                    @if (r.RequiereRespuesta == true) { <span>Sí</span>@if (!string.IsNullOrWhiteSpace(r.ResponsableRespuesta)) { <span class="cs-sub d-inline"> · @r.ResponsableRespuesta</span> } }
+                    else if (r.RequiereRespuesta == false) { <span>No</span> }
+                    else { <span class="cs-sub">—</span> }
+                </td>
+                <td class="text-nowrap">
+                    <div>@r.SolicitadoPor</div>
+                    <div class="cs-sub">@r.Origen · @Fecha(r.FechaSolicitud)</div>
+                </td>
+                <td class="cs-col-acc">
+                    @if (r.Estado == EstadoConsecutivo.Reservado) { <button class="pg-btn" title="Confirmar envío" disabled="@ocupado" @onclick="() => AbrirAccion(r, false)"><Ico Nombre="aceptar" /></button><button class="pg-btn" title="Anular" disabled="@ocupado" @onclick="() => AbrirAccion(r, true)"><Ico Nombre="cancelar" /></button> }
+                    @if (r.Estado == EstadoConsecutivo.Enviado) { <button class="pg-btn" title="Ver en el listado de Comunicados" @onclick="() => OnVerComunicado.InvokeAsync(r.Codigo)"><Ico Nombre="ubicar" /></button> }
+                </td>
+            </tr>
+        }
+        @if (!Filtradas.Any() && !ocupado) { <tr><td colspan="7" class="text-muted">Sin reservas.</td></tr> }
+        </tbody>
+    </table></div>
+</div>
+<style>
+.cs-campos{min-width:0;border:0;padding:0;margin:0}.cs-panel{color:var(--bs-body-color,#212529)}.cs-barra{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin:.75rem 0}.cs-buscar{max-width:360px}.cs-filtros{display:flex;gap:.4rem;flex-wrap:wrap}.cs-filtro,.cs-chip{border:1px solid var(--bs-border-color,#ccc);border-radius:1rem;padding:.2rem .65rem;font-size:.8rem}.cs-filtro{cursor:pointer}.cs-filtro input{margin-right:.35rem;accent-color:var(--bs-primary,#0d6efd)}.cs-activo{background:var(--bs-primary-bg-subtle,#cfe2ff);color:var(--bs-primary-text-emphasis,#084298)}.cs-reservado{background:var(--bs-warning-bg-subtle,#fff3cd);color:var(--bs-warning-text-emphasis,#664d03)}.cs-enviado{background:var(--bs-success-bg-subtle,#d1e7dd);color:var(--bs-success-text-emphasis,#0f5132)}.cs-anulado{background:var(--bs-secondary-bg,#e2e3e5);color:var(--bs-secondary-color,#555)}.cs-vencida>td{background:var(--bs-danger-bg-subtle,#f8d7da)!important}.cs-tabla{font-size:.85rem;border-collapse:separate;border-spacing:0}.cs-tabla th{white-space:nowrap;font-weight:600;padding:.45rem .7rem}.cs-tabla td{padding:.55rem .7rem;vertical-align:top;border-bottom:1px solid var(--bs-border-color-translucent,rgba(0,0,0,.08))}.cs-tabla tbody tr:hover>td{background:var(--bs-tertiary-bg,rgba(0,0,0,.03))}.cs-cod{font-family:var(--bs-font-monospace,monospace);font-size:.8rem;white-space:nowrap;margin-bottom:.25rem}.cs-col-cod .cs-chip{font-size:.7rem;padding:.05rem .5rem}.cs-alerta{font-size:.7rem;margin-left:.35rem;color:var(--bs-danger,#dc3545)}.cs-col-asunto{min-width:220px;max-width:420px}.cs-asunto{white-space:normal;line-height:1.3}.cs-col-resp{font-family:var(--bs-font-monospace,monospace);font-size:.78rem;white-space:nowrap}.cs-sub{font-size:.74rem;color:var(--bs-secondary-color,#6c757d)}.cs-col-acc{white-space:nowrap;text-align:right}.cs-col-acc .pg-btn{height:30px;min-width:30px;padding:0 7px}.cs-confirmado{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;padding:.5rem .75rem;margin:.5rem 0;border-radius:.5rem;background:var(--bs-success-bg-subtle,#d1e7dd);color:var(--bs-success-text-emphasis,#0f5132)}.cs-codigo{display:block;overflow-wrap:anywhere}.cs-resultado{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.4rem;border-bottom:1px solid var(--bs-border-color,#ccc)}.cs-asignado{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:1rem;background:var(--bs-success-bg-subtle,#d1e7dd);color:var(--bs-success-text-emphasis,#0f5132)}.cs-asignado strong{font-size:1.5rem;overflow-wrap:anywhere}.cs-seleccion{color:var(--bs-success-text-emphasis,#0f5132);margin:.5rem 0}
+</style>

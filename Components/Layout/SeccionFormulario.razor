@@ -1,0 +1,85 @@
+@* Sección numerada de un formulario (un "paso"): título con número (contador CSS) y una fila de campos.
+   Dentro de un formulario diseñable (<DisenoFormulario>) se registra como paso. Con diseño guardado, el formulario es UNA
+   rejilla de 12 columnas con todos los pasos: la sección se vuelve transparente (display: contents) y su título y campos
+   se ubican en la fila que les toca, así un campo puede verse en otro paso distinto del que lo declara el código.
+   Un paso con contenido propio (SinFila) va entero en su fila. Sin diseño: igual que siempre. *@
+@using SigWeb.Data.Formularios
+@inject ValoresFormulario Valores
+@{
+    var clave = ClaveEfectiva;
+    var titulo = Ctx?.Titulo(clave, Titulo) ?? Titulo;
+    var numero = Ctx?.Numero(clave);
+    var fila = Ctx?.FilaPaso(clave);
+    var disenado = fila is not null;
+    var claseDiseno = !disenado ? "" : SinFila ? "frm-sec-libre" : "frm-sec-plano";
+    var na = Ctx?.NoAplica(clave) == true;
+}
+<section class="frm-sec @Clase @claseDiseno @(Ctx?.Primero(clave) == true ? "frm-sec-primero" : "") @(na ? "frm-sec-na" : "")" style="@(disenado && SinFila ? $"--pf:{fila}" : null)" data-paso="@(Ctx is null ? null : clave)">
+    <div class="frm-sec-tit @(Ctx?.Primero(clave) == true ? "frm-sec-primero" : "")" data-n="@numero" style="@(disenado && !SinFila ? $"--pf:{fila}" : null)">
+        @if (!string.IsNullOrWhiteSpace(Icono))
+        {
+            <span class="frm-sec-ico"><Ico Nombre="@Icono" /></span>
+        }
+        <span class="frm-sec-txt">@titulo</span>
+        @if (na) { <span class="frm-na-chip">No aplica</span> }
+        @if (Extra is not null || Ctx?.Sesion is not null)
+        {
+            <span class="frm-sec-extra">
+                @if (!na) { @Extra }
+                @if (Ctx?.Sesion is not null)
+                {
+                    <button type="button" class="frm-na-btn @(na ? "activo" : "")" aria-pressed="@(na ? "true" : "false")"
+                            title="@(na ? "Quitar N/A: este paso sí aplica" : "Marcar N/A: este paso no aplica a este registro")" @onclick="() => AlternarNa(clave)">N/A</button>
+                }
+            </span>
+        }
+    </div>
+    <CascadingValue Value="clave" Name="SeccionFormulario" IsFixed="true">
+        @if (SinFila)
+        {
+            <div class="frm-sec-cuerpo-libre" inert="@na">@ChildContent</div>
+        }
+        else if (disenado)
+        {
+            <div class="frm-rejilla" inert="@na">
+                @ChildContent
+                @foreach (var n in Ctx!.NuevosDe(clave))
+                {
+                    <CampoPersonalizado @key="n.D.Clave" Campo="n.Campo" Ubicacion="n.U" Estilo="@Ctx.EstiloCampo(n.D.Clave)" Obligatorio="n.D.Obligatorio" Sesion="Ctx.Sesion!" />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="row g-3" inert="@na">@ChildContent</div>
+        }
+    </CascadingValue>
+</section>
+
+@code {
+    [CascadingParameter] public ContextoFormulario? Ctx { get; set; }
+    [Parameter] public string Titulo { get; set; } = "";
+    // Identidad del paso en el diseño (por defecto el título del código; darla si el título cambia según el registro).
+    [Parameter] public string? Clave { get; set; }
+    [Parameter] public string? Icono { get; set; }
+    [Parameter] public string? Clase { get; set; }
+    [Parameter] public bool SinFila { get; set; }
+    [Parameter] public bool Nueva { get; set; }              // paso creado en el diseñador (no viene del código)
+    [Parameter] public RenderFragment? Extra { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string ClaveEfectiva => Clave ?? DisenoModelo.Normal(Titulo);
+
+    // N/A: el paso no aplica a este registro (se guarda con el registro; sus obligatorios nuevos dejan de exigirse).
+    private void AlternarNa(string clave)
+    {
+        if (Ctx?.Sesion is not { } s) return;
+        Valores.AlternarNoAplica(s, clave);
+        s.Obligatorios = Ctx.Obligatorios().ToHashSet();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!Nueva) Ctx?.RegistrarSeccion(ClaveEfectiva, Titulo, bloque: false, libre: SinFila);
+    }
+}

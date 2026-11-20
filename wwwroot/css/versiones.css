@@ -1,0 +1,50 @@
+/* Selector de versiones (Components/Layout/SelectorVersiones.razor): vigente y borrador a la vista,
+   el resto en un desplegable. Colores del tema (--t-*). */
+.selv { display: inline-flex; align-items: stretch; border: 1px solid var(--t-borde, #e3e7ee); border-radius: 10px; background: var(--t-superficie, #fff); }
+.selv-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 0; border-right: 1px solid var(--t-borde, #e3e7ee); background: transparent; color: var(--t-texto-2, #6b7686); font-size: .82rem; cursor: pointer; }
+.selv > .selv-chip:first-child { border-radius: 10px 0 0 10px; }
+.selv > :last-child, .selv > :last-child .selv-chip { border-right: 0; border-radius: 0 10px 10px 0; }
+.selv > .selv-chip:only-child { border-radius: 10px; }
+.selv-chip b { color: var(--t-texto, #1f2a3a); font-size: .9rem; }
+.selv-chip span { font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; }
+.selv-chip.activo { background: color-mix(in srgb, var(--t-acento, #EC1C24) 10%, transparent); box-shadow: inset 0 -2px 0 var(--t-acento, #EC1C24); }
+.selv-chip:disabled { cursor: default; opacity: .6; }
+.selv-chip:not(:disabled):hover { background: var(--t-superficie-2, #f5f7fa); }
+.selv-mas svg { width: 15px; height: 15px; }
+.selv-mas b { font-size: .78rem; color: var(--t-texto-2, #6b7686); }
+
+.selv-vigente .selv-chip-est, .selv-chip.selv-vigente span, .selv-fila.selv-vigente .selv-est { color: #1f9d55; }
+.selv-chip.selv-borrador span, .selv-fila.selv-borrador .selv-est { color: #d97706; }
+.selv-chip.selv-obsoleta span, .selv-fila.selv-obsoleta .selv-est { color: var(--t-texto-2, #6b7686); }
+
+.selv-wrap { position: relative; display: inline-flex; }
+.selv-fondo { position: fixed; inset: 0; z-index: 1040; }
+.selv-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 1041; display: flex; flex-direction: column; gap: 8px; width: min(560px, 92vw); padding: 8px; border: 1px solid var(--t-borde, #e3e7ee); border-radius: 12px; background: var(--t-superficie, #fff); box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
+.selv-buscar { border-radius: 8px; }
+.selv-lista { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
+.selv-fila { display: grid; grid-template-columns: 64px 72px 150px minmax(70px, 1fr) minmax(0, 1.4fr); align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--t-texto-2, #6b7686); font-size: .8rem; text-align: left; cursor: pointer; }
+.selv-fila:hover { background: var(--t-superficie-2, #f5f7fa); }
+.selv-fila.activo { background: color-mix(in srgb, var(--t-acento, #EC1C24) 10%, transparent); }
+.selv-num { color: var(--t-texto, #1f2a3a); }
+.selv-est { font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; }
+.selv-autor, .selv-motivo { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.selv-autor { color: var(--t-texto, #1f2a3a); }
+@media (max-width: 640px) {
+    .selv-fila { grid-template-columns: 40px 70px 1fr; }
+    .selv-autor, .selv-motivo { grid-column: 2 / -1; }
+}
+
+/* Control de cambios entre dos versiones (Riesgos). */
+.cmpv-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cmpv-sel select { width: auto; min-width: 170px; border-radius: 8px; }
+.cmpv-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--t-borde, #e3e7ee); background: var(--t-superficie, #fff); color: var(--t-texto-2, #6b7686); font-size: .76rem; cursor: pointer; }
+.cmpv-chip.activo { border-color: var(--t-acento, #EC1C24); color: var(--t-texto, #1f2a3a); }
+.cmpv-chip b, .cmpv-tipo { font-weight: 600; }
+.cmpv-nuevo .cmpv-tipo, .cmpv-chip.cmpv-nuevo b { color: #1f9d55; }
+.cmpv-modificado .cmpv-tipo, .cmpv-chip.cmpv-modificado b { color: #d97706; }
+.cmpv-retirado .cmpv-tipo, .cmpv-chip.cmpv-retirado b { color: #c0392b; }
+.cmpv-campo { display: grid; grid-template-columns: 160px 1fr 1fr; gap: 8px; padding: 2px 0; font-size: .8rem; }
+.cmpv-campo + .cmpv-campo { border-top: 1px dashed var(--t-borde, #e3e7ee); }
+.cmpv-campo > span:first-child { color: var(--t-texto-2, #6b7686); }
+.cmpv-antes { color: #c0392b; text-decoration: line-through; white-space: pre-line; }
+.cmpv-despues { color: #1f9d55; white-space: pre-line; }

@@ -1,0 +1,156 @@
+/* Costos de no calidad (Evaluación y mejora). Clases cnc-*.
+   La vista Plan reutiliza el armazón ind-* / pv-* de Indicadores y Planes de acción; los gráficos, com-grafico-* (Comunicados).
+   Colores de rubro: paleta categórica validada (orden fijo, el color sigue al rubro) en CostosNoCalidad.Tablero.cs. */
+
+.cnc-vacio { display: flex; align-items: center; gap: 14px; padding: 22px 20px; margin-top: 8px;
+    border: 1px dashed var(--t-borde, var(--bs-border-color)); border-radius: 12px; background: var(--t-superficie, var(--bs-body-bg)); }
+.cnc-vacio > .ico-t svg, .cnc-vacio > svg { width: 28px; height: 28px; color: var(--t-acento, #EC1C24); }
+.cnc-vacio > div { flex: 1 1 auto; }
+
+/* Filtros */
+.cnc-filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 10px; }
+.cnc-filtros .form-select, .cnc-filtros .form-control { width: auto; min-width: 150px; max-width: 220px; }
+.cnc-filtros .cnc-buscar { min-width: 230px; flex: 1 1 230px; max-width: 360px; }
+.cnc-check { white-space: nowrap; font-size: .85rem; }
+
+/* Piezas comunes */
+.cnc-eti { font-size: .74rem; font-weight: 600; color: var(--t-texto-2, var(--bs-secondary-color)); letter-spacing: .01em; }
+.cnc-sub { font-size: .76rem; color: var(--t-texto-2, var(--bs-secondary-color)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cnc-muestra { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; flex: 0 0 auto; }
+
+/* ---------- Tablero: una sola tarjeta con rejilla ----------
+   [ cifra principal + tendencia | 4 indicadores 2×2 ]
+   [ composición por rubro (barra segmentada + leyenda) ] */
+.cnc-tablero-marco { container: cnc-tablero / inline-size; }
+.cnc-tablero { display: grid; grid-template-columns: minmax(280px, 1.15fr) minmax(0, 2fr); grid-template-areas: "hero tiles" "comp comp";
+    margin-bottom: 14px; border: 1px solid var(--t-borde, var(--bs-border-color)); border-radius: 14px; overflow: hidden;
+    background: var(--t-superficie, var(--bs-body-bg)); box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
+
+.cnc-hero { container-type: inline-size; grid-area: hero; display: flex; flex-direction: column; gap: 4px; padding: 18px 20px 14px; min-width: 0;
+    border-right: 1px solid var(--t-borde, var(--bs-border-color));
+    background: linear-gradient(160deg, color-mix(in srgb, var(--t-acento, #EC1C24) 7%, transparent), transparent 70%); }
+.cnc-cifra { font-size: clamp(1.6rem, 15cqi, 3rem); font-weight: 650; line-height: 1.05; letter-spacing: -.02em; color: var(--t-texto, var(--bs-body-color));
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cnc-hero-pie { min-height: 22px; }
+.cnc-delta { display: inline-flex; align-items: baseline; gap: 4px; font-size: .8rem; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+    background: var(--t-superficie-2, #eef1f6); color: var(--t-texto-2, var(--bs-secondary-color)); }
+.cnc-delta small { font-weight: 500; }
+.cnc-delta.sube { background: color-mix(in srgb, #d63c3c 12%, transparent); color: #b42323; }   /* más costo = peor */
+.cnc-delta.baja { background: color-mix(in srgb, #1f9d55 12%, transparent); color: #187a43; }
+.cnc-spark { position: relative; margin: auto 0 0; padding-top: 8px; }
+.cnc-spark svg { display: block; width: 100%; height: 44px; overflow: visible; }
+.cnc-spark-lienzo { position: relative; height: 44px; }
+.cnc-spark-punto { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
+    background: var(--t-acento, #EC1C24); box-shadow: 0 0 0 2px var(--t-superficie, #fff); }
+.cnc-spark-area { fill: color-mix(in srgb, var(--t-texto-2, #6b7686) 12%, transparent); }
+.cnc-spark-linea { fill: none; stroke: var(--t-texto-2, #6b7686); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.cnc-spark figcaption { display: flex; justify-content: space-between; font-size: .68rem; color: var(--t-texto-2, var(--bs-secondary-color)); margin-top: 2px; }
+
+.cnc-tiles { grid-area: tiles; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; min-width: 0; }
+.cnc-tile { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 14px 18px; min-width: 0; }
+.cnc-tile:nth-child(odd) { border-right: 1px solid var(--t-borde, var(--bs-border-color)); }
+.cnc-tile:nth-child(-n+2) { border-bottom: 1px solid var(--t-borde, var(--bs-border-color)); }
+.cnc-valor { font-size: 1.55rem; font-weight: 650; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cnc-valor small { font-size: .8rem; font-weight: 500; color: var(--t-texto-2, var(--bs-secondary-color)); }
+.cnc-valor-txt { font-size: 1.15rem; display: flex; align-items: center; }
+.cnc-medidor { display: block; height: 6px; border-radius: 999px; overflow: hidden; margin-top: 2px; background: color-mix(in srgb, #2a78d6 16%, transparent); }
+.cnc-medidor > span { display: block; height: 100%; border-radius: inherit; background: #2a78d6; }
+
+.cnc-comp { grid-area: comp; display: flex; flex-direction: column; gap: 8px; padding: 12px 20px 14px;
+    border-top: 1px solid var(--t-borde, var(--bs-border-color)); }
+
+/* Barra segmentada: partes separadas 2 px; alta = 28 px con el % dentro donde cabe. */
+.cnc-seg { display: flex; gap: 2px; height: 8px; min-width: 0; }
+.cnc-seg-parte { flex: 1 1 0; min-width: 3px; border-radius: 999px; }
+.cnc-seg-alta { height: 28px; }
+.cnc-seg-parte { min-width: 0; }
+.cnc-seg-alta .cnc-seg-parte { border-radius: 4px; display: flex; align-items: center; padding: 0; text-indent: 8px; overflow: hidden;
+    color: #fff; font-size: .74rem; font-weight: 700; white-space: nowrap; text-shadow: 0 1px 1px rgba(0, 0, 0, .25); }
+.cnc-leyenda { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: .8rem; color: var(--t-texto, var(--bs-body-color)); }
+.cnc-leyenda li { display: inline-flex; align-items: center; }
+.cnc-leyenda small { margin-left: 5px; color: var(--t-texto-2, var(--bs-secondary-color)); }
+
+@container cnc-tablero (max-width: 760px) {
+    .cnc-tablero { grid-template-columns: 1fr; grid-template-areas: "hero" "tiles" "comp"; }
+    .cnc-hero { border-right: 0; border-bottom: 1px solid var(--t-borde, var(--bs-border-color)); }
+}
+@container cnc-tablero (max-width: 520px) {
+    .cnc-tiles { grid-template-columns: 1fr; }
+    .cnc-tile:nth-child(odd) { border-right: 0; }
+    .cnc-tile:not(:last-child) { border-bottom: 1px solid var(--t-borde, var(--bs-border-color)); }
+    .cnc-cifra { font-size: clamp(1.6rem, 15cqi, 2.3rem); }
+    .cnc-seg-alta .cnc-seg-parte { font-size: .65rem; text-indent: 0; justify-content: center; }
+}
+
+/* Vista plan: lista lateral */
+.cnc-orden { display: flex; gap: 4px; padding: 2px 2px 6px; }
+.cnc-orden-btn { flex: 1 1 0; border: 1px solid var(--t-borde, var(--bs-border-color)); background: transparent; border-radius: 8px; padding: 2px 0; font-weight: 700; color: var(--t-texto-2, var(--bs-secondary-color)); }
+.cnc-orden-btn.activo { background: color-mix(in srgb, var(--t-acento, #EC1C24) 12%, transparent); color: var(--t-acento, #EC1C24); border-color: color-mix(in srgb, var(--t-acento, #EC1C24) 45%, transparent); }
+.cnc-orden-btn svg { width: 14px; height: 14px; }
+.cnc-punto { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.cnc-rail-valor { font-weight: 700; font-size: .86rem; }
+.cnc-barra { display: block; height: 5px; border-radius: 999px; background: var(--t-superficie-2, #eef1f6); overflow: hidden; }
+.cnc-barra > span { display: block; height: 100%; border-radius: inherit; background: var(--t-acento, #EC1C24); }
+
+/* Vista plan: resumen del plan (cifra + datos en una franja + su composición) */
+.cnc-plan-res { display: grid; grid-template-columns: auto 1fr; gap: 12px 24px; align-items: center; padding: 14px 16px; margin: 10px 0 4px;
+    border: 1px solid var(--t-borde, var(--bs-border-color)); border-radius: 12px; background: var(--t-superficie, var(--bs-body-bg)); }
+.cnc-plan-cifra { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-right: 24px; border-right: 1px solid var(--t-borde, var(--bs-border-color)); }
+.cnc-plan-valor { font-size: 2rem; font-weight: 650; line-height: 1.1; letter-spacing: -.01em; white-space: nowrap; }
+.cnc-plan-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr)); gap: 8px 16px; margin: 0; }
+.cnc-plan-datos > div { min-width: 0; }
+.cnc-plan-datos dt { font-size: .72rem; font-weight: 600; color: var(--t-texto-2, var(--bs-secondary-color)); }
+.cnc-plan-datos dd { margin: 2px 0 0; font-weight: 600; display: block; line-height: 1.3; white-space: normal; overflow-wrap: anywhere; }
+.cnc-plan-datos dd .cnc-muestra { vertical-align: middle; }
+.cnc-plan-datos dd small { margin-left: 4px; font-weight: 500; color: var(--t-texto-2, var(--bs-secondary-color)); }
+.cnc-plan-barra { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 900px) {
+    .cnc-plan-res { grid-template-columns: 1fr; }
+    .cnc-plan-cifra { border-right: 0; padding-right: 0; }
+    .cnc-plan-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Vista plan: rubros del plan */
+.cnc-det-cuerpo { margin-top: 12px; }
+.cnc-rubros { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.cnc-rubro { display: grid; grid-template-columns: minmax(110px, 200px) 1fr minmax(110px, auto) 44px; gap: 10px; align-items: center; font-size: .86rem; }
+.cnc-rubro-nom { display: flex; align-items: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.cnc-rubro-barra { height: 8px; border-radius: 999px; background: var(--t-superficie-2, #eef1f6); overflow: hidden; }
+.cnc-rubro-barra > span { display: block; height: 100%; border-radius: inherit; }
+.cnc-rubro-val { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cnc-rubro-pct { text-align: right; color: var(--t-texto-2, var(--bs-secondary-color)); font-size: .78rem; }
+.cnc-det-pie { display: flex; gap: 6px; justify-content: flex-end; margin-top: 12px; }
+@media (max-width: 700px) { .cnc-rubro { grid-template-columns: 1fr auto; } .cnc-rubro-barra { grid-column: 1 / -1; order: 3; } .cnc-rubro-pct { display: none; } }
+
+/* Tabla */
+.cnc-tabla td.text-end, .cnc-tabla th.text-end { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cnc-td-desc { min-width: 220px; max-width: 360px; }
+.cnc-total td { font-weight: 800; background: var(--t-superficie-2, #f5f7fa); }
+
+/* Gráficos */
+.cnc-agrupar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cnc-agrupar .form-select { width: auto; min-width: 200px; }
+.cnc-graficos-rejilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cnc-graficos-rejilla .com-grafico-ancho { grid-column: 1 / -1; }
+@media (max-width: 900px) { .cnc-graficos-rejilla { grid-template-columns: 1fr; } }
+
+/* Tema oscuro / cristal */
+:is([data-tema="oscuro"], [data-tema="cristal"]) .cnc-delta.sube { color: #ff8a8a; }
+:is([data-tema="oscuro"], [data-tema="cristal"]) .cnc-delta.baja { color: #6fd39b; }
+:is([data-tema="oscuro"], [data-tema="cristal"]) .cnc-seg-alta .cnc-seg-parte { color: #fff; }
+
+/* Contraste del texto sin alterar la paleta compartida con leyendas y gráficos. */
+.cnc-seg-alta .cnc-seg-parte[style*="#2a78d6"] { color: #000; text-shadow: none; }
+.cnc-seg-alta .cnc-seg-parte:is([style*="#eb6834"], [style*="#1baf7a"], [style*="#eda100"],
+    [style*="#e87ba4"], [style*="#9aa0a8"]) { color: #101820; text-shadow: none; }
+
+/* El Pareto conserva etiquetas completas en un desplazamiento local en pantallas estrechas. */
+@media (max-width: 700px) {
+    .cnc-graficos-rejilla .com-grafico:has(#cnc-g-pareto) { overflow-x: auto; }
+    .cnc-graficos-rejilla .com-grafico-lienzo:has(#cnc-g-pareto) { min-width: 640px; }
+}
+
+/* En una columna la lista deja de flotar sobre el detalle del plan. */
+@media (max-width: 980px) {
+    .cnc-foco > .ind-rail { position: static; max-height: 280px; }
+}

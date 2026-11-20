@@ -1,0 +1,49 @@
+@* Un campo de formulario: etiqueta (con * si es obligatorio) sobre el control. La etiqueta se
+   resalta con el acento cuando el control tiene el foco (css/formularios.css).
+   En un formulario diseñable se registra (paso, etiqueta, ancho, obligatorio) y, con diseño guardado, toma su
+   posición/tamaño en la rejilla del paso, su etiqueta renombrada y, si la lógica lo permite, se oculta.
+   Obligatorio, Destacado o Fijo = la app lo necesita: se mueve y se renombra, nunca se oculta. *@
+@using SigWeb.Data.Formularios
+@{
+    var u = Ctx?.Ubicacion(ClaveEfectiva);
+    var estilo = u is null ? null : Ctx!.EstiloCampo(ClaveEfectiva);
+    var etiqueta = Ctx?.Etiqueta(ClaveEfectiva, Etiqueta) ?? Etiqueta;
+}
+<div class="frm-campo @Ancho @(Destacado ? "frm-destacado" : "") @(Obligatorio ? "frm-obligatorio" : "") @(estilo is null ? "" : "frm-ub") @(u?.Oculto == true ? "frm-oculto" : "") @(u?.H > 1 ? "frm-alto" : "")"
+     style="@estilo" data-campo="@(Ctx is null ? null : ClaveEfectiva)">
+    <label class="form-label frm-etq">
+        @etiqueta
+        @if (Obligatorio)
+        {
+            <span class="frm-req" title="Obligatorio">*</span>
+        }
+    </label>
+    @ChildContent
+</div>
+
+@code {
+    [CascadingParameter] public ContextoFormulario? Ctx { get; set; }
+    [CascadingParameter(Name = "SeccionFormulario")] public string? Seccion { get; set; }
+    [Parameter] public string Etiqueta { get; set; } = "";
+    [Parameter] public string Ancho { get; set; } = "col-md-4";
+    [Parameter] public bool Obligatorio { get; set; }
+    [Parameter] public bool Destacado { get; set; }
+    // Identidad en el diseño (por defecto paso + etiqueta; darla cuando la etiqueta cambia según el registro).
+    [Parameter] public string? Clave { get; set; }
+    // La lógica de la app depende del campo aunque no sea obligatorio: no se puede ocultar.
+    [Parameter] public bool Fijo { get; set; }
+    // Tipo de catálogo de sus opciones (el diseñador ofrece "Gestionar opciones").
+    [Parameter] public string? Catalogo { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string ClaveEfectiva => Clave ?? DisenoModelo.ClaveCampo(Seccion ?? "", Etiqueta);
+
+    protected override void OnParametersSet()
+    {
+        Ctx?.RegistrarCampo(new CampoE
+        {
+            Clave = ClaveEfectiva, Seccion = Seccion ?? "", Etiqueta = DisenoModelo.Normal(Etiqueta),
+            Ancho = DisenoModelo.AnchoDe(Ancho), Obligatorio = Obligatorio, Destacado = Destacado, Fijo = Fijo, Catalogo = Catalogo
+        });
+    }
+}

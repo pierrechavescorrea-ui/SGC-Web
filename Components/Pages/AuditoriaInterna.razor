@@ -1,0 +1,290 @@
+@page "/auditoria-interna"
+@rendermode InteractiveServer
+@using SigWeb.Models
+@using SigWeb.Data.Auditorias
+
+@* Auditoría interna (ISO 9001 · 9.2). Programa anual por proceso y mes, auditorías y hallazgos.
+   Cada auditoría abre su pantalla (alcance, equipo, hallazgos, informe). *@
+<PageTitle>Auditoría interna</PageTitle>
+
+<EncabezadoPagina Titulo="Auditoría interna" Icono="auditoria-interna" Atras="/" Subtitulo="@(prog is null ? null : $"{prog.Anio} · {prog.Titulo} · {prog.Estado}")">
+    <Acciones>
+        @if (Cumplimiento is int pc)
+        {
+            <span class="pg-kpi" title="Cumplimiento del programa (ejecutadas / programadas sin canceladas)">@pc %</span>
+        }
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(vista == "programa" ? "activo" : "")" title="Programa por proceso y mes" @onclick='() => CambiarVista("programa")'><Ico Nombre="calendario" /></button>
+            <button type="button" class="pg-btn @(vista == "auditorias" ? "activo" : "")" title="Auditorías" @onclick='() => CambiarVista("auditorias")'><Ico Nombre="listado" /></button>
+            <button type="button" class="pg-btn @(vista == "hallazgos" ? "activo" : "")" title="Hallazgos" @onclick='() => CambiarVista("hallazgos")'><Ico Nombre="hallazgo" /></button>
+        </span>
+        @if (prog?.Estado == EstadoProgramaAuditoria.Borrador)
+        {
+            <button type="button" class="pg-btn @(formAprobar is not null ? "activo" : "")" title="Aprobar programa" @onclick="AbrirAprobar"><Ico Nombre="aprobar" /></button>
+        }
+        else if (prog is not null && prog.Estado != EstadoProgramaAuditoria.Cerrado)
+        {
+            <button type="button" class="pg-btn" title="Cerrar programa" disabled="@guardando" @onclick="() => CambiarEstadoPrograma(EstadoProgramaAuditoria.Cerrado)"><Ico Nombre="candado" /></button>
+        }
+        else if (prog is not null)
+        {
+            <button type="button" class="pg-btn" title="Reabrir programa" disabled="@guardando" @onclick="() => CambiarEstadoPrograma(EstadoProgramaAuditoria.EnEjecucion)"><Ico Nombre="candado-abierto" /></button>
+        }
+        <button type="button" class="pg-btn" title="Nuevo programa" @onclick="NuevoPrograma"><Ico Nombre="programa" /></button>
+        <span class="pg-sep"></span>
+        <BotonExportar Titulo="@(vista == "hallazgos" ? "Hallazgos de auditoría" : vista == "auditorias" ? "Auditorías" : "Programa de auditorías")" Selector=".au-exportable" Deshabilitado="@(prog is null)" />
+        <span class="pg-sep"></span>
+        @if (prog is not null)
+        {
+            <button type="button" class="pg-btn pg-btn-peligro" title="Eliminar programa" @onclick="PedirEliminarPrograma"><Ico Nombre="eliminar" /></button>
+            <button type="button" class="pg-btn @(formProg is not null && formProg.Id > 0 ? "activo" : "")" title="Editar programa" @onclick="EditarPrograma"><Ico Nombre="editar" /></button>
+            <button type="button" class="pg-btn pg-btn-primario" title="Nueva auditoría" disabled="@(prog.Estado == EstadoProgramaAuditoria.Cerrado)" @onclick="() => NuevaAuditoria()"><Ico Nombre="agregar" /></button>
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert @(error ? "alert-warning" : "alert-success") py-1 px-2 small d-flex align-items-center gap-2">
+        <span class="flex-grow-1">@mensaje</span>
+        <button type="button" class="btn-close btn-sm" title="Cerrar" @onclick='() => mensaje = ""'></button>
+    </div>
+}
+
+@if (elim is not null)
+{
+    <div class="card panel-formulario mb-3 border-danger">
+        <div class="card-body">
+            <div class="mb-2"><Ico Nombre="eliminar" /> <strong>@elim.Titulo</strong></div>
+            <PanelImpacto Informe="elim.Informe" OnEntendido="@(v => elim.Entendido = v)" />
+            <div class="frm-pie frm-pie-plano">
+                <button class="btn btn-secondary btn-sm" type="button" title="Cancelar" @onclick="() => elim = null"><Ico Nombre="cancelar" /></button>
+                <button data-texto="Eliminar" class="btn btn-danger btn-sm" type="button" title="Eliminar (va a la Papelera)" disabled="@(BloqueadoPorImpacto || guardando)" @onclick="ConfirmarEliminar"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (formProg is not null)
+{
+    <FormularioSig Titulo="@(formProg.Id == 0 ? "Nuevo programa de auditoría" : "Programa de auditoría")" Icono="programa" Clase="mb-3" OnCerrar="() => formProg = null" Formulario="programa-auditoria" Fila="formProg.Id">
+        <ChildContent>
+            <SeccionFormulario Titulo="Programa">
+                <CampoFormulario Etiqueta="Año" Ancho="col-md-2" Obligatorio="true"><input type="number" class="form-control" @bind="formProg.Anio" required /></CampoFormulario>
+                <CampoFormulario Etiqueta="Título" Ancho="col-md-6" Obligatorio="true" Destacado="true"><input class="form-control" @bind="formProg.Titulo" required /></CampoFormulario>
+                <CampoFormulario Etiqueta="Proyecto" Ancho="col-md-4"><input class="form-control" @bind="formProg.Proyecto" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Normas" Ancho="col-md-8"><SelectorMultiple Valores="normasProg" Opciones="op.Normas" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Responsable del programa" Ancho="col-md-4"><input class="form-control" list="dl-au-prog-pers" @bind="formProg.Responsable" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Objetivos del programa" Ancho="col-md-6"><textarea class="form-control" rows="3" @bind="formProg.Objetivos"></textarea></CampoFormulario>
+                <CampoFormulario Etiqueta="Recursos (auditores, tiempo, viajes, herramientas)" Ancho="col-md-6"><textarea class="form-control" rows="3" @bind="formProg.Recursos"></textarea></CampoFormulario>
+                <datalist id="dl-au-prog-pers">@foreach (var o in op.Personas) { <option value="@o"></option> }</datalist>
+            </SeccionFormulario>
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formProg = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@guardando" @onclick="GuardarPrograma"><Ico Nombre="guardar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@if (formAprobar is not null && prog is not null)
+{
+    <FormularioSig Titulo="@($"Aprobar {prog.Titulo}")" Icono="aprobar" Clase="mb-3" OnCerrar="() => formAprobar = null">
+        <ChildContent>
+            <SeccionFormulario Titulo="Aprobación">
+                <CampoFormulario Etiqueta="Aprobó" Ancho="col-md-6" Obligatorio="true" Destacado="true"><input class="form-control" @bind="formAprobar.Aprobo" required /></CampoFormulario>
+                <CampoFormulario Etiqueta="Fecha de aprobación" Ancho="col-md-3" Obligatorio="true"><input type="date" class="form-control" @bind="formAprobar.Fecha" required /></CampoFormulario>
+            </SeccionFormulario>
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formAprobar = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Aprobar" disabled="@guardando" @onclick="Aprobar"><Ico Nombre="aprobar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@if (formAud is not null)
+{
+    <FormularioSig Titulo="Nueva auditoría" Icono="auditoria-interna" Clase="mb-3" OnCerrar="() => formAud = null">
+        <ChildContent>
+            <CamposAuditoria Modelo="formAud" Op="op" />
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formAud = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@guardando" @onclick="GuardarAuditoria"><Ico Nombre="guardar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@if (!cargado)
+{
+}
+else if (prog is null)
+{
+    <div class="pg-vacio" title="Sin programa de auditoría">
+        <button type="button" class="btn btn-primary" title="Nuevo programa" @onclick="NuevoPrograma"><Ico Nombre="programa" /></button>
+    </div>
+}
+else
+{
+    @* ---------- Barra: programas y filtros ---------- *@
+    <div class="au-barra">
+        <span class="au-programas">
+            @foreach (var p in programas.Take(6))
+            {
+                <button type="button" class="au-prog @(p.Id == prog.Id ? "activo" : "")" title="@p.Titulo" @onclick="() => VerPrograma(p.Id)"><b>@p.Anio</b><span>@p.Estado</span></button>
+            }
+        </span>
+        @if (vista == "hallazgos")
+        {
+            <span class="au-filtros">
+                @foreach (var e in Enum.GetValues<EstadoHallazgoAuditoria>())
+                {
+                    var n = hallazgos.Count(h => EstadoDe(h) == e);
+                    if (n == 0) continue;
+                    var est = e;
+                    <button type="button" class="au-filtro @(filtroEstado == est ? "activo" : "")" title="Estado: @EscalaAuditoria.Nombre(est)" @onclick="() => filtroEstado = filtroEstado == est ? null : est">
+                        <ValorCatalogo Tipo="@ServicioAuditorias.EstadoHallazgoCat" Valor="@EscalaAuditoria.Nombre(est)" /> <b>@n</b>
+                    </button>
+                }
+            </span>
+            <select class="form-select form-select-sm au-sel" title="Tipo de hallazgo" @bind="filtroTipo">
+                <option value="">Todos los tipos</option>
+                @foreach (var t in hallazgos.Select(h => h.Tipo).Distinct().OrderBy(t => t)) { <option value="@t">@t</option> }
+            </select>
+            <input class="form-control form-control-sm au-buscar" data-recordar="buscar" placeholder="Buscar" title="Buscar" @bind="buscar" @bind:event="oninput" />
+        }
+    </div>
+
+    @if (vista == "programa")
+    {
+        <div class="tabla-scroll tabla-auto">
+            <table class="table table-sm table-bordered align-middle mb-0 tabla-compacta tabla-pin au-matriz au-exportable">
+                <thead>
+                    <tr>
+                        <th>Proceso</th>
+                        @for (int m = 1; m <= 12; m++) { <th class="text-center">@EscalaAuditoria.Mes(m)</th> }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var proc in FilasProcesos())
+                    {
+                        var pr = proc;
+                        <tr>
+                            <td class="fw-semibold">@(pr == "" ? "—" : pr)</td>
+                            @for (int m = 1; m <= 12; m++)
+                            {
+                                var mes = m;
+                                var celda = EnCelda(pr, mes).ToList();
+                                <td class="au-celda @(celda.Count == 0 && prog.Estado != EstadoProgramaAuditoria.Cerrado ? "au-celda-libre" : "")"
+                                    title="@(celda.Count == 0 ? "Programar auditoría" : "")"
+                                    @onclick="() => { if (celda.Count == 0 && prog.Estado != EstadoProgramaAuditoria.Cerrado) NuevaAuditoria(pr, mes); }">
+                                    @foreach (var a in celda)
+                                    {
+                                        var aid = a.Id;
+                                        <a class="au-aud" style="@EstiloEstado(a.Estado)" href="@($"auditoria-interna/{aid}")" title="@($"{a.Codigo} · {a.Tipo} · {EscalaAuditoria.Nombre(a.Estado)}")" @onclick:stopPropagation="true">@a.Codigo</a>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="au-resumen">
+            @foreach (var e in Enum.GetValues<EstadoAuditoria>())
+            {
+                var n = auditorias.Count(a => a.Estado == e);
+                if (n == 0) continue;
+                <span><ValorCatalogo Tipo="@ServicioAuditorias.EstadoAuditoriaCat" Valor="@EscalaAuditoria.Nombre(e)" /> <b>@n</b></span>
+            }
+            @if (!string.IsNullOrWhiteSpace(prog.Aprobo))
+            {
+                <span class="text-muted" title="Aprobación"><Ico Nombre="aprobar" /> @prog.Aprobo · @prog.FechaAprobacion?.ToString("dd/MM/yyyy")</span>
+            }
+        </div>
+    }
+    else if (vista == "auditorias")
+    {
+        <div class="tabla-scroll tabla-auto">
+            <table class="table table-sm table-bordered table-hover align-middle mb-0 tabla-compacta tabla-pin au-exportable">
+                <thead>
+                    <tr>
+                        <th>Código</th><th>Mes</th><th>Fechas</th><th>Tipo</th><th>Modalidad</th><th>Procesos</th><th>Normas</th>
+                        <th>Auditor líder</th><th>Estado</th><th title="No conformidades">NC</th><th title="Otros hallazgos">Otros</th><th title="Hallazgos sin cerrar">Abiertos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (auditorias.Count == 0)
+                    {
+                        <tr><td colspan="12" class="text-muted small text-center py-2"><em>Sin auditorías.</em></td></tr>
+                    }
+                    @foreach (var a in auditorias)
+                    {
+                        var aid = a.Id;
+                        <tr class="au-fila" @ondblclick="() => AbrirAuditoria(aid)">
+                            <td><a href="@($"auditoria-interna/{aid}")" class="fw-semibold">@a.Codigo</a></td>
+                            <td>@EscalaAuditoria.Mes(a.Mes)</td>
+                            <td class="small">@Rango(a)</td>
+                            <td>@a.Tipo</td>
+                            <td>@a.Modalidad</td>
+                            <td class="small au-multi">@a.Procesos</td>
+                            <td class="small au-multi">@a.Normas</td>
+                            <td>@a.AuditorLider</td>
+                            <td><ValorCatalogo Tipo="@ServicioAuditorias.EstadoAuditoriaCat" Valor="@EscalaAuditoria.Nombre(a.Estado)" /></td>
+                            <td class="text-center">@Conteo(aid, true)</td>
+                            <td class="text-center">@Conteo(aid, false)</td>
+                            <td class="text-center">@Abiertos(aid)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="tabla-scroll tabla-auto">
+            <table class="table table-sm table-bordered table-hover align-middle mb-0 tabla-compacta tabla-pin au-exportable">
+                <thead>
+                    <tr>
+                        <th>Código</th><th>Fecha</th><th>Auditoría</th><th>Tipo</th><th>Grado</th><th>Norma · numerales</th><th>Procesos</th><th>Lugares</th>
+                        <th>Declaración</th><th>Auditor</th><th>Planes de acción</th><th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ var lista = HallazgosMostrados.ToList(); }
+                    @if (lista.Count == 0)
+                    {
+                        <tr><td colspan="12" class="text-muted small text-center py-2"><em>Sin hallazgos.</em></td></tr>
+                    }
+                    @foreach (var h in lista)
+                    {
+                        var aud = audPorId.TryGetValue(h.AuditoriaId, out var ax) ? ax : null;
+                        <tr>
+                            <td><a href="@($"auditoria-interna/{h.AuditoriaId}?hallazgo={h.Id}")" class="fw-semibold">@h.Codigo</a></td>
+                            <td class="small">@h.Fecha.ToString("dd/MM/yyyy")</td>
+                            <td><a href="@($"auditoria-interna/{h.AuditoriaId}")">@aud?.Codigo</a></td>
+                            <td><ValorCatalogo Tipo="Plan de acción — tipo de hallazgo" Valor="@h.Tipo" /></td>
+                            <td><ValorCatalogo Tipo="@ServicioAuditorias.GradoNc" Valor="@h.Grado" /></td>
+                            <td class="small au-multi">@(string.Join(", ", ServicioAuditorias.Lista(h.Normas)))@(string.IsNullOrWhiteSpace(h.Numerales) ? "" : $" · {h.Numerales}")</td>
+                            <td class="small au-multi">@h.Procesos</td>
+                            <td class="small au-multi">@(lugaresH.TryGetValue(h.Id, out var lg) ? string.Join("\n", lg) : "")</td>
+                            <td class="small celda-truncada au-decl" title="@h.Descripcion">@h.Descripcion</td>
+                            <td class="small">@h.Auditor</td>
+                            <td>
+                                @if (planesH.TryGetValue(h.Id, out var pls))
+                                {
+                                    foreach (var pl in pls)
+                                    {
+                                        <a class="rg-chip text-decoration-none me-1" href="@($"planes-accion/{pl.Id}")" title="@EscalaAccion.Nombre(pl.Estado)">@pl.Codigo</a>
+                                    }
+                                }
+                            </td>
+                            <td><ValorCatalogo Tipo="@ServicioAuditorias.EstadoHallazgoCat" Valor="@EscalaAuditoria.Nombre(EstadoDe(h))" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}

@@ -1,0 +1,91 @@
+@page "/cuenta/restablecer"
+@layout LayoutCuenta
+@attribute [AllowAnonymous]
+@using System.Text
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using SigWeb.Data.Seguridad
+@inject UserManager<UsuarioSig> Usuarios
+@inject AuditoriaAccesos Auditoria
+@inject EnviadorCorreo Correo
+@inject NavigationManager Nav
+
+<PageTitle>Nueva contraseña · SGC Web</PageTitle>
+
+<h1 class="cu-titulo">Nueva contraseña</h1>
+<p class="cu-sub">Mínimo 12 caracteres. Una frase fácil de recordar es más segura que una palabra con símbolos.</p>
+@if (errores.Count > 0)
+{
+    <div class="cu-aviso error" role="alert">
+        @if (errores.Count == 1) { @errores[0] } else { <ul>@foreach (var e in errores) { <li>@e</li> }</ul> }
+    </div>
+}
+<form method="post" @formname="restablecer" @onsubmit="CambiarAsync">
+    <AntiforgeryToken />
+    <input type="hidden" name="M.U" value="@M.U" />
+    <input type="hidden" name="M.T" value="@M.T" />
+    <div class="cu-campo">
+        <input id="clave" name="M.Clave" type="password" placeholder=" " autocomplete="new-password" required minlength="12" maxlength="200" autofocus />
+        <label for="clave">Contraseña nueva</label>
+    </div>
+    <div class="cu-campo">
+        <input id="clave2" name="M.Confirmar" type="password" placeholder=" " autocomplete="new-password" required minlength="12" maxlength="200" />
+        <label for="clave2">Repita la contraseña</label>
+    </div>
+    <button type="submit" class="cu-boton">Guardar contraseña</button>
+</form>
+<p class="cu-alt"><a class="cu-enlace" href="cuenta/ingresar">Volver</a></p>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "restablecer")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromQuery(Name = "u")] private string? UQ { get; set; }
+    [SupplyParameterFromQuery(Name = "t")] private string? TQ { get; set; }
+    private readonly List<string> errores = new();
+
+    public sealed class Modelo
+    {
+        public string? U { get; set; }
+        public string? T { get; set; }
+        public string? Clave { get; set; }
+        public string? Confirmar { get; set; }
+    }
+
+    protected override void OnInitialized()
+    {
+        M.U ??= UQ;
+        M.T ??= TQ;
+        if (string.IsNullOrEmpty(M.U) || string.IsNullOrEmpty(M.T)) errores.Add("El enlace está incompleto. Pida uno nuevo en «¿Olvidó su contraseña?».");
+    }
+
+    private async Task CambiarAsync()
+    {
+        errores.Clear();
+        if ((M.Clave ?? "") != (M.Confirmar ?? "")) { errores.Add("Las contraseñas no coinciden."); return; }
+        var u = string.IsNullOrEmpty(M.U) || M.U.Length > 64 ? null : await Usuarios.FindByIdAsync(M.U);
+        string token;
+        try { token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(M.T ?? "")); }
+        catch (FormatException) { token = ""; }
+        if (u is null || !u.Activo || u.Anonimizado || token.Length == 0)
+        {
+            errores.Add("El enlace no es válido o ya venció. Pida uno nuevo.");
+            Auditoria.Registrar(HttpContext, "Restablecer contraseña", false, "Enlace no válido", u?.Id, u?.Email);
+            return;
+        }
+        var r = await Usuarios.ResetPasswordAsync(u, token, M.Clave ?? "");
+        if (!r.Succeeded)
+        {
+            errores.AddRange(r.Errors.Any(e => e.Code == "InvalidToken") ? new[] { "El enlace no es válido o ya venció. Pida uno nuevo." } : r.Errors.Select(e => e.Description));
+            Auditoria.Registrar(HttpContext, "Restablecer contraseña", false, string.Join(", ", r.Errors.Select(e => e.Code)), u.Id, u.Email);
+            return;
+        }
+        // Desbloquea la cuenta; ResetPassword ya cambió el sello de seguridad (cierra las sesiones abiertas en otros equipos).
+        await Usuarios.SetLockoutEndDateAsync(u, null);
+        await Usuarios.ResetAccessFailedCountAsync(u);
+        Auditoria.Registrar(HttpContext, "Restablecer contraseña", true, "Contraseña cambiada; sesiones cerradas", u.Id, u.Email);
+        _ = Task.Run(() => Correo.EnviarAsync(u.Email!, "Su contraseña de SGC Web cambió", EnviadorCorreo.Plantilla("Contraseña cambiada",
+            $"<p>La contraseña de su cuenta se cambió el {DateTime.Now:dd/MM/yyyy HH:mm}. Se cerraron las sesiones abiertas en otros equipos.</p><p>Si no fue usted, avise de inmediato al administrador.</p>")));
+        Nav.NavigateTo("/cuenta/ingresar?m=restablecida", forceLoad: true);
+    }
+}

@@ -1,0 +1,423 @@
+@* Análisis estadístico de los resultados de un ensayo (descriptiva, forma, normalidad, intervalos, probabilidades,
+   capacidad, histograma con curva normal, campana de Gauss, Q-Q y caja). Lógica en AnalisisEstadistico.razor.cs,
+   fórmulas en docs/estadistica-ensayos.md, gráficos en js/estadistica.js, estilos est-* en css/estadistica.css. *@
+@using SigWeb.Data.Estadistica
+
+<div class="est" @ref="raiz">
+    @if (CamposNumericos.Count == 0)
+    {
+        <div class="est-barra"><div class="est-grupo">@FiltrosBarra</div></div>
+        @FiltrosDetalle
+        <div class="est-vacio">Este ensayo no tiene campos numéricos para analizar.</div>
+    }
+    else
+    {
+        <div class="est-barra">
+            <div class="est-grupo">
+                <div class="est-campo est-campo-principal">
+                    <label for="@(idHist)-campo">Campo a analizar</label>
+                    <select id="@(idHist)-campo" class="form-select" value="@campo" @onchange="e => Cambio(() => { campo = e.Value?.ToString() ?? string.Empty; probA = probB = null; })">
+                        @foreach (var c in CamposNumericos) { <option value="@c.Clave">@c.Titulo</option> }
+                    </select>
+                </div>
+                <div class="est-campo">
+                    <label for="@(idHist)-grupo">Comparar por</label>
+                    <select id="@(idHist)-grupo" class="form-select" value="@agrupar" @onchange="e => Cambio(() => agrupar = e.Value?.ToString() ?? string.Empty)">
+                        <option value="">Sin comparar</option>
+                        @foreach (var c in CamposGrupo) { <option value="@c.Clave">@c.Titulo</option> }
+                    </select>
+                </div>
+                <div class="est-filtros-barra">@FiltrosBarra</div>
+            </div>
+            <span class="pg-sep" aria-hidden="true"></span>
+            <div class="est-grupo">
+                <div class="est-chips" role="group" aria-label="Nivel de confianza" title="Nivel de confianza">
+                    @foreach (var nc in new[] { 0.90, 0.95, 0.99 })
+                    {
+                        <button type="button" class="est-chip @(confianza == nc ? "activo" : "")" aria-pressed="@(confianza == nc)" @onclick="() => Cambio(() => confianza = nc)">@((nc * 100).ToString("0")) %</button>
+                    }
+                </div>
+                <div class="est-campo est-campo-c">
+                    <label for="@(idHist)-lie">LIE</label>
+                    <input id="@(idHist)-lie" class="form-control" inputmode="decimal" value="@lie" @onchange="e => Cambio(() => lie = Leer(e.Value))" title="Límite inferior de especificación (opcional)" />
+                </div>
+                <div class="est-campo est-campo-c">
+                    <label for="@(idHist)-lse">LSE</label>
+                    <input id="@(idHist)-lse" class="form-control" inputmode="decimal" value="@lse" @onchange="e => Cambio(() => lse = Leer(e.Value))" title="Límite superior de especificación (opcional)" />
+                </div>
+            </div>
+            @if (r.N > 0)
+            {
+                <div class="est-disposicion">
+                    <span class="pg-sep" aria-hidden="true"></span>
+                    <button type="button" class="est-btn @(editando ? "activo" : "")" title="@(editando ? "Terminar edición" : "Editar disposición")" aria-label="@(editando ? "Terminar edición" : "Editar disposición")" aria-pressed="@editando" @onclick="() => editando = !editando"><Ico Nombre="editar" /></button>
+                    <button type="button" class="est-btn" title="Restaurar disposición de fábrica" @onclick="Restaurar"><Ico Nombre="restaurar" /></button>
+                </div>
+            }
+            <span class="est-n" title="Resultados con valor en este campo / filas filtradas">
+                @r.N de @Filas.Count@(FilasTotales > Filas.Count ? $" (filtrado de {FilasTotales})" : "")
+            </span>
+        </div>
+
+        @FiltrosDetalle
+
+        @if (r.N == 0)
+        {
+            <div class="est-vacio">No hay valores de «@NombreCampo» con los filtros elegidos.</div>
+        }
+        else
+        {
+            <div class="pw-marco est-marco">
+                <div class="pw-panel est-panel">
+                    <EstWidget Id="n" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi"><span>n</span><b>@r.N</b></div>
+                    </EstWidget>
+                    <EstWidget Id="media" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi est-k-media"><span>Media</span><b>@F(r.Media)</b></div>
+                    </EstWidget>
+                    <EstWidget Id="mediana" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi est-k-mediana"><span>Mediana</span><b>@F(r.Mediana)</b></div>
+                    </EstWidget>
+                    <EstWidget Id="moda" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi est-k-moda"><span>Moda</span><b>@ModaTexto</b></div>
+                    </EstWidget>
+                    <EstWidget Id="desviacion" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi"><span>Desv. estándar</span><b>@F(r.Desviacion)</b></div>
+                    </EstWidget>
+                    <EstWidget Id="cv" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi"><span>CV</span><b>@(r.CoefVariacion is double cv ? cv.ToString("0.0") + " %" : "—")</b></div>
+                    </EstWidget>
+                    <EstWidget Id="asimetria" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi"><span>Asimetría</span><b>@D(r.Asimetria)</b></div>
+                    </EstWidget>
+                    <EstWidget Id="curtosis" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi"><span>Curtosis</span><b>@D(r.Curtosis)</b></div>
+                    </EstWidget>
+                    <EstWidget Id="normalidad" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi @(Normalidad == "Normal" ? "est-k-ok" : Normalidad == "No normal" ? "est-k-alerta" : "")"><span>Distribución</span><b>@Normalidad</b></div>
+                    </EstWidget>
+
+                    <EstWidget Id="cpk" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <div class="est-kpi @(r.Cpk is >= 1.33 ? "est-k-ok" : r.Cpk is < 1 ? "est-k-alerta" : "")"
+                             title="@(r.Cpk is null ? "Indique ambos límites de especificación para calcular Cpk" : "Índice de capacidad del proceso")"><span>Cpk</span><b>@D(r.Cpk, "0.00")</b></div>
+                    </EstWidget>
+
+                    <EstWidget Id="hist" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-hist">
+                            <header>
+                                <h6>Histograma y distribución normal</h6>
+                                <span class="est-espacio"></span>
+                                <button type="button" class="est-btn" title="Descargar imagen" @onclick='() => Png(idHist, "histograma")'><Ico Nombre="exportar" /></button>
+                            </header>
+                            <div class="est-opciones">
+                                <label class="est-op"><input type="checkbox" checked="@verCurva" @onchange="e => CambioGrafico(() => verCurva = (bool)e.Value!)" /> Curva normal</label>
+                                <label class="est-op est-op-media"><input type="checkbox" checked="@verMedia" @onchange="e => CambioGrafico(() => verMedia = (bool)e.Value!)" /> Media</label>
+                                <label class="est-op est-op-mediana"><input type="checkbox" checked="@verMediana" @onchange="e => CambioGrafico(() => verMediana = (bool)e.Value!)" /> Mediana</label>
+                                <label class="est-op est-op-moda"><input type="checkbox" checked="@verModa" @onchange="e => CambioGrafico(() => verModa = (bool)e.Value!)" /> Moda</label>
+                                <label class="est-op"><input type="checkbox" checked="@verIc" @onchange="e => CambioGrafico(() => verIc = (bool)e.Value!)" /> IC de la media</label>
+                                @if (lie is not null || lse is not null)
+                                {
+                                    <label class="est-op est-op-espec"><input type="checkbox" checked="@verEspec" @onchange="e => CambioGrafico(() => verEspec = (bool)e.Value!)" /> LIE / LSE</label>
+                                }
+                                <select class="form-select form-select-sm est-sel" data-sin-flotante title="Líneas de desviación estándar" value="@sigmas" @onchange="e => CambioGrafico(() => sigmas = int.Parse(e.Value!.ToString()!))">
+                                    <option value="0">Sin ±σ</option><option value="1">±1σ</option><option value="2">±1σ, ±2σ</option><option value="3">±1σ … ±3σ</option>
+                                </select>
+                                <select class="form-select form-select-sm est-sel" data-sin-flotante title="Eje vertical" value="@ejeY" @onchange="e => CambioGrafico(() => ejeY = e.Value!.ToString()!)">
+                                    <option value="frec">Frecuencia</option><option value="pct">Porcentaje</option><option value="densidad">Densidad</option>
+                                </select>
+                                <select class="form-select form-select-sm est-sel" data-sin-flotante title="Regla para el número de clases" value="@regla" @onchange="e => Cambio(() => regla = Enum.Parse<ReglaClases>(e.Value!.ToString()!))">
+                                    <option value="@ReglaClases.Sturges">Clases: Sturges</option>
+                                    <option value="@ReglaClases.Scott">Clases: Scott</option>
+                                    <option value="@ReglaClases.FreedmanDiaconis">Clases: Freedman-Diaconis</option>
+                                    <option value="@ReglaClases.Raiz">Clases: √n</option>
+                                    <option value="@ReglaClases.Manual">Clases: elegir número</option>
+                                </select>
+                                @if (regla == ReglaClases.Manual)
+                                {
+                                    <input type="number" min="1" max="200" class="form-control form-control-sm est-num" data-sin-flotante title="Número de clases" value="@clasesManual" @onchange="e => Cambio(() => clasesManual = (int)Math.Clamp(Leer(e.Value) ?? 10, 1, 200))" />
+                                }
+                                <details class="est-mas">
+                                    <summary title="Más opciones del gráfico">＋</summary>
+                                    <div class="est-mas-caja">
+                                        <input class="form-control form-control-sm" data-sin-flotante placeholder="Título del gráfico" aria-label="Título del gráfico" value="@tituloGrafico" @onchange="e => CambioGrafico(() => tituloGrafico = e.Value?.ToString() ?? string.Empty)" />
+                                        <label class="est-op">Color <input type="color" value="@colorBarras" @onchange="e => CambioGrafico(() => colorBarras = e.Value?.ToString() ?? ColorBase)" /></label>
+                                        <label class="est-op"><input type="checkbox" checked="@verLeyenda" @onchange="e => CambioGrafico(() => verLeyenda = (bool)e.Value!)" /> Leyenda</label>
+                                        <label class="est-op"><input type="checkbox" checked="@verCuadricula" @onchange="e => CambioGrafico(() => verCuadricula = (bool)e.Value!)" /> Cuadrícula</label>
+                                    </div>
+                                </details>
+                            </div>
+                            <div class="est-lienzo est-lienzo-alto"><canvas id="@idHist"></canvas></div>
+                            <div class="est-pie">Clic en una barra = calcular la probabilidad de esa clase · ancho de clase @F(r.AnchoClase) · @r.Clases.Count clases</div>
+                        </section>
+                    </EstWidget>
+
+                    <EstWidget Id="lectura" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-lectura">
+                            <header><h6>Lectura de los datos</h6></header>
+                            <ul>
+                                @foreach (var p in lectura)
+                                {
+                                    <li class="est-l-@p.Nivel"><b>@p.Tema.</b> @p.Texto</li>
+                                }
+                                @if (sinValor > 0)
+                                {
+                                    <li class="est-l-info"><b>Sin dato.</b> @sinValor resultado(s) filtrado(s) no tienen valor en «@NombreCampo» y no entran en el cálculo.</li>
+                                }
+                            </ul>
+                        </section>
+                    </EstWidget>
+
+                    <EstWidget Id="prob" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-prob">
+                            <header>
+                                <h6>Probabilidad de ocurrencia</h6>
+                                <span class="est-espacio"></span>
+                                <button type="button" class="est-btn" title="Descargar imagen" @onclick='() => Png(IdCampana, "campana")'><Ico Nombre="exportar" /></button>
+                            </header>
+                            <div class="est-prob-form">
+                                <select class="form-select form-select-sm est-sel" data-sin-flotante aria-label="Tipo de probabilidad" value="@tipoProb" @onchange="e => CambioGrafico(() => tipoProb = e.Value!.ToString()!)">
+                                    <option value="menor">P(X ≤ a)</option>
+                                    <option value="mayor">P(X ≥ a)</option>
+                                    <option value="entre">P(a ≤ X ≤ b)</option>
+                                    <option value="percentil">Valor con probabilidad p</option>
+                                </select>
+                                @if (tipoProb == "percentil")
+                                {
+                                    <span>p =</span><input class="form-control form-control-sm est-num" data-sin-flotante aria-label="Probabilidad en %" value="@probP" @onchange="e => CambioGrafico(() => probP = Leer(e.Value))" /><span>%</span>
+                                }
+                                else
+                                {
+                                    <span>a =</span><input class="form-control form-control-sm est-num" data-sin-flotante aria-label="a" value="@probA" @onchange="e => CambioGrafico(() => probA = Leer(e.Value))" />
+                                    @if (tipoProb == "entre")
+                                    {
+                                        <span>b =</span><input class="form-control form-control-sm est-num" data-sin-flotante aria-label="b" value="@probB" @onchange="e => CambioGrafico(() => probB = Leer(e.Value))" />
+                                    }
+                                }
+                            </div>
+                            @{ var pr = Prob(); }
+                            <div class="est-prob-res">
+                                @if (tipoProb == "percentil")
+                                {
+                                    <div><span>Según la normal</span><b>@F(ValorPercentil())</b><small>el @D(probP, "0.##") % de los resultados quedaría por debajo</small></div>
+                                    <div><span>Percentil observado</span><b>@F(probP is double pp && pp > 0 && pp < 100 ? Descriptiva.Cuantil(r.Ordenados, pp / 100) : null)</b><small>PERCENTIL.INC de los datos</small></div>
+                                }
+                                else
+                                {
+                                    <div><span>Según la normal</span><b>@Pct(pr.Normal)</b><small>z = @Zs()</small></div>
+                                    <div><span>Observada</span><b>@Pct(pr.Empirica)</b><small>@((int)Math.Round(pr.Empirica * r.N)) de @r.N datos</small></div>
+                                }
+                            </div>
+                            <div class="est-lienzo"><canvas id="@IdCampana"></canvas></div>
+                        </section>
+                    </EstWidget>
+
+                    <EstWidget Id="qq" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-qq">
+                            <header>
+                                <h6>Gráfico Q-Q normal</h6>
+                                <span class="est-espacio"></span>
+                                <button type="button" class="est-btn" title="Descargar imagen" @onclick='() => Png(IdQq, "qq")'><Ico Nombre="exportar" /></button>
+                            </header>
+                            @if (r.N >= 3 && r.Desviacion > 0)
+                            {
+                                <div class="est-lienzo"><canvas id="@IdQq"></canvas></div>
+                                <div class="est-pie">Si los puntos siguen la diagonal, los datos son aproximadamente normales; curvas en los extremos = colas o asimetría.</div>
+                            }
+                            else { <div class="est-vacio">Se necesitan al menos 3 valores distintos.</div> }
+                        </section>
+                    </EstWidget>
+
+                    <EstWidget Id="caja" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-caja">
+                            <header><h6>Diagrama de caja@(grupos.Count > 0 ? " por " + CamposGrupo.FirstOrDefault(c => c.Clave == agrupar).Titulo : "")</h6></header>
+                            @{ var cajas = Cajas(); var esc = Escala(cajas); var alto = 30 + cajas.Count * 34; }
+                            <svg class="est-svg" viewBox="0 0 600 @alto" style="max-height:@(alto * 1.25)px" role="img" aria-label="Diagrama de caja">
+                                @for (var t = 0; t <= 4; t++)
+                                {
+                                    var v = esc.Min + (esc.Max - esc.Min) * t / 4;
+                                    <g>
+                                        <line x1="@X(v, esc)" x2="@X(v, esc)" y1="4" y2="@(alto - 18)" class="est-svg-grid" />
+                                        <text x="@X(v, esc)" y="@(alto - 4)" text-anchor="middle" class="est-svg-t">@F(v)</text>
+                                    </g>
+                                }
+                                @for (var i = 0; i < cajas.Count; i++)
+                                {
+                                    var c = cajas[i]; var y = 10 + i * 34; var bi = BigoteInf(c.R); var bs = BigoteSup(c.R);
+                                    <g>
+                                        <title>@c.Etiqueta: n=@c.R.N · mín @F(c.R.Min, c.R) · Q1 @F(c.R.Q1, c.R) · mediana @F(c.R.Mediana, c.R) · Q3 @F(c.R.Q3, c.R) · máx @F(c.R.Max, c.R) · media @F(c.R.Media, c.R)</title>
+                                        <text x="112" y="@(y + 15)" text-anchor="end" class="est-svg-t est-svg-et">@(c.Etiqueta.Length > 18 ? c.Etiqueta[..17] + "…" : c.Etiqueta)</text>
+                                        <line x1="@X(bi, esc)" x2="@X(bs, esc)" y1="@(y + 11)" y2="@(y + 11)" class="est-svg-bigote" />
+                                        <line x1="@X(bi, esc)" x2="@X(bi, esc)" y1="@(y + 5)" y2="@(y + 17)" class="est-svg-bigote" />
+                                        <line x1="@X(bs, esc)" x2="@X(bs, esc)" y1="@(y + 5)" y2="@(y + 17)" class="est-svg-bigote" />
+                                        <rect x="@X(c.R.Q1, esc)" y="@y" width="@W(c.R.Q1, c.R.Q3, esc)" height="22" rx="3" class="est-svg-caja" />
+                                        <line x1="@X(c.R.Mediana, esc)" x2="@X(c.R.Mediana, esc)" y1="@y" y2="@(y + 22)" class="est-svg-mediana" />
+                                        <path d="M@(X(c.R.Media, esc)) @(y + 6) l5 5 -5 5 -5 -5z" class="est-svg-media" />
+                                        @foreach (var a in c.R.AtipicosLeves.Concat(c.R.AtipicosExtremos))
+                                        {
+                                            <circle cx="@X(a, esc)" cy="@(y + 11)" r="3.5" class="@(c.R.AtipicosExtremos.Contains(a) ? "est-svg-ext" : "est-svg-at")" />
+                                        }
+                                    </g>
+                                }
+                            </svg>
+                            <div class="est-pie">Caja = Q1 a Q3 · línea = mediana · rombo = media · bigotes hasta 1,5·RIC · puntos = atípicos (rellenos: extremos)</div>
+                        </section>
+                    </EstWidget>
+
+                    <EstWidget Id="descriptiva" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-detalle">
+                            <header><h6>@EstWidget.Catalogo["descriptiva"].Nombre</h6></header>
+                            <div class="est-tabla-scroll">
+                                <table class="est-t">
+                                    <tr><th>Número de datos (n)</th><td>@r.N</td></tr>
+                                    <tr><th>Suma</th><td>@F(r.Suma)</td></tr>
+                                    <tr><th>Media</th><td>@F(r.Media)</td></tr>
+                                    <tr><th>Error estándar de la media</th><td>@F(r.ErrorEstandar)</td></tr>
+                                    <tr><th>Mediana</th><td>@F(r.Mediana)</td></tr>
+                                    <tr><th>Moda</th><td>@(r.Modas.Count == 0 ? "No se repite ningún valor" : string.Join("; ", r.Modas.Take(6).Select(m => F(m))) + $" ({r.FrecuenciaModa} veces)")</td></tr>
+                                    <tr><th>Moda de la clase modal</th><td>@F(r.ModaAgrupada)</td></tr>
+                                    <tr><th>Desviación estándar (muestral)</th><td>@F(r.Desviacion)</td></tr>
+                                    <tr><th>Varianza (muestral)</th><td>@F(r.Varianza)</td></tr>
+                                    <tr><th>Desviación estándar poblacional</th><td>@F(r.DesviacionPob)</td></tr>
+                                    <tr><th>Desviación media absoluta</th><td>@F(r.DesvMediaAbs)</td></tr>
+                                    <tr><th>Coeficiente de variación</th><td>@(r.CoefVariacion is double cv2 ? cv2.ToString("0.00") + " %" : "—")</td></tr>
+                                    <tr><th>Mínimo · Máximo</th><td>@F(r.Min) · @F(r.Max)</td></tr>
+                                    <tr><th>Rango</th><td>@F(r.Rango)</td></tr>
+                                </table>
+                            </div>
+                        </section>
+                    </EstWidget>
+                    <EstWidget Id="forma" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-detalle">
+                            <header><h6>@EstWidget.Catalogo["forma"].Nombre</h6></header>
+                            <div class="est-tabla-scroll">
+                                <table class="est-t">
+                                    <tr><th>Percentil 5</th><td>@F(r.P5)</td></tr>
+                                    <tr><th>Cuartil 1 (Q1)</th><td>@F(r.Q1)</td></tr>
+                                    <tr><th>Cuartil 3 (Q3)</th><td>@F(r.Q3)</td></tr>
+                                    <tr><th>Percentil 95</th><td>@F(r.P95)</td></tr>
+                                    <tr><th>Rango intercuartílico (RIC)</th><td>@F(r.Iqr)</td></tr>
+                                    <tr><th>Límites de Tukey (1,5·RIC)</th><td>@F(r.LimiteInfTukey) · @F(r.LimiteSupTukey)</td></tr>
+                                    <tr><th>Atípicos (leves · extremos)</th><td>@r.AtipicosLeves.Count · @r.AtipicosExtremos.Count</td></tr>
+                                    <tr><th>Asimetría G1 (± error)</th><td>@D(r.Asimetria) ± @D(r.ErrorAsimetria)</td></tr>
+                                    <tr><th>Curtosis G2 (± error)</th><td>@D(r.Curtosis) ± @D(r.ErrorCurtosis)</td></tr>
+                                    <tr><th>Datos en ±1σ · ±2σ · ±3σ</th><td>@D(r.DentroSigma[0], "0.0") % · @D(r.DentroSigma[1], "0.0") % · @D(r.DentroSigma[2], "0.0") %</td></tr>
+                                </table>
+                            </div>
+                        </section>
+                    </EstWidget>
+                    <EstWidget Id="inferencia" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-detalle">
+                            <header><h6>@EstWidget.Catalogo["inferencia"].Nombre</h6></header>
+                            <div class="est-tabla-scroll">
+                                <table class="est-t">
+                                    <caption>Inferencia (confianza @((confianza * 100).ToString("0")) %)</caption>
+                                    <tr><th>t crítico (gl = @(r.N - 1))</th><td>@D(r.TCritico)</td></tr>
+                                    <tr><th>Margen de error</th><td>± @F(r.MargenError)</td></tr>
+                                    <tr><th>IC de la media</th><td>@F(r.IcMediaInf) a @F(r.IcMediaSup)</td></tr>
+                                    <tr><th>IC de la desviación estándar</th><td>@F(r.IcDesvInf) a @F(r.IcDesvSup)</td></tr>
+                                    <tr><th>Anderson-Darling A² (p)</th><td>@D(r.AndersonDarling) (@(r.PAndersonDarling is double pa ? Interpretacion.Pv(pa) : "—"))</td></tr>
+                                    <tr><th>Jarque-Bera JB (p)</th><td>@D(r.JarqueBera, "0.00") (@(r.PJarqueBera is double pj ? Interpretacion.Pv(pj) : "—"))</td></tr>
+                                    @if (r.Cpk is not null)
+                                    {
+                                        <tr><th>Cp · Cpk</th><td>@D(r.Cp, "0.00") · @D(r.Cpk, "0.00")</td></tr>
+                                        <tr><th>Fuera de especificación (normal · observado)</th><td>@D(r.FueraEspecNormal, "0.00") % · @D(r.FueraEspecReal, "0.00") %</td></tr>
+                                    }
+                                </table>
+                            </div>
+                        </section>
+                    </EstWidget>
+                    <EstWidget Id="frecuencias" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-detalle">
+                            <header><h6>@EstWidget.Catalogo["frecuencias"].Nombre</h6></header>
+                            <div class="est-tabla-scroll">
+                                <table class="est-t est-t-frec">
+                                    <thead><tr><th>Clase</th><th>Desde</th><th>Hasta</th><th>Marca</th><th>Frecuencia</th><th>% </th><th>Frec. acumulada</th><th>% acumulado</th><th>Normal esperada</th></tr></thead>
+                                    <tbody>
+                                        @{ var acum = 0; }
+                                        @for (var i = 0; i < r.Clases.Count; i++)
+                                        {
+                                            var c = r.Clases[i]; acum += c.Frecuencia;
+                                            var esperada = r.Desviacion > 0 ? r.N * (Distribuciones.NormalCdf(c.Hasta, r.Media, r.Desviacion) - Distribuciones.NormalCdf(c.Desde, r.Media, r.Desviacion)) : 0;
+                                            <tr>
+                                                <td>@(i + 1)</td><td>@F(c.Desde)</td><td>@F(c.Hasta)</td><td>@F(c.Centro)</td><td>@c.Frecuencia</td>
+                                                <td>@((100.0 * c.Frecuencia / r.N).ToString("0.0"))</td><td>@acum</td><td>@((100.0 * acum / r.N).ToString("0.0"))</td><td>@esperada.ToString("0.0")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </EstWidget>
+                    <EstWidget Id="grupos" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-detalle">
+                            <header><h6>@EstWidget.Catalogo["grupos"].Nombre</h6></header>
+                            @if (grupos.Count == 0)
+                            {
+                                <div class="est-vacio">Elija un campo en «Comparar por» para ver los grupos.</div>
+                            }
+                            else
+                            {
+                                <div class="est-tabla-scroll">
+                                    <table class="est-t est-t-frec">
+                                        <thead><tr><th>@CamposGrupo.FirstOrDefault(c => c.Clave == agrupar).Titulo</th><th>n</th><th>Media</th><th>Mediana</th><th>Desv. est.</th><th>CV %</th><th>Mín</th><th>Máx</th><th>IC de la media (@((confianza * 100).ToString("0")) %)</th><th>Asimetría</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var g in grupos)
+                                            {
+                                                <tr>
+                                                    <td class="text-start">@g.Grupo</td><td>@g.R.N</td><td>@F(g.R.Media, g.R)</td><td>@F(g.R.Mediana, g.R)</td><td>@F(g.R.Desviacion, g.R)</td>
+                                                    <td>@(g.R.CoefVariacion is double gcv ? gcv.ToString("0.0") : "—")</td><td>@F(g.R.Min, g.R)</td><td>@F(g.R.Max, g.R)</td>
+                                                    <td>@(g.R.IcMediaInf is null ? "—" : $"{F(g.R.IcMediaInf, g.R)} a {F(g.R.IcMediaSup, g.R)}")</td><td>@D(g.R.Asimetria)</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </section>
+                    </EstWidget>
+                    <EstWidget Id="formulas" Ocultos="ocultos" Editando="editando" OnQuitar="QuitarWidget">
+                        <section class="est-card est-detalle">
+                            <header><h6>@EstWidget.Catalogo["formulas"].Nombre</h6></header>
+                            <div class="est-formulas">
+                                <p>Fórmulas estándar (las mismas de Excel y de los textos de estadística). Detalle y referencias en <code>docs/estadistica-ensayos.md</code>.</p>
+                                <dl>
+                                    <dt>Media</dt><dd>x̄ = Σxᵢ / n</dd>
+                                    <dt>Mediana y cuartiles</dt><dd>CUARTIL.INC / PERCENTIL.INC: posición h = (n − 1)·p sobre los datos ordenados, con interpolación lineal.</dd>
+                                    <dt>Moda</dt><dd>Valor más repetido (MODA.VARIOS). Moda de la clase modal (Czuber): L + d₁/(d₁ + d₂)·h.</dd>
+                                    <dt>Varianza y desviación (muestrales)</dt><dd>s² = Σ(xᵢ − x̄)² / (n − 1); s = √s² (VAR.S, DESVEST.M). Poblacional: divide entre n.</dd>
+                                    <dt>Error estándar · CV</dt><dd>EE = s / √n · CV = s / |x̄| × 100 %</dd>
+                                    <dt>Asimetría (COEFICIENTE.ASIMETRIA)</dt><dd>G1 = n / ((n − 1)(n − 2)) · Σ((xᵢ − x̄)/s)³; error SES = √(6n(n − 1) / ((n − 2)(n + 1)(n + 3)))</dd>
+                                    <dt>Curtosis (CURTOSIS, exceso)</dt><dd>G2 = n(n + 1) / ((n − 1)(n − 2)(n − 3)) · Σ((xᵢ − x̄)/s)⁴ − 3(n − 1)² / ((n − 2)(n − 3)); SEK = 2·SES·√((n² − 1) / ((n − 3)(n + 5)))</dd>
+                                    <dt>IC de la media</dt><dd>x̄ ± t(1 − α/2; n − 1) · s / √n (INTERVALO.CONFIANZA.T)</dd>
+                                    <dt>IC de la desviación</dt><dd>√((n − 1)s² / χ²(1 − α/2; n − 1)) a √((n − 1)s² / χ²(α/2; n − 1))</dd>
+                                    <dt>Normal</dt><dd>f(x) = e^(−(x − μ)²/(2σ²)) / (σ√(2π)); P(a ≤ X ≤ b) = Φ((b − μ)/σ) − Φ((a − μ)/σ), con μ = x̄ y σ = s.</dd>
+                                    <dt>Anderson-Darling</dt><dd>A² = −n − (1/n)·Σ(2i − 1)[ln Φ(zᵢ) + ln(1 − Φ(zₙ₊₁₋ᵢ))]; A* = A²(1 + 0,75/n + 2,25/n²); valor p de D'Agostino y Stephens (1986).</dd>
+                                    <dt>Jarque-Bera</dt><dd>JB = n/6 · (b₁² + b₂²/4), con b₁ y b₂ (exceso) poblacionales; p con χ² de 2 gl.</dd>
+                                    <dt>Atípicos (Tukey)</dt><dd>Fuera de Q1 − 1,5·RIC o Q3 + 1,5·RIC; extremos más allá de 3·RIC.</dd>
+                                    <dt>Clases del histograma</dt><dd>Sturges k = ⌈log₂ n⌉ + 1 · Scott h = 3,49·s·n^(−1/3) · Freedman-Diaconis h = 2·RIC·n^(−1/3) · √n</dd>
+                                    <dt>Capacidad</dt><dd>Cp = (LSE − LIE) / 6s · Cpk = mín((LSE − x̄)/3s, (x̄ − LIE)/3s)</dd>
+                                    <dt>Q-Q normal</dt><dd>Cuantil teórico x̄ + s·Φ⁻¹((i − 0,375)/(n + 0,25)) (posición de Blom) contra el valor observado i-ésimo.</dd>
+                                </dl>
+                            </div>
+                        </section>
+                    </EstWidget>
+                </div>
+                @if (editando)
+                {
+                    <aside class="pw-paleta est-paleta" aria-label="Widgets">
+                        <div class="pw-paleta-grupo">Widgets</div>
+                        @foreach (var (id, widget) in EstWidget.Catalogo.OrderBy(w => !ocultos.Contains(w.Key)))
+                        {
+                            var enPanel = !ocultos.Contains(id);
+                            <button @key="id" type="button" class="pw-paleta-item" draggable="@(!enPanel ? "true" : "false")" disabled="@enPanel"
+                                    data-est-agregar="@id" title="@(enPanel ? $"{widget.Nombre} está en el panel" : $"Agregar {widget.Nombre}")" @onclick="() => MostrarWidget(id)">
+                                <span class="pw-paleta-ico"><Ico Nombre="@widget.Icono" /></span>
+                                <span class="pw-paleta-txt"><span>@widget.Nombre</span></span>
+                            </button>
+                        }
+                    </aside>
+                }
+            </div>
+        }
+    }
+</div>

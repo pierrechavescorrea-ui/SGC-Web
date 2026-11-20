@@ -1,0 +1,11 @@
+@inject IJSRuntime JS
+
+@* El layout sigue estático. OnAfterRender solo se ejecuta al estar vivo el circuito. *@
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { await JS.InvokeVoidAsync("sigCarga.interactiva"); }
+        catch (JSDisconnectedException) { }
+    }
+}

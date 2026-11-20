@@ -1,0 +1,20 @@
+@* Bloque compuesto de un formulario (p. ej. "Acciones propuestas", "Verificación de eficacia"): tiene botones y lógica
+   propios que viven en el código. En el diseñador se mueve entre los pasos y se renombra entero; no se oculta ni se
+   desarma (la app lo necesita). ChildContent recibe el título efectivo (el del diseño o el del código). *@
+@using SigWeb.Data.Formularios
+@{
+    var clave = Clave ?? DisenoModelo.Normal(Titulo);
+    var fila = Ctx?.FilaPaso(clave);
+}
+<div class="frm-bloque @(Ctx?.Primero(clave) == true ? "frm-sec-primero" : "")" style="@(fila is int f ? $"--pf:{f}" : null)" data-paso="@(Ctx is null ? null : clave)">
+    @ChildContent?.Invoke(Ctx?.Titulo(clave, Titulo) ?? Titulo)
+</div>
+
+@code {
+    [CascadingParameter] public ContextoFormulario? Ctx { get; set; }
+    [Parameter] public string Titulo { get; set; } = "";
+    [Parameter] public string? Clave { get; set; }
+    [Parameter] public RenderFragment<string>? ChildContent { get; set; }
+
+    protected override void OnParametersSet() => Ctx?.RegistrarSeccion(Clave ?? DisenoModelo.Normal(Titulo), Titulo, bloque: true);
+}

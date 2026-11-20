@@ -1,0 +1,21 @@
+.hv-carpetas { min-height: 320px; }
+.hv-carpetas-panel { flex: none; width: 100%; }
+/* Sin transform/filter/will-change: los menús fijos de adjuntos conservan su referencia al viewport. */
+.hv-carpetas-panel ::deep .ficha-bloque.pw-w {
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    padding: 0; box-sizing: border-box; transform: none !important; filter: none; will-change: auto;
+    transition: left .2s, top .2s, width .18s, height .18s;
+}
+.hv-carpetas-panel ::deep .ficha-bloque.pw-w > .ficha-bloque-titulo {
+    flex: 0 0 auto; margin: 0; padding: 10px 12px;
+    border-bottom: 1px solid var(--t-borde, var(--bs-border-color));
+    background: linear-gradient(var(--t-superficie, var(--bs-body-bg)), var(--t-superficie, var(--bs-body-bg))), var(--t-fondo, var(--bs-body-bg, #fff)); color: var(--t-texto, var(--bs-body-color));
+}
+.hv-carpetas-panel ::deep .hv-carpeta-cuerpo { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 20px; }
+.hv-carpetas-panel ::deep .pw-tirador { position: absolute; }
+.hv-carpetas-panel ::deep .pw-w.pw-moviendo, .hv-carpetas-panel ::deep .pw-w.pw-estirando { transition: none; }
+.hv-carpetas-panel ::deep .pw-w.pw-moviendo > * { scale: none; rotate: none; box-shadow: none; }
+@media (max-width: 1000px) {
+    .hv-carpetas-panel ::deep .pw-w { min-height: 160px; }
+    .hv-carpetas.pw-editando ::deep .pw-w > * { pointer-events: auto; user-select: auto; }
+}

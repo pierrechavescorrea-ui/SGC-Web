@@ -1,0 +1,408 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* PDT (programa detallado de trabajo): desde MS Project (XML) o hecho a mano aquí (EdicionPrograma +
+   MotorPrograma: duración, predecesoras, ruta crítica). Cada carga o "versión nueva" es una versión; la primera
+   es la línea base (se puede fijar otra). Cada tarea se liga a un ítem de pago y a una torre/tiro: así su avance real sale
+   de las cantidades registradas y su valor entra a la curva S. La bitácora guarda cada cambio. *@
+
+@if (Editando && ed is not null)
+{
+    var e = ed;
+    var f0 = sel >= 0 && sel < e.Filas.Count ? e.Filas[sel] : null;
+    var gi = e.Filas.Select(x => x.Inicio).DefaultIfEmpty(Corte.Date).Min().Date;
+    var gf = e.Filas.Select(x => x.Fin).DefaultIfEmpty(gi).Max().Date;
+    if (gf <= gi) { gf = gi.AddDays(1); }
+    var edt = e.Edt();
+    <div class="cp-filtros">
+        <input class="form-control form-control-sm" style="max-width:240px" placeholder="Nombre del programa" @bind="nombreProg" />
+        <span class="pg-sep"></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Insertar tarea debajo" @onclick="AgregarAsync"><Ico Nombre="agregar" /></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Insertar hito debajo" @onclick="() => Op(() => sel = e.Insertar(sel < 0 ? e.Filas.Count : sel + 1, true))"><Ico Nombre="hito" /></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Disminuir sangría" disabled="@(f0 is null)" @onclick="() => Op(() => e.Sangria(sel, -1))"><Ico Nombre="sangria-menos" /></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Aumentar sangría (subtarea de la anterior)" disabled="@(f0 is null)" @onclick="() => Op(() => e.Sangria(sel, 1))"><Ico Nombre="sangria-mas" /></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Subir" disabled="@(f0 is null)" @onclick="() => Op(() => sel = e.Mover(sel, -1))"><Ico Nombre="subir" /></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Bajar" disabled="@(f0 is null)" @onclick="() => Op(() => sel = e.Mover(sel, 1))"><Ico Nombre="bajar" /></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Eliminar tarea (con sus subtareas)" disabled="@(f0 is null)" @onclick="() => Op(() => { e.Eliminar(sel); sel = Math.Min(sel, e.Filas.Count - 1); })"><Ico Nombre="eliminar" /></button>
+        <span class="pg-sep"></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary @(verCalendario ? "active" : "")" title="Calendario laboral" @onclick="() => verCalendario = !verCalendario"><Ico Nombre="calendario" /></button>
+        <button type="button" class="btn btn-sm btn-outline-secondary @(verCritica ? "active" : "")" title="Ruta crítica" @onclick="() => verCritica = !verCritica"><Ico Nombre="ruta-critica" /></button>
+        <span class="pg-sep"></span>
+        <label class="cp-check"><input type="radio" name="pdt-modo" checked="@versionNueva" @onchange="() => versionNueva = true" /> Versión nueva</label>
+        <label class="cp-check" title="@(Actual?.LineaBase == true ? "La línea base no se corrige" : "")"><input type="radio" name="pdt-modo" checked="@(!versionNueva)" disabled="@(Actual is null || Actual.LineaBase)" @onchange="() => versionNueva = false" /> Corregir v@(Actual?.Version)</label>
+        <input class="form-control form-control-sm" style="max-width:240px" placeholder="Motivo (reprogramación, otrosí…)" @bind="motivo" />
+        <input class="form-control form-control-sm" style="max-width:160px" placeholder="Aprobado por" @bind="aprobado" />
+        <span class="cp-sub ms-auto">@e.Filas.Count(x => !x.EsResumen) tareas · @FormatoCostos.Fecha(gi) – @FormatoCostos.Fecha(gf) · @e.Filas.Count(x => x.Critica) críticas</span>
+    </div>
+    @if (msgEd != "") { <div class="cp-aviso">@msgEd</div> }
+    @if (verCalendario)
+    {
+        <div class="panel-formulario cp-panel">
+            <div class="d-flex gap-3 align-items-center flex-wrap">
+                <span>Días laborables</span>
+                @for (var d = 0; d < 7; d++)
+                {
+                    var k = d;
+                    <label class="cp-check"><input type="checkbox" checked="@(e.DiasLaborables[k] == '1')" @onchange="ev => Op(() => { var c = e.DiasLaborables.ToCharArray(); c[k] = ev.Value is true ? '1' : '0'; if (c.Contains('1')) e.DiasLaborables = new string(c); e.Cambio = true; })" /> @(new[] { "lu", "ma", "mi", "ju", "vi", "sá", "do" }[k])</label>
+                }
+                <input class="form-control form-control-sm" style="max-width:420px" placeholder="Festivos aaaa-mm-dd; aaaa-mm-dd…" value="@e.Festivos" @onchange="ev => Op(() => { e.Festivos = ev.Value?.ToString(); e.Cambio = true; })" />
+            </div>
+        </div>
+    }
+    @if (f0 is not null && !f0.EsResumen)
+    {
+        <div class="panel-formulario cp-panel cp-pdt-info">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <b>#@(sel + 1)</b>
+                <label class="cp-check">Ítem <select class="form-select form-select-sm" style="max-width:220px" value="@(f0.ItemId ?? 0)" @onchange="ev => { f0.ItemId = int.TryParse(ev.Value?.ToString(), out var v) && v > 0 ? v : null; e.Cambio = true; }"><option value="0">—</option>@foreach (var i in items) { <option value="@i.Id">@i.Codigo · @i.Descripcion</option> }</select></label>
+                <label class="cp-check">Torre <select class="form-select form-select-sm" style="max-width:140px" value="@(f0.TorreId ?? 0)" @onchange="ev => { f0.TorreId = int.TryParse(ev.Value?.ToString(), out var v) && v > 0 ? v : null; e.Cambio = true; }"><option value="0">—</option>@foreach (var t in S.Torres) { <option value="@t.Id">@S.NombreTorre(t.Id)</option> }</select></label>
+                <label class="cp-check">Tiro <select class="form-select form-select-sm" style="max-width:140px" value="@(f0.TiroId ?? 0)" @onchange="ev => { f0.TiroId = int.TryParse(ev.Value?.ToString(), out var v) && v > 0 ? v : null; e.Cambio = true; }"><option value="0">—</option>@foreach (var t in S.Tiros) { <option value="@t.Id">@t.Nombre</option> }</select></label>
+                <label class="cp-check">Actividad de obra <select class="form-select form-select-sm" style="max-width:200px" value="@(f0.ActividadObraId ?? 0)" @onchange="ev => { f0.ActividadObraId = int.TryParse(ev.Value?.ToString(), out var v) && v > 0 ? v : null; e.Cambio = true; }"><option value="0">—</option>@foreach (var a in S.ActividadesObra) { <option value="@a.Id">@a.Nombre</option> }</select></label>
+                <label class="cp-check">Cantidad <input class="form-control form-control-sm cp-in-num" value="@FormatoCostos.Num(f0.Cantidad, 2)" @onchange="ev => { f0.Cantidad = Dec(ev.Value) ?? 0; e.Cambio = true; }" /></label>
+                <input class="form-control form-control-sm" style="max-width:260px" placeholder="Nota" value="@f0.Nota" @onchange="ev => { f0.Nota = ev.Value?.ToString(); e.Cambio = true; }" />
+            </div>
+        </div>
+    }
+    <div class="tabla-scroll tabla-auto cp-marco">
+        <table class="table table-sm cp-tabla cp-programa cp-pdt-ed">
+            <thead class="tabla-pin">
+                <tr>
+                    <th class="cp-num">#</th><th class="cp-fija">Nombre de tarea</th><th class="cp-num">Duración (d)</th><th>Comienzo</th><th>Fin</th><th>Predecesoras</th><th class="cp-num">% compl.</th><th class="cp-num" title="Holgura total (días laborables)">Holgura</th>
+                    <th class="cp-gantt-th">@FormatoCostos.Fecha(gi) – @FormatoCostos.Fecha(gf)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i0 = 0; i0 < e.Filas.Count; i0++)
+                {
+                    var i = i0; var f = e.Filas[i];
+                    <tr @key="f.Uid" class="@(f.EsResumen ? "cp-total" : "") @(sel == i ? "cp-sel" : "")" @onclick="() => sel = i">
+                        <td class="cp-num cp-sub">@(i + 1)</td>
+                        <td class="cp-fija cp-tarea" style="padding-left:@(4 + (f.Nivel - 1) * 14)px">
+                            <span class="cp-sub">@edt[i]</span>
+                            <input class="form-control form-control-sm cp-in-tarea" value="@f.Nombre" @onchange="ev => { f.Nombre = ev.Value?.ToString() ?? f.Nombre; e.Cambio = true; }" />
+                        </td>
+                        <td class="cp-num">
+                            @if (f.EsResumen) { @f.Duracion }
+                            else { <input type="number" min="0" class="form-control form-control-sm cp-in-num" value="@f.Duracion" @onchange="ev => Op(() => e.FijarDuracion(f, int.TryParse(ev.Value?.ToString(), out var v) ? v : f.Duracion))" /> }
+                        </td>
+                        <td>
+                            @if (f.EsResumen || f.Preds.Count > 0) { @FormatoCostos.Fecha(f.Inicio) }
+                            else { <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(f.Inicio)" @onchange="ev => Op(() => { if (Fec(ev.Value) is DateTime d) msgEd = e.FijarInicio(f, d) ?? string.Empty; })" /> }
+                        </td>
+                        <td>
+                            @if (f.EsResumen) { @FormatoCostos.Fecha(f.Fin) }
+                            else { <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(f.Fin)" @onchange="ev => Op(() => { if (Fec(ev.Value) is DateTime d) e.FijarFin(f, d); })" /> }
+                        </td>
+                        <td>
+                            @if (!f.EsResumen)
+                            {
+                                <input class="form-control form-control-sm cp-in-pred" value="@e.TextoPreds(f)" placeholder="p. ej. 12;15CC+2" @onchange="ev => CambiarPreds(f, ev.Value?.ToString())" />
+                            }
+                        </td>
+                        <td class="cp-num">
+                            @if (!f.EsResumen) { <input type="number" min="0" max="100" class="form-control form-control-sm cp-in-num" value="@(f.Avance is decimal av ? Math.Round(av * 100).ToString() : "")" @onchange="ev => { f.Avance = Dec(ev.Value) is decimal v ? Math.Clamp(v, 0, 100) / 100m : null; e.Cambio = true; }" /> }
+                        </td>
+                        <td class="cp-num @(f.Critica ? "cp-sobre" : "")">@(f.Holgura?.ToString() ?? "")</td>
+                        <td class="cp-gantt">
+                            <div class="cp-gantt-pista">
+                                @{ var l = Math.Clamp((f.Inicio.Date - gi).TotalDays / (gf - gi).TotalDays * 100, 0, 100); var r = Math.Clamp((f.Fin.Date.AddDays(1) - gi).TotalDays / (gf - gi).TotalDays * 100, 0, 100); }
+                                <i class="cp-gantt-barra @(f.EsResumen ? "resumen" : "") @(verCritica && f.Critica ? "critica" : "") @(f.EsHito ? "hito" : "")" style="left:@l.ToString(System.Globalization.CultureInfo.InvariantCulture)%;width:@Math.Max(0.6, r - l).ToString(System.Globalization.CultureInfo.InvariantCulture)%">
+                                    @if (f.Avance is decimal rr && !f.EsResumen && !f.EsHito) { <b style="width:@((int)Math.Round(rr * 100))%"></b> }
+                                </i>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+<div class="cp-filtros">
+    @if (S.Programas.Count > 0)
+    {
+        <select class="form-select form-select-sm" style="max-width:320px" value="@progId" @onchange="CambiarVersion" disabled="@Editando">
+            @foreach (var p in S.Programas.OrderByDescending(p => p.Version))
+            {
+                <option value="@p.Id">v@(p.Version) · @FormatoCostos.Fecha(p.Fecha) · @p.Nombre@(p.LineaBase ? " · línea base" : "")@(p.Vigente ? " · vigente" : "")</option>
+            }
+        </select>
+    }
+    <button type="button" class="btn btn-sm btn-outline-secondary @(verCarga ? "active" : "")" title="Cargar una versión desde MS Project (XML)" @onclick="() => { verCarga = !verCarga; plan = null; }"><Ico Nombre="importar" /></button>
+    <button type="button" class="btn btn-sm btn-outline-secondary @(verBitacora ? "active" : "")" title="Bitácora de cambios" @onclick="() => verBitacora = !verBitacora"><Ico Nombre="versiones" /> @S.CambiosPrograma.Count(c => c.ProgramaTrabajoId == progId)</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary @(verCritica ? "active" : "")" title="Ruta crítica" @onclick="() => verCritica = !verCritica"><Ico Nombre="ruta-critica" /></button>
+    @if (S.Programas.FirstOrDefault(p => p.Id == progId) is { LineaBase: false } pv)
+    {
+        <button type="button" class="btn btn-sm btn-outline-secondary" title="Fijar v@(pv.Version) como línea base" @onclick="FijarLineaBase"><Ico Nombre="candado" /></button>
+    }
+    <input class="form-control form-control-sm" style="max-width:200px" placeholder="Buscar tarea…" @bind="buscar" @bind:event="oninput" />
+    <select class="form-select form-select-sm" style="max-width:160px" @bind="estado">
+        <option value="">Todos los estados</option>
+        @foreach (var e in new[] { "Atrasada", "En curso", "Terminada", "Por iniciar", "Sin registro" }) { <option value="@e">@e</option> }
+    </select>
+    <label class="cp-check"><input type="checkbox" @bind="soloSinLigar" /> Sin ítem</label>
+    @if (filas.Count > 0)
+    {
+        <span class="cp-sub ms-auto">@filas.Count(f => !f.A.EsResumen) tareas · @filas.Count(f => f.Estado == "Atrasada") atrasadas · programado al corte @FormatoCostos.Millones(programado) · ejecutado @FormatoCostos.Millones(S.ProduccionAcumulada(Corte))</span>
+    }
+</div>
+
+@if (verCarga)
+{
+    <div class="panel-formulario cp-panel">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <InputFile class="form-control form-control-sm" style="max-width:360px" accept=".xml" OnChange="LeerXml" disabled="@cargando" />
+            <input class="form-control form-control-sm" style="max-width:260px" placeholder="Motivo (reprogramación, otrosí…)" @bind="motivo" />
+            <input class="form-control form-control-sm" style="max-width:200px" placeholder="Aprobado por" @bind="aprobado" />
+            @if (cargando) { <span class="spinner-border spinner-border-sm"></span> }
+        </div>
+        @if (plan is { } pl)
+        {
+            <div class="cp-imp-res mt-2">
+                <div><b>@pl.Titulo</b> · @pl.Tareas.Count tareas (@pl.Hojas sin resumen) · @pl.ConItem con ítem · @pl.ConTorre con torre · @FormatoCostos.Fecha(pl.Tareas.Min(t => (DateTime?)t.Inicio)) – @FormatoCostos.Fecha(pl.Tareas.Max(t => (DateTime?)t.Fin))</div>
+                @foreach (var a in pl.Avisos) { <div class="cp-sub">@a</div> }
+                <div class="cp-sub">@(S.Programas.Count == 0 ? "Será la línea base (versión 1)." : $"Será la versión {S.Programas.Max(p => p.Version) + 1}; la bitácora anotará lo que cambió frente a la vigente.")</div>
+                <div class="frm-pie frm-pie-plano">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Descartar" @onclick="() => plan = null"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="btn btn-sm btn-primary" title="Guardar como versión nueva" disabled="@cargando" @onclick="AplicarXml"><Ico Nombre="guardar" /></button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (verBitacora)
+{
+    <div class="panel-formulario cp-panel">
+        <div class="cp-panel-tit">Bitácora · v@(S.Programas.FirstOrDefault(p => p.Id == progId)?.Version) <span class="cp-sub">@S.Programas.FirstOrDefault(p => p.Id == progId)?.Motivo</span></div>
+        <div class="tabla-scroll" style="max-height:260px">
+            <table class="table table-sm cp-tabla mb-0">
+                <thead><tr><th>Fecha</th><th>Tarea</th><th>Cambio</th><th>Antes</th><th>Después</th><th>Motivo</th><th>Quién</th></tr></thead>
+                <tbody>
+                    @foreach (var c in S.CambiosPrograma.Where(c => c.ProgramaTrabajoId == progId).OrderByDescending(c => c.Fecha).ThenByDescending(c => c.Id).Take(500))
+                    {
+                        <tr>
+                            <td>@c.Fecha.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@(c.ActividadProgramaId is int aid ? S.ActividadesPrograma.FirstOrDefault(a => a.Id == aid)?.Nombre : "")</td>
+                            <td>@c.Campo</td><td>@c.Antes</td><td>@c.Despues</td><td class="cp-sub">@c.Motivo</td><td class="cp-sub">@c.Usuario</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (filas.Count == 0)
+{
+    <div class="cp-sub p-3">Sin programa. Cárguelo desde MS Project (Archivo › Guardar como › Formato XML) o créelo con Editar.</div>
+}
+else
+{
+    <div class="tabla-scroll tabla-auto cp-marco">
+        <table class="table table-sm cp-tabla cp-programa">
+            <thead class="tabla-pin">
+                <tr>
+                    <th class="cp-num">#</th><th class="cp-fija">Tarea</th><th class="cp-num">Dur. (d)</th><th>Predecesoras</th><th>Actividad de obra</th><th>Ítem</th><th>Torre / tiro</th><th>Inicio</th><th>Fin</th><th>Fin base</th><th class="cp-num">Desvío (d)</th>
+                    <th class="cp-num">Cantidad</th><th class="cp-num">Ejecutada</th><th class="cp-num">% prog.</th><th class="cp-num" title="% completado según Project">% Project</th><th class="cp-num">% real</th><th>Estado</th>
+                    <th class="cp-gantt-th">@FormatoCostos.Fecha(ini) – @FormatoCostos.Fecha(fin)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in Visibles)
+                {
+                    var a = f.A;
+                    var cr = crit.GetValueOrDefault(a.Id);
+                    <tr class="@(a.EsResumen ? "cp-total" : "")">
+                        <td class="cp-num cp-sub">@numero.GetValueOrDefault(a.Id)</td>
+                        <td class="cp-fija cp-tarea" style="padding-left:@(4 + Math.Max(0, a.Nivel - 1) * 14)px" title="@a.Nombre">@(a.Wbs is null ? "" : a.Wbs + " ")@a.Nombre</td>
+                        <td class="cp-num">@(a.EsResumen ? "" : cr.Hito ? "hito" : cr.Dur.ToString())</td>
+                        <td class="cp-sub">@cr.Preds</td>
+                        <td class="cp-sub">@(a.ActividadObraId is int ao ? S.ActividadesObra.FirstOrDefault(x => x.Id == ao)?.Nombre : "")</td>
+                        <td>
+                            <span title="@(a.ItemPagoId is int ii ? S.ItemPorId.GetValueOrDefault(ii)?.Descripcion : "")">@(a.ItemPagoId is int ii2 ? S.ItemPorId.GetValueOrDefault(ii2)?.Codigo : "")</span>
+                        </td>
+                        <td>@(a.TiroId is int ti ? S.Tiros.FirstOrDefault(x => x.Id == ti)?.Nombre : S.NombreTorre(a.ElementoTrazadoId))</td>
+                        <td>@FormatoCostos.Fecha(a.Inicio)</td>
+                        <td>@FormatoCostos.Fecha(a.Fin)</td>
+                        <td class="cp-sub">@FormatoCostos.Fecha(f.FinBase)</td>
+                        <td class="cp-num @(f.DesvioFin > 0 ? "cp-sobre" : "")">@(f.DesvioFin is int dv && dv != 0 ? dv.ToString("+0;-0") : "")</td>
+                        <td class="cp-num">
+                            @if (!a.EsResumen) { @FormatoCostos.Num(a.Cantidad, 2) }
+                        </td>
+                        <td class="cp-num">@(a.EsResumen ? "" : FormatoCostos.Num(f.Ejecutada, 2))</td>
+                        <td class="cp-num">@FormatoCostos.Pct(f.Programado, 0)</td>
+                        <td class="cp-num cp-sub">@FormatoCostos.Pct(a.AvanceProject, 0)</td>
+                        <td class="cp-num" style="background:@FormatoCostos.ColorPct(f.Real)">@FormatoCostos.Pct(f.Real, 0)</td>
+                        <td><span class="cp-estado cp-pdt-@Clase(f.Estado)">@f.Estado</span></td>
+                        <td class="cp-gantt">
+                            <div class="cp-gantt-pista">
+                                <i class="cp-gantt-barra @(a.EsResumen ? "resumen" : "") @(verCritica && cr.Critica ? "critica" : "") @(cr.Hito ? "hito" : "")" style="left:@Pos(a.Inicio)%;width:@Ancho(a.Inicio, a.Fin)%">
+                                    @if (f.Real is decimal rr) { <b style="width:@((int)Math.Round(rr * 100))%"></b> }
+                                </i>
+                                <s style="left:@Pos(Corte)%"></s>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+}
+
+
+@code {
+    private int progId;
+    private List<InstantaneaCostos.SeguimientoTarea> filas = new();
+    private List<ItemPago> items = new();
+    private decimal programado;
+    private DateTime ini, fin;
+    private string buscar = "", estado = "";
+    private bool soloSinLigar, verCarga, verBitacora, cargando, verCritica = true;
+    private PlanPrograma? plan;
+    private string? motivo, aprobado;
+
+    // Vista: n.º de fila, duración, predecesoras y ruta crítica (motor sobre una copia; no cambia fechas guardadas).
+    private sealed record InfoTarea(int Dur, bool Hito, string Preds, bool Critica);
+    private Dictionary<int, InfoTarea> crit = new();
+    private Dictionary<int, int> numero = new();
+
+    // Edición tipo Project.
+    private EdicionPrograma? ed;
+    private int sel = -1;
+    private bool versionNueva = true, verCalendario;
+    private string nombreProg = "", msgEd = "";
+
+    public override bool PuedeAgregar => Editando;
+    public override bool PuedeEditar => true;
+    public override string? SelectorExportar => "table.cp-programa";
+
+    private ProgramaTrabajo? Actual => S.Programas.FirstOrDefault(p => p.Id == progId);
+
+    private IEnumerable<InstantaneaCostos.SeguimientoTarea> Visibles => filas.Where(f =>
+        (buscar.Trim() == "" || f.A.Nombre.Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase))
+        && (estado == "" || f.Estado == estado)
+        && (!soloSinLigar || (!f.A.EsResumen && f.A.ItemPagoId is null)));
+
+    protected override void OnParametersSet()
+    {
+        if (!DatosNuevos()) return;
+        items = S.Items.Where(i => !i.EsCapitulo).OrderBy(i => i.Orden).ToList();
+        if (!S.Programas.Any(p => p.Id == progId)) progId = S.ProgramaVigente?.Id ?? 0;
+        Calcular();
+    }
+
+    private void CambiarVersion(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) { progId = id; Calcular(); }
+    }
+
+    private int UidMax => S.ActividadesPrograma.Select(a => a.Uid ?? 0).DefaultIfEmpty(0).Max();
+
+    private void Calcular()
+    {
+        filas = progId == 0 ? new() : S.SeguimientoPrograma(progId, Corte);
+        programado = progId == 0 ? 0 : S.ValorProgramado(progId, Corte);
+        crit = new(); numero = new();
+        if (filas.Count > 0)
+        {
+            ini = filas.Min(f => f.A.Inicio).Date; fin = filas.Max(f => f.A.Fin).Date;
+            if (fin <= ini) fin = ini.AddDays(1);
+            var copia = EdicionPrograma.Desde(Actual, filas.Select(f => f.A), UidMax);
+            var preds = copia.Filas.Select(copia.TextoPreds).ToList();
+            copia.Recalcular();
+            var acts = filas.Select(f => f.A).OrderBy(a => a.Orden).ToList();
+            for (var i = 0; i < acts.Count && i < copia.Filas.Count; i++)
+            {
+                numero[acts[i].Id] = i + 1;
+                var c = copia.Filas[i];
+                crit[acts[i].Id] = new InfoTarea(c.Duracion, c.EsHito, preds[i], c.Critica);
+            }
+        }
+    }
+
+    private double Pos(DateTime d) => Math.Clamp((d.Date - ini).TotalDays / (fin - ini).TotalDays * 100, 0, 100);
+    private double Ancho(DateTime a, DateTime b) => Math.Max(0.6, Pos(b.AddDays(1)) - Pos(a));
+    private static string Clase(string e) => e switch { "Terminada" => "ok", "Atrasada" => "mal", "En curso" => "curso", "Sin registro" => "sin", _ => "por" };
+
+    private async Task LeerXml(InputFileChangeEventArgs e)
+    {
+        cargando = true; plan = null;
+        try
+        {
+            using var ms = new MemoryStream();
+            await e.File.OpenReadStream(80 * 1024 * 1024).CopyToAsync(ms);
+            ms.Position = 0;
+            plan = ImportadorProject.Analizar(Db, S, ms, e.File.Name);
+        }
+        catch (Exception ex) { await OnError.InvokeAsync("No se pudo leer el XML: " + ex.Message); }
+        finally { cargando = false; }
+    }
+
+    private async Task AplicarXml()
+    {
+        if (plan is null) return;
+        if (S.Programas.Count > 0 && string.IsNullOrWhiteSpace(motivo)) { await OnError.InvokeAsync("Escriba el motivo de la nueva versión del programa."); return; }
+        cargando = true;
+        try
+        {
+            var p = await ImportadorProject.AplicarAsync(Db, S, plan, motivo, aprobado);
+            progId = p.Id; plan = null; verCarga = false; motivo = null;
+            await OnCambio.InvokeAsync();
+        }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); await OnError.InvokeAsync("No se pudo guardar el programa: " + (ex.InnerException?.Message ?? ex.Message)); }
+        finally { cargando = false; }
+    }
+
+    private async Task FijarLineaBase()
+    {
+        try { await EdicionPrograma.FijarLineaBaseAsync(Db, progId, null); await OnCambio.InvokeAsync(); }
+        catch (Exception ex) { Db.ChangeTracker.Clear(); await OnError.InvokeAsync("No se pudo fijar la línea base: " + (ex.InnerException?.Message ?? ex.Message)); }
+    }
+
+    // ---------- edición ----------
+    public override Task EditarAsync()
+    {
+        var acts = progId == 0 ? new List<ActividadPrograma>() : S.ActividadesDe(progId);
+        ed = EdicionPrograma.Desde(Actual, acts, UidMax);
+        if (ed.Filas.Count == 0) { ed.Insertar(0, false); ed.Filas[0].Inicio = Corte.Date; ed.Recalcular(); ed.Cambio = false; }
+        else ed.Recalcular();
+        nombreProg = Actual?.Nombre ?? "PDT";
+        versionNueva = true;
+        sel = -1; msgEd = ""; motivo = null;
+        return base.EditarAsync();
+    }
+
+    public override void Cancelar() { ed = null; base.Cancelar(); }
+
+    public override async Task AgregarAsync()
+    {
+        if (ed is null) return;
+        sel = ed.Insertar(sel < 0 ? ed.Filas.Count : sel + 1, false);
+        Recalc();
+        await Avisar();
+    }
+
+    private void Recalc() { if (ed is null) return; ed.Recalcular(); msgEd = string.Join(" ", ed.Errores); }
+    private void Op(Action a) { a(); Recalc(); }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        if (ed is null) return;
+        if (versionNueva && S.Programas.Count > 0 && string.IsNullOrWhiteSpace(motivo)) throw new InvalidOperationException("Escriba el motivo de la nueva versión del programa.");
+        var p = await ed.GuardarAsync(Db, S, progId == 0 ? null : progId, versionNueva, nombreProg, motivo, aprobado);
+        progId = p.Id; ed = null; motivo = null;
+    }
+
+    private void CambiarPreds(EdicionPrograma.Fila f, string? texto)
+    {
+        if (ed is null) return;
+        var err = ed.FijarPreds(f, texto);
+        Recalc();
+        if (err is not null) msgEd = err;
+    }
+}

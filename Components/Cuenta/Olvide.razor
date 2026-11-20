@@ -1,0 +1,81 @@
+@page "/cuenta/olvide"
+@layout LayoutCuenta
+@attribute [AllowAnonymous]
+@using System.Text
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using SigWeb.Data.Seguridad
+@inject UserManager<UsuarioSig> Usuarios
+@inject EnviadorCorreo Correo
+@inject ServicioInvitaciones Invitaciones
+@inject AuditoriaAccesos Auditoria
+@inject NavigationManager Nav
+
+<PageTitle>Recuperar contraseña · SGC Web</PageTitle>
+
+<h1 class="cu-titulo">Recuperar contraseña</h1>
+@if (enviado)
+{
+    <div class="cu-aviso ok" role="status">Si el correo tiene una cuenta activa, le llegará un enlace para crear una contraseña nueva. El enlace vence en 2 horas.</div>
+    <p class="cu-alt"><a class="cu-enlace" href="cuenta/ingresar">Volver a iniciar sesión</a></p>
+}
+else
+{
+    <p class="cu-sub">Le enviaremos un enlace al correo de su cuenta.</p>
+    @if (mensaje is not null)
+    {
+        <div class="cu-aviso error" role="alert">@mensaje</div>
+    }
+    <form method="post" @formname="olvide" @onsubmit="EnviarAsync">
+        <AntiforgeryToken />
+        <div class="cu-campo">
+            <input id="email" name="M.Email" type="email" placeholder=" " autocomplete="username" required maxlength="256" autofocus />
+            <label for="email">Correo electrónico</label>
+        </div>
+        <button type="submit" class="cu-boton">Enviar enlace</button>
+    </form>
+    <p class="cu-alt"><a class="cu-enlace" href="cuenta/ingresar">Volver</a></p>
+}
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "olvide")] private Modelo M { get; set; } = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (int N, DateTime Desde)> Envios = new();
+    private bool enviado;
+    private string? mensaje;
+
+    public sealed class Modelo { public string? Email { get; set; } }
+
+    private async Task EnviarAsync()
+    {
+        var email = ServicioInvitaciones.NormalizarEmail(M.Email ?? "");
+        if (email.Length == 0) { mensaje = "Escriba su correo."; return; }
+
+        var u = await Usuarios.FindByEmailAsync(email);
+        // Respuesta idéntica exista o no la cuenta (no se revela quién está registrado).
+        enviado = true;
+        if (u is null || !u.Activo || u.Anonimizado)
+        {
+            Auditoria.Registrar(HttpContext, "Recuperar contraseña", false, u is null ? "Correo no registrado" : "Cuenta inactiva", u?.Id, email);
+            return;
+        }
+        // Máximo 3 enlaces por correo y hora: evita usar la página para llenar de correos el buzón de alguien.
+        var ahora = DateTime.UtcNow;
+        var (n, desde) = Envios.GetValueOrDefault(email);
+        if (ahora - desde > TimeSpan.FromHours(1)) (n, desde) = (0, ahora);
+        if (n >= 3) { Auditoria.Registrar(HttpContext, "Recuperar contraseña", false, "Límite de enlaces por hora", u.Id, u.Email); return; }
+        Envios[email] = (n + 1, desde);
+        if (Envios.Count > 5000) foreach (var k in Envios.Where(k => ahora - k.Value.Desde > TimeSpan.FromHours(1)).Select(k => k.Key).ToList()) Envios.TryRemove(k, out _);
+
+        var token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(await Usuarios.GeneratePasswordResetTokenAsync(u)));
+        var enlace = $"{Invitaciones.UrlBase(Nav.BaseUri)}/cuenta/restablecer?u={Uri.EscapeDataString(u.Id)}&t={token}";
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        // El correo sale en segundo plano: el tiempo de respuesta no delata si la cuenta existe.
+        _ = Task.Run(() => Correo.EnviarAsync(u.Email!, "Restablecer contraseña de SGC Web", EnviadorCorreo.Plantilla("Restablecer contraseña",
+            "<p>Recibimos una solicitud para cambiar la contraseña de su cuenta. El enlace sirve una vez y vence en 2 horas.</p>" +
+            $"<p style=\"color:#6b7280;font-size:13px\">Solicitado desde la dirección {System.Net.WebUtility.HtmlEncode(ip ?? "desconocida")}. Si no fue usted, ignore este mensaje: su contraseña no cambia.</p>",
+            "Crear contraseña nueva", enlace)));
+        Auditoria.Registrar(HttpContext, "Recuperar contraseña", true, "Enlace enviado", u.Id, u.Email);
+    }
+}

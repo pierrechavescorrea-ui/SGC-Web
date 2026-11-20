@@ -1,0 +1,31 @@
+@* Saltos entre las pantallas de una misma torre: hoja de vida (Trazado), Avance de obra (torre por torre)
+   y Matriz PIE (torre por torre). ElementoId = id de la torre en Trazado. La pantalla actual va marcada. *@
+@if (ElementoId is int id)
+{
+    <span class="pg-vistas" aria-label="Esta torre en otras pantallas">
+        @foreach (var (clave, titulo, icono, href) in Destinos(id))
+        {
+            if (clave == Actual)
+            {
+                <span class="pg-btn activo" title="@titulo (aquí)" aria-current="page"><Ico Nombre="@icono" /></span>
+            }
+            else
+            {
+                <a class="pg-btn" href="@href" title="@titulo"><Ico Nombre="@icono" /></a>
+            }
+        }
+    </span>
+}
+
+@code {
+    [Parameter] public int? ElementoId { get; set; }
+    // "hdv" | "avance" | "pie"
+    [Parameter] public string? Actual { get; set; }
+
+    private static IEnumerable<(string, string, string, string)> Destinos(int id)
+    {
+        yield return ("hdv", "Hoja de vida de la torre", "informacion", $"trazado?torre={id}&hdv=true");
+        yield return ("avance", "Avance de obra de la torre", "torre", $"avance-obra?vista=torre&torre={id}");
+        yield return ("pie", "Matriz PIE de la torre", "tablero", $"matriz-pie?vista=torre&elemento={id}");
+    }
+}

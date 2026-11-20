@@ -1,0 +1,65 @@
+@* Selector de ícono de la galería de módulos (Data/Iconos/GaleriaIconosModulo): buscador, categorías y rejilla.
+   Uso: <SelectorIconoModulo @bind-Valor="modulo.Icono" />. Valor = clave del ícono (null = ninguno elegido).
+   Los íconos se pintan con el mismo trazo del menú (stroke 1.6, currentColor), así se ven como quedarán. *@
+@using SigWeb.Data.Iconos
+
+<div class="gi" data-sin-flotante>
+    <div class="gi-barra">
+        <div class="gi-buscar">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+            <input type="search" class="form-control form-control-sm" placeholder="Buscar ícono (torre, concreto, casco…)" aria-label="Buscar ícono"
+                   value="@texto" @oninput="e => texto = e.Value?.ToString()" />
+        </div>
+        @if (Seleccionado is { } sel)
+        {
+            <div class="gi-actual" title="Ícono elegido">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)sel.Trazos)</svg>
+                <span>@sel.Nombre</span>
+            </div>
+        }
+    </div>
+    <div class="gi-cats" role="tablist">
+        <button type="button" class="gi-cat @(categoria is null ? "activa" : null)" @onclick="() => categoria = null">Todas <small>@GaleriaIconosModulo.Todos.Count</small></button>
+        @foreach (var c in GaleriaIconosModulo.Categorias)
+        {
+            var n = GaleriaIconosModulo.Todos.Count(i => i.Categoria == c);
+            if (n == 0) continue;
+            <button type="button" class="gi-cat @(categoria == c ? "activa" : null)" @onclick="() => categoria = c">@c <small>@n</small></button>
+        }
+    </div>
+    @{ var lista = GaleriaIconosModulo.Buscar(texto, categoria).ToList(); }
+    @if (lista.Count == 0)
+    {
+        <div class="gi-vacio">Ningún ícono coincide con «@texto».</div>
+    }
+    else
+    {
+        <div class="gi-rejilla" role="listbox" aria-label="Íconos">
+            @foreach (var i in lista)
+            {
+                var activo = string.Equals(i.Clave, Valor, StringComparison.OrdinalIgnoreCase);
+                <button type="button" role="option" aria-selected="@(activo ? "true" : "false")" class="gi-ico @(activo ? "activo" : null)"
+                        title="@i.Nombre · @i.Categoria" @onclick="() => ElegirAsync(i.Clave)">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)i.Trazos)</svg>
+                    <span class="gi-nombre">@i.Nombre</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Valor { get; set; }
+    [Parameter] public EventCallback<string?> ValorChanged { get; set; }
+
+    private string? texto;
+    private string? categoria;
+
+    private IconoModulo? Seleccionado => GaleriaIconosModulo.De(Valor);
+
+    private async Task ElegirAsync(string clave)
+    {
+        Valor = clave;
+        await ValorChanged.InvokeAsync(clave);
+    }
+}

@@ -1,0 +1,97 @@
+@* Campos de una auditoría (alta desde el programa y edición en su pantalla). No guarda nada:
+   quien lo usa llama a ServicioAuditorias.GuardarAuditoriaAsync. *@
+@using SigWeb.Models
+@using SigWeb.Data.Auditorias
+
+<DisenoFormulario Clave="auditorias" Fila="Modelo.Auditoria.Id">
+<SeccionFormulario Titulo="Auditoría">
+    <CampoFormulario Etiqueta="Código" Ancho="col-md-2" Destacado="true">
+        <input class="form-control" @bind="A.Codigo" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Tipo" Ancho="col-md-3">
+        <select class="form-select" @bind="A.Tipo">
+            <option value=""></option>
+            @foreach (var o in OpcionesAuditoria.ConActual(Op.Tipos, A.Tipo)) { <option value="@o">@o</option> }
+        </select>
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Modalidad" Ancho="col-md-2">
+        <select class="form-select" @bind="A.Modalidad">
+            <option value=""></option>
+            @foreach (var o in OpcionesAuditoria.ConActual(Op.Modalidades, A.Modalidad)) { <option value="@o">@o</option> }
+        </select>
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Mes programado" Ancho="col-md-2" Obligatorio="true">
+        <select class="form-select" @bind="A.Mes">
+            @for (int m = 1; m <= 12; m++) { <option value="@m">@EscalaAuditoria.Mes(m)</option> }
+        </select>
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Proyecto o frente" Ancho="col-md-3">
+        <input class="form-control" @bind="A.Proyecto" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Inicio" Ancho="col-md-2">
+        <input type="date" class="form-control" @bind="A.FechaInicio" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Fin" Ancho="col-md-2">
+        <input type="date" class="form-control" @bind="A.FechaFin" />
+    </CampoFormulario>
+    @if (MostrarEstado)
+    {
+        <CampoFormulario Etiqueta="Estado" Ancho="col-md-3">
+            <select class="form-select" @bind="A.Estado">
+                @foreach (var e in Enum.GetValues<EstadoAuditoria>()) { <option value="@e">@EscalaAuditoria.Nombre(e)</option> }
+            </select>
+        </CampoFormulario>
+        <CampoFormulario Etiqueta="Motivo del cambio (reprogramación o cancelación)" Ancho="col-md-5">
+            <input class="form-control" @bind="Modelo.Motivo" />
+        </CampoFormulario>
+    }
+</SeccionFormulario>
+
+<SeccionFormulario Titulo="Alcance y criterios">
+    <CampoFormulario Etiqueta="Procesos" Ancho="col-md-6">
+        <SelectorMultiple Valores="Modelo.Procesos" Opciones="Op.Procesos" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Normas" Ancho="col-md-6">
+        <SelectorMultiple Valores="Modelo.Normas" Opciones="Op.Normas" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Lugares" Ancho="col-md-12">
+        <SelectorLugares Lugares="Modelo.Lugares" Torres="Op.Torres" Componentes="Op.Componentes" Localizaciones="Op.Localizaciones" Tiros="Op.Tiros" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Objetivo" Ancho="col-md-6">
+        <textarea class="form-control" rows="2" @bind="A.Objetivo"></textarea>
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Alcance (actividades, periodo auditado, exclusiones)" Ancho="col-md-6">
+        <textarea class="form-control" rows="2" @bind="A.Alcance"></textarea>
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Criterios (numerales, procedimientos, plan de calidad, especificaciones)" Ancho="col-md-12">
+        <textarea class="form-control" rows="2" @bind="A.Criterios"></textarea>
+    </CampoFormulario>
+</SeccionFormulario>
+
+<SeccionFormulario Titulo="Equipo auditor">
+    <CampoFormulario Etiqueta="Auditor líder" Ancho="col-md-4">
+        <input class="form-control" list="dl-au-personas" @bind="A.AuditorLider" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Auditores" Ancho="col-md-8">
+        <SelectorMultiple Valores="Modelo.Auditores" Opciones="Op.Personas" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Experto técnico" Ancho="col-md-4">
+        <input class="form-control" @bind="A.ExpertoTecnico" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Observadores" Ancho="col-md-4">
+        <input class="form-control" @bind="A.Observadores" />
+    </CampoFormulario>
+    <CampoFormulario Etiqueta="Auditados (cargos o personas)" Ancho="col-md-4">
+        <input class="form-control" @bind="A.Auditados" />
+    </CampoFormulario>
+    <datalist id="dl-au-personas">@foreach (var o in Op.Personas) { <option value="@o"></option> }</datalist>
+</SeccionFormulario>
+
+</DisenoFormulario>
+@code {
+    [Parameter, EditorRequired] public ServicioAuditorias.AuditoriaEditable Modelo { get; set; } = default!;
+    [Parameter, EditorRequired] public OpcionesAuditoria Op { get; set; } = default!;
+    [Parameter] public bool MostrarEstado { get; set; }
+
+    private Auditoria A => Modelo.Auditoria;
+}

@@ -1,0 +1,187 @@
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+@inject IJSRuntime JS
+
+@* Tablero (hoja INFORME): KPI del contrato al corte, resumen del día y acumulado, curva S semanal
+   (producción, costo y facturación) y avance por cuadrilla. Todo sale de la instantánea. *@
+
+<div class="cp-kpis">
+    <div class="cp-kpi"><span class="cp-kpi-tit">Valor del contrato</span><span class="cp-kpi-val">@FormatoCostos.Millones(contrato)</span><span class="cp-kpi-sub">@S.Config.Contrato</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit">Producción acumulada</span><span class="cp-kpi-val">@FormatoCostos.Millones(acum.Ingreso)</span><span class="cp-kpi-sub">@FormatoCostos.Pct(contrato > 0 ? acum.Ingreso / contrato : null) del contrato</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit">Facturado</span><span class="cp-kpi-val">@FormatoCostos.Millones(facturado)</span><span class="cp-kpi-sub">por facturar @FormatoCostos.Millones(acum.Ingreso - facturado)</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit">Costo total</span><span class="cp-kpi-val">@FormatoCostos.Millones(acum.TotalCosto)</span><span class="cp-kpi-sub">directo @FormatoCostos.Millones(acum.CostoDirecto)</span></div>
+    <div class="cp-kpi @(acum.Ebitda < 0 ? "cp-neg" : "")"><span class="cp-kpi-tit">EBITDA</span><span class="cp-kpi-val">@FormatoCostos.Millones(acum.Ebitda)</span><span class="cp-kpi-sub">@FormatoCostos.Pct(acum.Ingreso > 0 ? acum.Ebitda / acum.Ingreso : null)</span></div>
+    <div class="cp-kpi @(acum.Utilidad < 0 ? "cp-neg" : "")"><span class="cp-kpi-tit">Utilidad</span><span class="cp-kpi-val">@FormatoCostos.Millones(acum.Utilidad)</span><span class="cp-kpi-sub">@FormatoCostos.Pct(acum.Ingreso > 0 ? acum.Utilidad / acum.Ingreso : null)</span></div>
+</div>
+@if (avisoAlcance is not null) { <div class="cp-aviso">@avisoAlcance</div> }
+@* Valor ganado (InstantaneaCostos.Evm): avance físico a precios constantes, desempeño de costo y plazo y pronóstico al cierre. *@
+<div class="cp-kpis cp-kpis-evm">
+    <div class="cp-kpi"><span class="cp-kpi-tit" title="Σ ejecutado × precio del año base / Σ cantidad vigente × precio del año base">Avance físico</span><span class="cp-kpi-val">@FormatoCostos.Pct(evm.AvanceFisico)</span><span class="cp-kpi-sub">@(evm.AvanceProgramado is decimal ap ? "programado " + FormatoCostos.Pct(ap) : "sin PDT con valores")</span></div>
+    <div class="cp-kpi @(evm.Cpi < 1 ? "cp-neg" : "")"><span class="cp-kpi-tit" title="Valor ganado / costo causado (1 = según presupuesto)">CPI</span><span class="cp-kpi-val">@FormatoCostos.Num(evm.Cpi, 2)</span><span class="cp-kpi-sub">valor ganado @FormatoCostos.Millones(evm.Ev)</span></div>
+    <div class="cp-kpi @(evm.Spi < 1 ? "cp-neg" : "")"><span class="cp-kpi-tit" title="Valor ganado / valor planeado del PDT vigente">SPI</span><span class="cp-kpi-val">@(evm.Spi is null ? "—" : FormatoCostos.Num(evm.Spi, 2))</span><span class="cp-kpi-sub">@(evm.Pv is decimal pv ? "planeado " + FormatoCostos.Millones(pv) : "cargue el PDT")</span></div>
+    <div class="cp-kpi"><span class="cp-kpi-tit" title="Presupuesto de costo vigente (Σ códigos)">Presupuesto (BAC)</span><span class="cp-kpi-val">@FormatoCostos.Millones(evm.Bac)</span><span class="cp-kpi-sub">causado @FormatoCostos.Millones(evm.Ac)</span></div>
+    <div class="cp-kpi @(evm.Vac < 0 ? "cp-neg" : "")"><span class="cp-kpi-tit" title="AC + (BAC − EV) / CPI">Costo al cierre (EAC)</span><span class="cp-kpi-val">@FormatoCostos.Millones(evm.Eac)</span><span class="cp-kpi-sub">variación @FormatoCostos.Millones(evm.Vac)</span></div>
+    <div class="cp-kpi @(utilProy < 0 ? "cp-neg" : "")"><span class="cp-kpi-tit" title="Contrato − EAC − indirectos e impuestos al % causado hasta hoy sobre el ingreso">Utilidad proyectada</span><span class="cp-kpi-val">@FormatoCostos.Millones(utilProy)</span><span class="cp-kpi-sub">@FormatoCostos.Pct(contrato > 0 && utilProy is decimal u ? u / contrato : null) del contrato</span></div>
+</div>
+
+<div class="cp-tablero">
+    <div class="cp-caja cp-caja-ancha">
+        <div class="cp-panel-tit">Curva S <span class="cp-sub">acumulado semanal hasta el @FormatoCostos.Fecha(Corte)</span></div>
+        <div class="cp-graf"><canvas id="cp-g-curva"></canvas></div>
+    </div>
+    <div class="cp-caja">
+        <div class="cp-panel-tit">Estado de resultados</div>
+        <table class="table table-sm cp-tabla cp-resultados mb-0">
+            <thead><tr><th></th><th class="cp-num">Día @FormatoCostos.Fecha(Corte)</th><th class="cp-num">Acumulado</th></tr></thead>
+            <tbody>
+                <tr><td>Ingreso (producción)</td><td class="cp-num">@FormatoCostos.Dinero(dia.Ingreso)</td><td class="cp-num">@FormatoCostos.Dinero(acum.Ingreso)</td></tr>
+                <tr><td>Costo directo</td><td class="cp-num">@FormatoCostos.Dinero(dia.CostoDirecto)</td><td class="cp-num">@FormatoCostos.Dinero(acum.CostoDirecto)</td></tr>
+                <tr><td>Overhead</td><td class="cp-num">@FormatoCostos.Dinero(dia.Overhead)</td><td class="cp-num">@FormatoCostos.Dinero(acum.Overhead)</td></tr>
+                <tr><td>Sostenimiento</td><td class="cp-num">@FormatoCostos.Dinero(dia.Sostenimiento)</td><td class="cp-num">@FormatoCostos.Dinero(acum.Sostenimiento)</td></tr>
+                <tr class="cp-total"><td>Total costo</td><td class="cp-num">@FormatoCostos.Dinero(dia.TotalCosto)</td><td class="cp-num">@FormatoCostos.Dinero(acum.TotalCosto)</td></tr>
+                <tr class="cp-total"><td>EBITDA</td><td class="cp-num">@FormatoCostos.Dinero(dia.Ebitda)</td><td class="cp-num">@FormatoCostos.Dinero(acum.Ebitda)</td></tr>
+                <tr><td>Impuestos y financiación</td><td class="cp-num">@FormatoCostos.Dinero(dia.Impuestos)</td><td class="cp-num">@FormatoCostos.Dinero(acum.Impuestos)</td></tr>
+                <tr class="cp-total"><td>Utilidad</td><td class="cp-num">@FormatoCostos.Dinero(dia.Utilidad)</td><td class="cp-num">@FormatoCostos.Dinero(acum.Utilidad)</td></tr>
+                <tr><td>PF1 (personal + costos fijos)</td><td class="cp-num">@FormatoCostos.Dinero(pf1)</td><td></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="cp-caja">
+        <div class="cp-panel-tit">Por cuadrilla <span class="cp-sub">día · acumulado</span></div>
+        <table class="table table-sm cp-tabla mb-0">
+            <thead><tr><th>Cuadrilla</th><th class="cp-num">Producción día</th><th class="cp-num">Costo día</th><th class="cp-num">Producción acum.</th></tr></thead>
+            <tbody>
+                @foreach (var c in cuadrillas)
+                {
+                    <tr><td>@c.Nombre</td><td class="cp-num">@FormatoCostos.Dinero(c.ProdDia)</td><td class="cp-num">@FormatoCostos.Dinero(c.CostoDia)</td><td class="cp-num">@FormatoCostos.Dinero(c.ProdAcum)</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <div class="cp-caja">
+        <div class="cp-panel-tit">Presupuesto por grupo</div>
+        <table class="table table-sm cp-tabla mb-0">
+            <thead><tr><th>Grupo</th><th class="cp-num">Actual</th><th class="cp-num">Acumulado</th><th class="cp-num">% ejec.</th></tr></thead>
+            <tbody>
+                @foreach (var g in grupos)
+                {
+                    var p = g.Actual > 0 ? g.Acumulado / g.Actual : (decimal?)null;
+                    <tr><td>@g.Nombre</td><td class="cp-num">@FormatoCostos.Millones(g.Actual)</td><td class="cp-num">@FormatoCostos.Millones(g.Acumulado)</td><td class="cp-num" style="background:@FormatoCostos.ColorPct(p is decimal x ? 1 - Math.Max(0, x - 1) * 5 : null)">@FormatoCostos.Pct(p)</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter] public InstantaneaCostos S { get; set; } = default!;
+    [Parameter] public DateTime Corte { get; set; }
+
+    private sealed record FilaCuadrilla(string Nombre, decimal ProdDia, decimal CostoDia, decimal ProdAcum);
+
+    private decimal contrato, facturado, pf1;
+    private decimal? utilProy;
+    private string? avisoAlcance;
+    private InstantaneaCostos.Evm evm = new(0, 0, null, 0, null, 0);
+    private InstantaneaCostos.Resumen acum = new(0, 0, 0, 0, 0), dia = new(0, 0, 0, 0, 0);
+    private List<FilaCuadrilla> cuadrillas = new();
+    private List<InstantaneaCostos.FilaPresupuesto> grupos = new();
+    private (string Clave, object Config)? grafico;
+
+    private InstantaneaCostos? sPrevia; private DateTime cortePrevio; private bool? montajePrevio;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(S, sPrevia) && Corte == cortePrevio && montajePrevio == false) return;
+        sPrevia = S; cortePrevio = Corte; montajePrevio = false;
+        contrato = S.Config.ValorContrato ?? S.ValorContrato(Corte);
+        facturado = S.Facturado(Corte);
+        acum = S.ResumenAcumulado(Corte);
+        dia = S.ResumenDia(Corte, Corte);
+        pf1 = S.Pf1Dia(Corte);
+        evm = S.ValorGanado(Corte);
+        avisoAlcance = S.AvisoAlcance(Corte);
+        // Indirectos e impuestos del cierre: el mismo % sobre el ingreso que llevan causado (SUPUESTO).
+        var pctInd = acum.Ingreso > 0 ? (acum.Overhead + acum.Sostenimiento + acum.Impuestos) / acum.Ingreso : 0m;
+        utilProy = evm.Eac is decimal eac ? contrato - eac - contrato * pctInd : null;
+        grupos = S.Presupuesto(Corte).Where(f => f.EsTotal).ToList();
+
+        var regs = S.RegistrosHasta(Corte).ToList();
+        cuadrillas = regs.Select(r => InstantaneaCostos.Norm(r.Cuadrilla))
+            .Concat(S.Costos.Where(c => InstantaneaCostos.Vigente(c, Corte)).Select(c => InstantaneaCostos.Norm(c.Cuadrilla)))
+            .Concat(S.Personas.Where(p => InstantaneaCostos.Activa(p, Corte)).Select(p => InstantaneaCostos.Norm(p.Cuadrilla)))
+            .Distinct().OrderBy(c => c)
+            .Select(c => new FilaCuadrilla(c == "" ? "(sin cuadrilla)" : c,
+                regs.Where(r => r.Fecha.Date == Corte.Date && InstantaneaCostos.Norm(r.Cuadrilla) == c).Sum(r => S.Valor(r, Corte)),
+                S.CostoDia(Corte, c),
+                regs.Where(r => InstantaneaCostos.Norm(r.Cuadrilla) == c).Sum(r => S.Valor(r, Corte))))
+            .Where(f => f.ProdDia != 0 || f.CostoDia != 0 || f.ProdAcum != 0)
+            .ToList();
+
+        grafico = ("cp-g-curva", CurvaS(regs));
+    }
+
+    // Curva S semanal: producción, costo total (directo + indirectos) y facturado acumulados, y el
+    // valor del contrato como referencia.
+    private object CurvaS(List<RegistroCantidad> regs)
+    {
+        var ini = S.Config.Inicio ?? (regs.Count > 0 ? regs.Min(r => r.Fecha) : Corte.AddMonths(-3));
+        ini = ini.Date;
+        var puntos = new List<DateTime>();
+        for (var f = ini.AddDays(6); f < Corte.Date; f = f.AddDays(7)) puntos.Add(f);
+        puntos.Add(Corte.Date);
+
+        var etiquetas = puntos.Select(p => p.ToString("dd/MM/yy")).ToList();
+        var pdt = S.ProgramaVigente; var lb = S.LineaBase;
+        var programado = new List<decimal?>(); var lineaBase = new List<decimal?>();
+        var prod = new List<decimal>(); var costo = new List<decimal>(); var fact = new List<decimal>(); var meta = new List<decimal?>();
+        // Meta: arranca en la producción real del día anterior al primer periodo con meta y suma la meta.
+        var conMeta = S.Metas.Count > 0;
+        var iniMeta = conMeta ? S.Metas.Min(m => m.Desde).Date : DateTime.MaxValue;
+        decimal metaAcum = conMeta ? S.ResumenAcumulado(iniMeta.AddDays(-1)).Ingreso : 0; var previo = iniMeta.AddDays(-1);
+        foreach (var p in puntos)
+        {
+            if (conMeta && p >= iniMeta) { metaAcum += S.MetaProduccion(previo.AddDays(1), p, Corte); previo = p; }
+            programado.Add(pdt is null ? null : Math.Round(S.ValorProgramado(pdt.Id, p) / 1_000_000m, 1));
+            lineaBase.Add(lb is null || lb.Id == pdt?.Id ? null : Math.Round(S.ValorProgramado(lb.Id, p) / 1_000_000m, 1));
+            meta.Add(conMeta && p >= iniMeta.AddDays(-7) ? Math.Round(metaAcum / 1_000_000m, 1) : null);
+            var r = S.ResumenAcumulado(p);
+            prod.Add(Math.Round(r.Ingreso / 1_000_000m, 1));
+            costo.Add(Math.Round(r.TotalCosto / 1_000_000m, 1));
+            fact.Add(Math.Round(S.Facturado(p) / 1_000_000m, 1));
+        }
+        return new
+        {
+            type = "line",
+            data = new
+            {
+                labels = etiquetas,
+                datasets = new object[]
+                {
+                    new { label = "Producción", data = prod, borderColor = "#2e7d32", backgroundColor = "#2e7d32", tension = 0.25, pointRadius = 0 },
+                    new { label = "Costo total", data = costo, borderColor = "#EC1C24", backgroundColor = "#EC1C24", tension = 0.25, pointRadius = 0 },
+                    new { label = "Meta de producción", data = meta, borderColor = "#6b7686", backgroundColor = "#6b7686", borderDash = new[] { 4, 4 }, tension = 0.25, pointRadius = 0, hidden = !conMeta },
+                    new { label = "Programado (PDT vigente)", data = programado, borderColor = "#f57c00", backgroundColor = "#f57c00", tension = 0.25, pointRadius = 0, hidden = pdt is null },
+                    new { label = "Línea base", data = lineaBase, borderColor = "#bf8a50", backgroundColor = "#bf8a50", borderDash = new[] { 2, 3 }, tension = 0.25, pointRadius = 0, hidden = lb is null || lb.Id == pdt?.Id },
+                    new { label = "Facturado", data = fact, borderColor = "#1565c0", backgroundColor = "#1565c0", stepped = true, pointRadius = 0 },
+                }
+            },
+            options = new
+            {
+                responsive = true, maintainAspectRatio = false,
+                interaction = new { mode = "index", intersect = false },
+                plugins = new { legend = new { position = "bottom" } },
+                scales = new { y = new { title = new { display = true, text = "Millones $" } } }
+            }
+        };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (grafico is { } g)
+        {
+            grafico = null;
+            try { await JS.InvokeVoidAsync("sigwebRenderGrafico", g.Clave, g.Config); } catch (JSDisconnectedException) { } catch (JSException) { }
+        }
+    }
+}

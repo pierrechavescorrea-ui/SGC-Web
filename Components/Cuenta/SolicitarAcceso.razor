@@ -1,0 +1,108 @@
+@page "/cuenta/solicitar-acceso"
+@layout LayoutCuenta
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Seguridad
+@inject SeguridadDbContext Db
+@inject UserManager<UsuarioSig> Usuarios
+@inject EnviadorCorreo Correo
+@inject ServicioInvitaciones Invitaciones
+@inject AuditoriaAccesos Auditoria
+@inject NavigationManager Nav
+
+<PageTitle>Solicitar acceso · SGC Web</PageTitle>
+
+<h1 class="cu-titulo">Solicitar acceso</h1>
+@if (listo)
+{
+    <div class="cu-aviso ok" role="status">Solicitud recibida. Si el administrador la aprueba, le llegará una invitación al correo.</div>
+    <p class="cu-alt"><a class="cu-enlace" href="cuenta/ingresar">Volver</a></p>
+}
+else
+{
+    <p class="cu-sub">El administrador revisa cada solicitud y, si procede, le envía una invitación.</p>
+    @if (mensaje is not null)
+    {
+        <div class="cu-aviso error" role="alert">@mensaje</div>
+    }
+    <form method="post" @formname="solicitar" @onsubmit="EnviarAsync">
+        <AntiforgeryToken />
+        <div class="cu-campo">
+            <input id="nombre" name="M.Nombre" type="text" value="@M.Nombre" placeholder=" " autocomplete="name" required maxlength="150" autofocus />
+            <label for="nombre">Nombre completo</label>
+        </div>
+        <div class="cu-campo">
+            <input id="email" name="M.Email" type="email" value="@M.Email" placeholder=" " autocomplete="email" required maxlength="256" />
+            <label for="email">Correo electrónico</label>
+        </div>
+        <div class="cu-campo">
+            <input id="empresa" name="M.Empresa" type="text" value="@M.Empresa" placeholder=" " autocomplete="organization" maxlength="150" />
+            <label for="empresa">Empresa</label>
+        </div>
+        <div class="cu-campo">
+            <textarea id="motivo" name="M.Motivo" placeholder=" " maxlength="1000">@M.Motivo</textarea>
+            <label for="motivo">Proyecto y motivo</label>
+        </div>
+        @* Trampa para robots: campo invisible que una persona no llena. *@
+        <div class="cu-trampa" aria-hidden="true"><input name="M.Web" type="text" tabindex="-1" autocomplete="off" /></div>
+        <label class="cu-check cu-legal">
+            <input type="checkbox" name="M.Autoriza" value="true" required />
+            <span>Autorizo usar estos datos solo para responder la solicitud (<a class="cu-enlace" href="privacidad" target="_blank" rel="noopener">política de datos</a>).</span>
+        </label>
+        <button type="submit" class="cu-boton">Enviar solicitud</button>
+    </form>
+    <p class="cu-alt"><a class="cu-enlace" href="cuenta/ingresar">Volver</a></p>
+}
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "solicitar")] private Modelo M { get; set; } = new();
+    private bool listo;
+    private string? mensaje;
+
+    public sealed class Modelo
+    {
+        public string? Nombre { get; set; }
+        public string? Email { get; set; }
+        public string? Empresa { get; set; }
+        public string? Motivo { get; set; }
+        public string? Web { get; set; }
+        public bool Autoriza { get; set; }
+    }
+
+    private async Task EnviarAsync()
+    {
+        var email = ServicioInvitaciones.NormalizarEmail(M.Email ?? "");
+        var nombre = (M.Nombre ?? "").Trim();
+        if (nombre.Length == 0 || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email)) { mensaje = "Escriba su nombre y un correo válido."; return; }
+        if (!M.Autoriza) { mensaje = "Debe autorizar el uso de los datos."; return; }
+        listo = true;   // misma respuesta en todos los casos
+        if (!string.IsNullOrEmpty(M.Web)) { Auditoria.Registrar(HttpContext, "Solicitud de acceso", false, "Robot (trampa)", null, email); return; }
+
+        // Sin duplicados: una pendiente por correo, máximo 50 pendientes por día en total (evita llenar la base).
+        var hoy = DateTime.UtcNow.AddDays(-1);
+        if (await Db.SolicitudesAcceso.AnyAsync(s => s.Email == email && s.Estado == EstadoSolicitud.Pendiente)) return;
+        if (await Db.SolicitudesAcceso.CountAsync(s => s.Fecha > hoy) >= 50) { Auditoria.Registrar(HttpContext, "Solicitud de acceso", false, "Límite diario", null, email); return; }
+        if (await Usuarios.FindByEmailAsync(email) is not null) { Auditoria.Registrar(HttpContext, "Solicitud de acceso", false, "Ya tiene cuenta", null, email); return; }
+
+        Db.SolicitudesAcceso.Add(new SolicitudAcceso
+        {
+            Email = email, Nombre = Recortar(nombre, 150)!, Empresa = Recortar(M.Empresa, 150), Motivo = Recortar(M.Motivo, 1000),
+        });
+        await Db.SaveChangesAsync();
+        Auditoria.Registrar(HttpContext, "Solicitud de acceso", true, null, null, email);
+
+        var admins = (await Usuarios.GetUsersInRoleAsync(RolesFabrica.AdministradorGlobal))
+            .Where(a => a.Activo && !a.Anonimizado && a.Email is not null && a.Email != ArranqueSeguridad.EmailDesarrollo).Select(a => a.Email!).ToList();
+        var url = Invitaciones.UrlBase(Nav.BaseUri) + "/admin/invitaciones?vista=solicitudes";
+        Func<string?, string> e = s => System.Net.WebUtility.HtmlEncode(s ?? "");
+        var cuerpo = $"<p><b>{e(nombre)}</b> ({e(email)}){(string.IsNullOrWhiteSpace(M.Empresa) ? "" : ", " + e(M.Empresa.Trim()))} pidió acceso.</p>" +
+                     (string.IsNullOrWhiteSpace(M.Motivo) ? "" : $"<p style=\"color:#4b5563\">{e(M.Motivo.Trim())}</p>");
+        foreach (var a in admins)
+            _ = Task.Run(() => Correo.EnviarAsync(a, "Solicitud de acceso a SGC Web", EnviadorCorreo.Plantilla("Solicitud de acceso", cuerpo, "Revisar solicitudes", url)));
+    }
+
+    private static string? Recortar(string? s, int max) { s = s?.Trim(); return string.IsNullOrEmpty(s) ? null : s.Length > max ? s[..max] : s; }
+}

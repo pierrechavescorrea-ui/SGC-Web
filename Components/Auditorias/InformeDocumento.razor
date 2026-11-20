@@ -1,0 +1,207 @@
+@* Informe de auditoría interna para entregar (ISO 19011:2018 6.5; ISO 9001 9.2.2): datos generales, objetivo,
+   alcance y criterios, resumen, cada hallazgo con su requisito, evidencia, fotos, anexos y planes de acción
+   (acciones y eficacia), planes sobre la auditoría, conclusiones, cambios del programa y firmas. *@
+@using SigWeb.Models
+@using SigWeb.Data.Auditorias
+
+@{ var a = D.Auditoria; }
+<div class="inf-doc">
+    <header class="inf-cab">
+        <div>
+            <div class="inf-cab-tit">Informe de auditoría interna</div>
+            <div class="inf-cab-sub">@(D.Programa?.Titulo)@(string.IsNullOrWhiteSpace(a.Proyecto ?? D.Programa?.Proyecto) ? "" : $" · {a.Proyecto ?? D.Programa?.Proyecto}")</div>
+        </div>
+        <table class="inf-cab-datos">
+            <tr><th>Código</th><td>@a.Codigo</td></tr>
+            <tr><th>Estado</th><td>@EscalaAuditoria.Nombre(a.Estado)</td></tr>
+            <tr><th>Fecha del informe</th><td>@(a.FechaInforme?.ToString("dd/MM/yyyy") ?? "—")</td></tr>
+        </table>
+    </header>
+
+    @* 1. Datos generales *@
+    <section class="inf-sec">
+        <h2>1. Datos generales</h2>
+        <table class="inf-ficha">
+            <tr><th>Tipo de auditoría</th><td>@a.Tipo</td><th>Modalidad</th><td>@a.Modalidad</td></tr>
+            <tr><th>Fecha(s)</th><td>@D.Fechas</td><th>Programa</th><td>@(D.Programa is null ? "—" : $"{D.Programa.Titulo} ({D.Programa.Anio})")</td></tr>
+            <tr><th>Normas</th><td colspan="3">@Lista(a.Normas)</td></tr>
+            <tr><th>Procesos auditados</th><td colspan="3">@Lista(a.Procesos)</td></tr>
+            @if (D.Lugares.Count > 0)
+            {
+                <tr><th>Lugares</th><td colspan="3">@string.Join(", ", D.Lugares)</td></tr>
+            }
+            <tr><th>Auditor líder</th><td>@(a.AuditorLider ?? "—")</td><th>Auditores</th><td>@Lista(a.Auditores)</td></tr>
+            @if (!string.IsNullOrWhiteSpace(a.ExpertoTecnico) || !string.IsNullOrWhiteSpace(a.Observadores))
+            {
+                <tr><th>Experto técnico</th><td>@(a.ExpertoTecnico ?? "—")</td><th>Observadores</th><td>@(a.Observadores ?? "—")</td></tr>
+            }
+            <tr><th>Auditados</th><td colspan="3" class="inf-multi">@(string.IsNullOrWhiteSpace(a.Auditados) ? "—" : a.Auditados)</td></tr>
+        </table>
+    </section>
+
+    @* 2. Objetivo, alcance y criterios *@
+    <section class="inf-sec">
+        <h2>2. Objetivo, alcance y criterios</h2>
+        <div class="inf-campo"><span>Objetivo</span><div class="inf-multi">@Texto(a.Objetivo)</div></div>
+        <div class="inf-campo"><span>Alcance</span><div class="inf-multi">@Texto(a.Alcance)</div></div>
+        <div class="inf-campo"><span>Criterios de auditoría</span><div class="inf-multi">@Texto(a.Criterios)</div></div>
+    </section>
+
+    @* 3. Resumen *@
+    <section class="inf-sec">
+        <h2>3. Resumen de resultados</h2>
+        <div class="inf-cifras">
+            <div><b>@D.Hallazgos.Count</b><span>hallazgos</span></div>
+            <div><b>@D.NoConformidades</b><span>no conformidades</span></div>
+            <div><b>@D.Abiertos</b><span>sin cerrar</span></div>
+            <div><b>@D.Planes.Count</b><span>planes de acción</span></div>
+            <div><b>@D.Eficaces / @D.Verificados</b><span>planes eficaces / verificados</span></div>
+            <div><b>@D.PorVerificar</b><span>planes por verificar</span></div>
+        </div>
+        @if (D.Hallazgos.Count == 0)
+        {
+            <div class="inf-vacio">No se registraron hallazgos.</div>
+        }
+        else
+        {
+            <div class="inf-dos">
+                <table class="inf-tabla">
+                    <thead><tr><th>Tipo de hallazgo</th><th>N.º</th></tr></thead>
+                    <tbody>@foreach (var (k, n) in D.PorTipo()) { <tr><td>@k</td><td class="text-center">@n</td></tr> }</tbody>
+                </table>
+                <table class="inf-tabla">
+                    <thead><tr><th>Proceso</th><th>N.º</th></tr></thead>
+                    <tbody>@foreach (var (k, n) in D.PorProceso()) { <tr><td>@k</td><td class="text-center">@n</td></tr> }</tbody>
+                </table>
+            </div>
+            <table class="inf-tabla">
+                <thead><tr><th>Hallazgo</th><th>Tipo</th><th>Proceso</th><th>Declaración</th><th>Planes</th><th>Estado</th></tr></thead>
+                <tbody>
+                    @foreach (var h in D.Hallazgos)
+                    {
+                        <tr>
+                            <td class="text-nowrap"><a href="#inf-@h.H.Id">@h.H.Codigo</a></td>
+                            <td>@TipoGrado(h.H)</td>
+                            <td>@Lista(h.H.Procesos)</td>
+                            <td>@Corto(h.H.Descripcion, 180)</td>
+                            <td>@string.Join(", ", h.Planes.Select(id => D.Plan(id)?.P.Codigo).Where(c => c is not null))</td>
+                            <td>@EscalaAuditoria.Nombre(h.Estado)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </section>
+
+    @* 4. Detalle de hallazgos *@
+    @if (D.Hallazgos.Count > 0)
+    {
+        <section class="inf-sec">
+            <h2>4. Detalle de los hallazgos</h2>
+            @foreach (var h in D.Hallazgos)
+            {
+                var x = h.H;
+                <article class="inf-hall @(h.EsNc ? "inf-hall-nc" : "")" id="inf-@x.Id">
+                    <div class="inf-hall-cab">
+                        <b>@x.Codigo</b>
+                        <span class="inf-hall-tipo">@TipoGrado(x)</span>
+                        <span class="inf-hall-estado">@EscalaAuditoria.Nombre(h.Estado)</span>
+                    </div>
+                    <div class="inf-meta">
+                        <span><i>Fecha</i> @x.Fecha.ToString("dd/MM/yyyy")</span>
+                        @if (!string.IsNullOrWhiteSpace(x.Auditor)) { <span><i>Auditor</i> @x.Auditor</span> }
+                        @if (!string.IsNullOrWhiteSpace(x.Procesos)) { <span><i>Proceso</i> @Lista(x.Procesos)</span> }
+                        @if (h.Lugares.Count > 0) { <span><i>Lugar</i> @string.Join(", ", h.Lugares)</span> }
+                        <span><i>Aceptación del auditado</i> @EscalaAuditoria.Nombre(x.Aceptacion)@(string.IsNullOrWhiteSpace(x.NotaAceptacion) ? "" : $": {x.NotaAceptacion}")</span>
+                    </div>
+
+                    <div class="inf-campo"><span>Declaración del hallazgo</span><div class="inf-multi">@x.Descripcion</div></div>
+                    @if (!string.IsNullOrWhiteSpace(x.Normas) || !string.IsNullOrWhiteSpace(x.Numerales) || !string.IsNullOrWhiteSpace(x.Documento) || !string.IsNullOrWhiteSpace(x.Requisito))
+                    {
+                        <div class="inf-campo">
+                            <span>Requisito</span>
+                            <div>
+                                @{ var refReq = string.Join(" · ", new[] { Lista(x.Normas), string.IsNullOrWhiteSpace(x.Numerales) ? null : $"numeral {x.Numerales}", x.Documento }.Where(t => !string.IsNullOrWhiteSpace(t))); }
+                                @if (refReq.Length > 0) { <div class="inf-ref">@refReq</div> }
+                                @if (!string.IsNullOrWhiteSpace(x.Requisito)) { <div class="inf-multi">@x.Requisito</div> }
+                            </div>
+                        </div>
+                    }
+                    <div class="inf-campo"><span>Evidencia objetiva</span><div class="inf-multi">@Texto(x.Evidencia)</div></div>
+
+                    @if (h.Fotos.Count + h.Anexos.Count > 0)
+                    {
+                        <div class="inf-sub">Registro fotográfico y anexos</div>
+                        <InformeArchivos Archivos="h.Fotos.Concat(h.Anexos).Cast<IAdjuntoDescrito>().ToList()" Prefijo="@x.Codigo" />
+                    }
+
+                    @if (h.Planes.Count > 0)
+                    {
+                        <div class="inf-sub">Planes de acción</div>
+                        @foreach (var id in h.Planes)
+                        {
+                            var pl = D.Plan(id);
+                            if (pl is not null) { <InformePlan Plan="pl" /> }
+                        }
+                    }
+                    else if (h.EsNc)
+                    {
+                        <div class="inf-vacio">Sin plan de acción.</div>
+                    }
+
+                    @if (x.FechaCierre is not null)
+                    {
+                        <div class="inf-campo inf-cierre"><span>Cierre</span><div class="inf-multi">@x.FechaCierre?.ToString("dd/MM/yyyy")@(string.IsNullOrWhiteSpace(x.CerradoPor) ? "" : $" · {x.CerradoPor}")@(string.IsNullOrWhiteSpace(x.ObservacionCierre) ? "" : $"\n{x.ObservacionCierre}")</div></div>
+                    }
+                </article>
+            }
+        </section>
+    }
+
+    @{ var sobreAud = D.Planes.Where(p => p.SobreAuditoria).ToList(); var nSec = D.Hallazgos.Count > 0 ? 5 : 4; }
+    @if (sobreAud.Count > 0)
+    {
+        <section class="inf-sec">
+            <h2>@(nSec++). Planes de acción sobre la auditoría</h2>
+            @foreach (var pl in sobreAud) { <InformePlan Plan="pl" MostrarDescripcion="true" /> }
+        </section>
+    }
+
+    <section class="inf-sec">
+        <h2>@(nSec++). Fortalezas y conclusiones</h2>
+        <div class="inf-campo"><span>Fortalezas</span><div class="inf-multi">@Texto(a.Fortalezas)</div></div>
+        <div class="inf-campo"><span>Conclusiones</span><div class="inf-multi">@Texto(a.Conclusiones)</div></div>
+    </section>
+
+    @if (D.Cambios.Count > 0)
+    {
+        <section class="inf-sec">
+            <h2>@(nSec++). Cambios en la auditoría</h2>
+            <table class="inf-tabla">
+                <thead><tr><th>Fecha</th><th>Cambio</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th></tr></thead>
+                <tbody>
+                    @foreach (var c in D.Cambios)
+                    {
+                        <tr><td class="text-nowrap">@c.Fecha.ToString("dd/MM/yyyy")</td><td>@c.Campo</td><td>@c.Anterior</td><td>@c.Nuevo</td><td class="inf-multi">@c.Motivo</td></tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+
+    <section class="inf-sec inf-firmas">
+        <div><div class="inf-firma-linea"></div><b>@(string.IsNullOrWhiteSpace(a.AuditorLider) ? "\u00A0" : a.AuditorLider)</b><span>Auditor líder</span></div>
+        <div><div class="inf-firma-linea"></div><b>&nbsp;</b><span>Responsable del proceso auditado</span></div>
+        <div><div class="inf-firma-linea"></div><b>@(string.IsNullOrWhiteSpace(D.Programa?.Responsable) ? "\u00A0" : D.Programa!.Responsable)</b><span>Responsable del programa de auditoría</span></div>
+    </section>
+    <footer class="inf-pie">@a.Codigo · generado el @D.Generado.ToString("dd/MM/yyyy HH:mm")</footer>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public InformeAuditoria D { get; set; } = default!;
+
+    private static string Lista(string? t) { var l = ServicioAuditorias.Lista(t); return l.Count == 0 ? "—" : string.Join(", ", l); }
+    private static string Texto(string? t) => string.IsNullOrWhiteSpace(t) ? "—" : t;
+    private static string Corto(string t, int n) => t.Length > n ? t[..n].TrimEnd() + "…" : t;
+    private static string TipoGrado(HallazgoAuditoria h) => h.Tipo + (string.IsNullOrWhiteSpace(h.Grado) ? "" : " " + h.Grado.ToLowerInvariant());
+}

@@ -1,0 +1,11 @@
+@page "/linea3d"
+@inject NavigationManager Nav
+
+@* Línea 3D quedó dentro de Avance de obra › Tendido (mismo visor). Se conserva la dirección para enlaces y marcadores viejos. *@
+
+@code {
+    [SupplyParameterFromQuery(Name = "torre")] public int? TorreQ { get; set; }
+
+    protected override void OnInitialized() =>
+        Nav.NavigateTo(TorreQ is int t ? $"/avance-obra?vista=tendido&torre={t}" : "/avance-obra?vista=tendido", replace: true);
+}

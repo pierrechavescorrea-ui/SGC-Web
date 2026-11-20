@@ -1,0 +1,229 @@
+@* Avance de obra › Importar avance acumulado (Excel de cualquier formato «una fila por torre, actividades en columnas»).
+   1) Archivo → se analiza la hoja (ImportadorAvanceExcel.Analizar). 2) Cada actividad del archivo se liga a una del módulo, se crea
+   o se ignora (el mapeo se recuerda por proyecto). 3) Importar escribe los registros de avance. Reemplaza al botón del F-054. *@
+@namespace SigWeb.Components.AvanceObra
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.AvanceObra
+@using SigWeb.Models
+@inject IServiceScopeFactory Scopes
+
+<div class="panel-formulario av-importar pia">
+    @if (estructura is null)
+    {
+        <label class="av-imp-archivo" title="Elegir el Excel del avance acumulado">
+            <Ico Nombre="cargar-excel" />
+            <InputFile class="form-control form-control-sm" accept=".xlsx,.xlsm" OnChange="Elegir" disabled="@ocupado" />
+        </label>
+        <span class="av-sub">Una fila por torre y las actividades en columnas (Fecha ini · Avance · Fecha fin, por torre o por pata).</span>
+    }
+    @if (ocupado) { <span class="av-sub"><span class="spinner-border spinner-border-sm"></span> @(estructura is null ? "Leyendo el libro…" : "Importando…")</span> }
+    @if (error is not null) { <div class="alert alert-warning py-1 small mb-0 mt-2">@error</div> }
+
+    @if (estructura is { } e && resultado is null)
+    {
+        <div class="pia-cab">
+            <span class="pia-archivo"><Ico Nombre="excel" /> @nombreArchivo</span>
+            @if (e.Hojas.Count > 1)
+            {
+                <select class="form-select form-select-sm pia-hoja" title="Hoja" value="@e.Hoja" @onchange="CambiarHoja" disabled="@ocupado">
+                    @foreach (var h in e.Hojas) { <option value="@h">@h</option> }
+                </select>
+            }
+            <span class="av-sub">@e.Torres torre(s) · filas @e.PrimeraFila–@e.UltimaFila</span>
+            <label class="pia-corte" title="Fecha del corte: el avance sin fecha fin se registra en esta fecha">
+                Corte <input type="date" class="form-control form-control-sm" @bind="fechaCorte" />
+            </label>
+        </div>
+
+        @if (e.Error is null)
+        {
+            <div class="pia-tabla-marco">
+                <table class="table table-sm align-middle pia-tabla">
+                    <thead>
+                        <tr><th>Grupo</th><th>Actividad del archivo</th><th>Ámbito</th><th class="text-end" title="Celdas con dato">Datos</th><th>Ejemplo</th><th style="width:30%">Llevar a</th><th style="width:7rem" title="Peso en el avance de la torre (solo actividades nuevas)">Peso</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in e.Bloques.Where(b => b.EsAvance))
+                        {
+                            var bl = b;
+                            var d = destinos[bl.Clave];
+                            <tr class="@(d.Modo == "ignorar" ? "pia-ign" : "")">
+                                <td class="small">@bl.Grupo</td>
+                                <td><strong>@bl.Actividad</strong><div class="av-sub">columnas @bl.Columnas</div></td>
+                                <td class="small">@(bl.PorPata ? $"Por pata ({string.Join(", ", bl.Patas.Where(p => p.Letra is not null).Select(p => p.Letra))})" : "Torre")</td>
+                                <td class="text-end small">@bl.Datos</td>
+                                <td class="small text-muted">@bl.Ejemplo</td>
+                                <td>
+                                    <select class="form-select form-select-sm" data-sin-flotante value="@d.Modo" @onchange="ev => d.Modo = ev.Value?.ToString() ?? Ignorar">
+                                        <option value="@Ignorar">Ignorar</option>
+                                        <option value="@Crear">➕ Crear actividad</option>
+                                        @foreach (var g in actividades.GroupBy(a => a.Grupo))
+                                        {
+                                            <optgroup label="@(string.IsNullOrWhiteSpace(g.Key) ? "Sin grupo" : g.Key)">
+                                                @foreach (var a in g) { <option value="@("id:" + a.Id)">@a.Nombre (@(a.Ambito == AmbitoAvance.Pata ? "pata" : "torre"))</option> }
+                                            </optgroup>
+                                        }
+                                    </select>
+                                    @if (AmbitoNoCoincide(bl, d)) { <div class="av-sub text-warning">El ámbito de la actividad elegida no coincide con el del archivo.</div> }
+                                </td>
+                                <td>
+                                    @if (d.Modo == Crear)
+                                    {
+                                        <input type="number" class="form-control form-control-sm" data-sin-flotante min="0" step="0.001" @bind="d.Peso" title="Peso relativo (fracción). 0 = no suma al avance de la torre" />
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (e.Bloques.Any(b => !b.EsAvance))
+            {
+                <details class="small mt-1"><summary>@e.Bloques.Count(b => !b.EsAvance) columna(s) de datos que no son avance (no se importan)</summary>
+                    <div class="av-imp-lista">@string.Join(", ", e.Bloques.Where(b => !b.EsAvance).Select(b => b.Actividad))</div></details>
+            }
+            <div class="pia-pie">
+                <span class="av-sub">@destinos.Values.Count(x => x.Modo == Crear) nueva(s) · @destinos.Values.Count(x => x.Modo.StartsWith("id:")) ligada(s) · @destinos.Values.Count(x => x.Modo == Ignorar) ignorada(s)</span>
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="Reiniciar" disabled="@ocupado"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary btn-sm" title="Importar el avance" @onclick="Importar" disabled="@(ocupado || destinos.Values.All(x => x.Modo == Ignorar))"><Ico Nombre="aceptar" /></button>
+            </div>
+        }
+    }
+
+    @if (resultado is { } r)
+    {
+        <div class="av-imp-res">
+            <div><b>Corte @r.FechaCorte.ToString("dd/MM/yyyy")</b> · @r.TorresCasadas / @r.TorresLeidas torres · @r.Nuevos nuevos · @r.Actualizados actualizados · @r.InformesCreados informes creados@(r.ActividadesCreadas > 0 ? $" · {r.ActividadesCreadas} actividad(es) creada(s)" : "")@(r.EfectosAsignados > 0 ? $" · efecto 3D asignado a {r.EfectosAsignados} actividad(es)" : "")</div>
+            @if (r.TorresSinCasar.Count > 0) { <details><summary>@r.TorresSinCasar.Count torre(s) sin casar con el Trazado</summary><div class="av-imp-lista">@string.Join(", ", r.TorresSinCasar)</div></details> }
+            @if (r.Aproximadas.Count > 0) { <details><summary>@r.Aproximadas.Count casada(s) sin la N final</summary><div class="av-imp-lista">@string.Join(", ", r.Aproximadas)</div></details> }
+            @if (r.TorresSinPatas.Count > 0) { <details><summary>@r.TorresSinPatas.Count torre(s) sin Pata A–D en el Trazado (actividades por pata omitidas)</summary><div class="av-imp-lista">@string.Join(", ", r.TorresSinPatas)</div></details> }
+            @if (r.FechasInvalidas > 0) { <div class="av-sub">@r.FechasInvalidas fecha(s) no legibles o fuera de rango (posteriores al corte o anteriores a 2015)</div> }
+            <div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" title="Importar otro archivo" @onclick="Reiniciar"><Ico Nombre="importar" /></button></div>
+        </div>
+    }
+</div>
+
+<style>
+    .pia-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 8px; }
+    .pia-archivo { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+    .pia-hoja { width: auto; max-width: 16rem; }
+    .pia-corte { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: .85rem; }
+    .pia-corte input { width: 10rem; }
+    .pia-tabla-marco { max-height: 55vh; overflow: auto; border: 1px solid var(--t-borde, var(--bs-border-color, #dee2e6)); border-radius: 8px; }
+    .pia-tabla { margin: 0; }
+    .pia-tabla > :not(caption) > * > * { padding: .45rem .65rem; }
+    .pia-tabla thead th { position: sticky; top: 0; z-index: 1; background: var(--t-solido-2, var(--t-superficie-2, var(--bs-body-bg, #fff))); font-size: .8rem; }
+    .pia-ign td { opacity: .55; }
+    .pia-pie { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .pia-pie .av-sub { margin-right: auto; }
+</style>
+
+@code {
+    [Parameter] public EventCallback OnImportado { get; set; }
+
+    private const string Ignorar = "ignorar", Crear = "crear";
+    private sealed class Eleccion { public string Modo { get; set; } = Ignorar; public decimal Peso { get; set; } }
+
+    private byte[]? bytes;
+    private string nombreArchivo = "";
+    private ImportadorAvanceExcel.Estructura? estructura;
+    private ImportadorAvanceExcel.Resultado? resultado;
+    private Dictionary<string, Eleccion> destinos = new();
+    private List<ActividadObra> actividades = new();
+    private DateTime fechaCorte = DateTime.Today;
+    private bool ocupado;
+    private string? error;
+
+    private async Task Elegir(InputFileChangeEventArgs ev)
+    {
+        error = null; resultado = null; ocupado = true;
+        StateHasChanged();
+        try
+        {
+            using var ms = new MemoryStream();
+            await using (var st = ev.File.OpenReadStream(60L * 1024 * 1024)) await st.CopyToAsync(ms);
+            bytes = ms.ToArray(); nombreArchivo = ev.File.Name;
+            await AnalizarAsync(null);
+        }
+        catch (Exception ex) { error = "No se pudo leer el libro: " + (ex.InnerException?.Message ?? ex.Message); estructura = null; }
+        finally { ocupado = false; }
+    }
+
+    private async Task CambiarHoja(ChangeEventArgs ev)
+    {
+        ocupado = true;
+        try { await AnalizarAsync(ev.Value?.ToString()); }
+        catch (Exception ex) { error = ex.Message; }
+        finally { ocupado = false; }
+    }
+
+    private async Task AnalizarAsync(string? hoja)
+    {
+        var datos = bytes!;
+        var e = await Task.Run(() => ImportadorAvanceExcel.Analizar(datos, hoja));
+        Dictionary<string, string> recordado;
+        using (var scope = Scopes.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            actividades = await db.ActividadesObra.AsNoTracking().Where(a => a.Activo && a.Ambito != AmbitoAvance.Tiro).OrderBy(a => a.Grupo).ThenBy(a => a.Orden).ToListAsync();
+            var json = await db.Configuracion.AsNoTracking().Select(c => c.AvanceObraCotas).FirstOrDefaultAsync();
+            recordado = ConfigCotasAvance.Leer(json).MapeoImportacion ?? new();
+        }
+        destinos = new();
+        foreach (var b in e.Bloques)
+        {
+            var el = new Eleccion { Peso = b.PesoSugerido ?? 0 };
+            var porNombre = actividades.FirstOrDefault(a => ImportadorAvanceExcel.Norm(a.Nombre) == ImportadorAvanceExcel.Norm(b.Actividad)
+                && (a.Ambito == AmbitoAvance.Pata) == b.PorPata);
+            if (recordado.TryGetValue(b.Clave, out var r) && (r == Ignorar || actividades.Any(a => "id:" + a.Id == r))) el.Modo = r;
+            else if (porNombre is not null) el.Modo = "id:" + porNombre.Id;
+            else el.Modo = b.EsAvance && b.Datos > 0 ? Crear : Ignorar;
+            destinos[b.Clave] = el;
+        }
+        if (e.MaxFecha is DateTime mf) fechaCorte = mf;
+        estructura = e;
+        if (e.Error is not null) error = e.Error;
+    }
+
+    private bool AmbitoNoCoincide(ImportadorAvanceExcel.BloqueActividad b, Eleccion d) =>
+        d.Modo.StartsWith("id:") && actividades.FirstOrDefault(a => "id:" + a.Id == d.Modo) is { } a && (a.Ambito == AmbitoAvance.Pata) != b.PorPata;
+
+    private async Task Importar()
+    {
+        if (estructura is null || bytes is null) return;
+        error = null; ocupado = true;
+        StateHasChanged();
+        try
+        {
+            var mapa = new Dictionary<string, ImportadorAvanceExcel.Destino>();
+            foreach (var b in estructura.Bloques.Where(b => b.EsAvance))
+            {
+                var d = destinos[b.Clave];
+                if (d.Modo == Crear) mapa[b.Clave] = new(null, true, b.Grupo, b.Actividad, Math.Max(0, d.Peso));
+                else if (d.Modo.StartsWith("id:") && int.TryParse(d.Modo[3..], out var id)) mapa[b.Clave] = new(id, false, b.Grupo, b.Actividad, 0);
+            }
+            var e = estructura; var datos = bytes; var corte = fechaCorte.Date;
+            using var scope = Scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            resultado = await Task.Run(() => ImportadorAvanceExcel.Aplicar(db, datos, e, mapa, corte));
+
+            // Recordar el mapeo (las actividades creadas quedan ligadas por su nombre la próxima vez: se buscan por nombre).
+            var cfg = await db.Configuracion.FirstOrDefaultAsync();
+            if (cfg is not null)
+            {
+                var conf = ConfigCotasAvance.Leer(cfg.AvanceObraCotas);
+                conf.MapeoImportacion ??= new();
+                foreach (var (clave, d) in destinos) if (d.Modo != Crear) conf.MapeoImportacion[clave] = d.Modo; else conf.MapeoImportacion.Remove(clave);
+                cfg.AvanceObraCotas = conf.Escribir();
+                await db.SaveChangesAsync();
+            }
+            await OnImportado.InvokeAsync();
+        }
+        catch (Exception ex) { error = "No se pudo importar: " + (ex.InnerException?.Message ?? ex.Message); }
+        finally { ocupado = false; }
+    }
+
+    private void Reiniciar() { estructura = null; resultado = null; bytes = null; error = null; destinos = new(); }
+}

@@ -1,0 +1,118 @@
+@page "/cuenta/ingresar-2fa"
+@layout LayoutCuenta
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using SigWeb.Data.Seguridad
+@inject SignInManager<UsuarioSig> SignIn
+@inject UserManager<UsuarioSig> Usuarios
+@inject AuditoriaAccesos Auditoria
+@inject NavigationManager Nav
+
+<PageTitle>Verificación · SGC Web</PageTitle>
+
+<h1 class="cu-titulo">Verificación en dos pasos</h1>
+<p class="cu-sub">@(M.ConRecuperacion ? "Escriba uno de sus códigos de recuperación." : "Escriba el código de 6 dígitos de su aplicación autenticadora.")</p>
+
+@if (mensaje is not null)
+{
+    <div class="cu-aviso error" role="alert">@mensaje</div>
+}
+
+<form method="post" @formname="dosfa" @onsubmit="VerificarAsync">
+    <AntiforgeryToken />
+    <input type="hidden" name="M.Volver" value="@M.Volver" />
+    <input type="hidden" name="M.Recordar" value="@M.Recordar.ToString().ToLowerInvariant()" />
+    <input type="hidden" name="M.ConRecuperacion" value="@M.ConRecuperacion.ToString().ToLowerInvariant()" />
+    <div class="cu-campo @(M.ConRecuperacion ? "" : "cu-codigo")">
+        @if (M.ConRecuperacion)
+        {
+            <input id="codigo" name="M.Codigo" type="text" placeholder=" " autocomplete="off" required maxlength="20" autofocus />
+            <label for="codigo">Código de recuperación</label>
+        }
+        else
+        {
+            <input id="codigo" name="M.Codigo" type="text" inputmode="numeric" pattern="[0-9 ]{6,7}" placeholder=" " autocomplete="one-time-code" required maxlength="7" autofocus />
+            <label for="codigo">Código</label>
+        }
+    </div>
+    @if (!M.ConRecuperacion)
+    {
+        <div class="cu-fila">
+            <label class="cu-check"><input type="checkbox" name="M.RecordarEquipo" value="true" /> No pedir en este equipo por 30 días</label>
+        </div>
+    }
+    <button type="submit" class="cu-boton">Verificar</button>
+</form>
+<p class="cu-alt">
+    @if (M.ConRecuperacion)
+    {
+        <a class="cu-enlace" href="@($"cuenta/ingresar-2fa?recordar={M.Recordar}&ReturnUrl={Uri.EscapeDataString(M.Volver ?? "/")}")">Usar la aplicación autenticadora</a>
+    }
+    else
+    {
+        <a class="cu-enlace" href="@($"cuenta/ingresar-2fa?recordar={M.Recordar}&recuperacion=true&ReturnUrl={Uri.EscapeDataString(M.Volver ?? "/")}")">¿Perdió el teléfono? Use un código de recuperación</a>
+    }
+    · <a class="cu-enlace" href="cuenta/ingresar">Volver</a>
+</p>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "dosfa")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromQuery(Name = "ReturnUrl")] private string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "recordar")] private bool? RecordarQ { get; set; }
+    [SupplyParameterFromQuery(Name = "recuperacion")] private bool? RecuperacionQ { get; set; }
+
+    private string? mensaje;
+
+    public sealed class Modelo
+    {
+        public string? Codigo { get; set; }
+        public bool Recordar { get; set; }
+        public bool RecordarEquipo { get; set; }
+        public bool ConRecuperacion { get; set; }
+        public string? Volver { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            M.Volver = ReturnUrl;
+            M.Recordar = RecordarQ ?? false;
+            M.ConRecuperacion = RecuperacionQ ?? false;
+        }
+        // Sin el paso previo (correo + contraseña correctos) no hay nada que verificar.
+        if (await SignIn.GetTwoFactorAuthenticationUserAsync() is null)
+            Nav.NavigateTo("/cuenta/ingresar?m=expirada", forceLoad: true);
+    }
+
+    private async Task VerificarAsync()
+    {
+        var u = await SignIn.GetTwoFactorAuthenticationUserAsync();
+        if (u is null) { Nav.NavigateTo("/cuenta/ingresar?m=expirada", forceLoad: true); return; }
+        var codigo = (M.Codigo ?? "").Replace(" ", "").Replace("-", "");
+        if (codigo.Length == 0) { mensaje = "Escriba el código."; return; }
+
+        var r = M.ConRecuperacion
+            ? await SignIn.TwoFactorRecoveryCodeSignInAsync(codigo)
+            : await SignIn.TwoFactorAuthenticatorSignInAsync(codigo, M.Recordar, M.RecordarEquipo);
+        if (r.Succeeded)
+        {
+            u.UltimoIngreso = DateTime.UtcNow;
+            await Usuarios.UpdateAsync(u);
+            HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieSinAccesoLibre);
+            Auditoria.Registrar(HttpContext, M.ConRecuperacion ? "Ingreso con código de recuperación" : "Ingreso (2 pasos)", true, null, u.Id, u.Email);
+            Nav.NavigateTo(Ingresar.Destino(M.Volver), forceLoad: true);
+            return;
+        }
+        if (r.IsLockedOut)
+        {
+            Auditoria.Registrar(HttpContext, "Cuenta bloqueada", false, "Códigos de verificación fallidos", u.Id, u.Email);
+            mensaje = "La cuenta quedó bloqueada unos minutos por varios intentos fallidos.";
+            return;
+        }
+        Auditoria.Registrar(HttpContext, "Verificación fallida", false, M.ConRecuperacion ? "Código de recuperación" : "Código TOTP", u.Id, u.Email);
+        mensaje = "Código incorrecto.";
+    }
+}

@@ -1,0 +1,62 @@
+@inherits LayoutComponentBase
+@using SigWeb.Data.Seguridad
+@inject UsuarioActual Usuario
+@inject IWebHostEnvironment Env
+
+@* data-sin: acciones que el usuario NO tiene en el módulo de esta pantalla. Solo oculta botones (css/admin.css);
+   el bloqueo real está en el servidor (InterceptorEscritura, rutas y API). *@
+<div class="page" data-sin="@Sin" data-modulo="@Usuario.Sesion?.Modulo">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        @if (Usuario.VeComoOtro)
+        {
+            <form class="sig-banda sig-banda-vercomo" method="post" action="cuenta/dejar-ver-como">
+                <AntiforgeryToken />
+                <span>Viendo la aplicación como <b>@Usuario.Nombre</b> (@(Usuario.Permisos.Rol ?? "sin rol")) en @Usuario.Proyecto?.Nombre. Solo lectura.</span>
+                <button type="submit" class="sig-banda-btn" title="Volver a mi usuario"><Ico Nombre="atras" /></button>
+            </form>
+        }
+        else if (Usuario.Desarrollo)
+        {
+            <div class="sig-banda sig-banda-dev">Entorno de desarrollo · acceso sin contraseña como administrador · @Usuario.Proyecto?.Nombre</div>
+        }
+        <article class="content px-4">
+            @Body
+        </article>
+        <footer class="sig-autor">SGC Web © 2026 Pierr Angelo Chaves Correa. Todos los derechos reservados.</footer>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocurrió un error inesperado.
+    <a href="." class="reload">Recargar</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private string Sin
+    {
+        get
+        {
+            var s = Usuario.Sesion;
+            if (s is null || s.Sistema) return "";
+            if (s.Impersonador is not null) return "crear editar eliminar importar aprobar campos guardar" + (s.Permisos.Puede(s.Modulo ?? "inicio", Accion.Descargar) ? "" : " descargar");
+            if (s.Permisos.AdminGlobal) return "";
+            var a = s.Permisos.De(s.Modulo ?? "inicio");
+            var faltan = new List<string>();
+            void Si(Accion x, string nombre) { if ((a & x) == 0) faltan.Add(nombre); }
+            Si(Accion.Crear, "crear");
+            Si(Accion.Editar, "editar");
+            Si(Accion.Eliminar, "eliminar");
+            Si(Accion.Importar, "importar");
+            Si(Accion.Descargar, "descargar");
+            Si(Accion.Aprobar, "aprobar");
+            Si(Accion.ConfigurarCampos, "campos");
+            if ((a & (Accion.Crear | Accion.Editar | Accion.Comentar)) == 0) faltan.Add("guardar");
+            return string.Join(' ', faltan);
+        }
+    }
+}

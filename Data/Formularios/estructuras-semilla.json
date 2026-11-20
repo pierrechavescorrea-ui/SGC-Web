@@ -1,0 +1,2039 @@
+{
+ "auditorias": {
+  "Secciones": [
+   {
+    "Clave": "Auditoría",
+    "Titulo": "Auditoría",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Alcance y criterios",
+    "Titulo": "Alcance y criterios",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Equipo auditor",
+    "Titulo": "Equipo auditor",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Auditoría|Código",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Código",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Auditoría|Tipo",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Tipo",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Auditoría|Modalidad",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Modalidad",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Auditoría|Mes programado",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Mes programado",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Auditoría|Proyecto o frente",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Proyecto o frente",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Auditoría|Inicio",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Inicio",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Auditoría|Fin",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Fin",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Auditoría|Estado",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Estado",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Auditoría|Motivo del cambio (reprogramación o cancelación)",
+    "Seccion": "Auditoría",
+    "Etiqueta": "Motivo del cambio (reprogramación o cancelación)",
+    "Ancho": 5,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance y criterios|Procesos",
+    "Seccion": "Alcance y criterios",
+    "Etiqueta": "Procesos",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance y criterios|Normas",
+    "Seccion": "Alcance y criterios",
+    "Etiqueta": "Normas",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance y criterios|Lugares",
+    "Seccion": "Alcance y criterios",
+    "Etiqueta": "Lugares",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance y criterios|Objetivo",
+    "Seccion": "Alcance y criterios",
+    "Etiqueta": "Objetivo",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance y criterios|Alcance (actividades, periodo auditado, exclusiones)",
+    "Seccion": "Alcance y criterios",
+    "Etiqueta": "Alcance (actividades, periodo auditado, exclusiones)",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance y criterios|Criterios (numerales, procedimientos, plan de calidad, especificaciones)",
+    "Seccion": "Alcance y criterios",
+    "Etiqueta": "Criterios (numerales, procedimientos, plan de calidad, especificaciones)",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Equipo auditor|Auditor líder",
+    "Seccion": "Equipo auditor",
+    "Etiqueta": "Auditor líder",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Equipo auditor|Auditores",
+    "Seccion": "Equipo auditor",
+    "Etiqueta": "Auditores",
+    "Ancho": 8,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Equipo auditor|Experto técnico",
+    "Seccion": "Equipo auditor",
+    "Etiqueta": "Experto técnico",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Equipo auditor|Observadores",
+    "Seccion": "Equipo auditor",
+    "Etiqueta": "Observadores",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Equipo auditor|Auditados (cargos o personas)",
+    "Seccion": "Equipo auditor",
+    "Etiqueta": "Auditados (cargos o personas)",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "hallazgos-auditoria": {
+  "Secciones": [
+   {
+    "Clave": "Clasificación",
+    "Titulo": "Clasificación",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Requisito, evidencia y declaración",
+    "Titulo": "Requisito, evidencia y declaración",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Dónde",
+    "Titulo": "Dónde",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Fotos y anexos",
+    "Titulo": "Fotos y anexos",
+    "Bloque": false,
+    "Libre": true
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Clasificación|Fecha",
+    "Seccion": "Clasificación",
+    "Etiqueta": "Fecha",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Clasificación|Tipo de hallazgo",
+    "Seccion": "Clasificación",
+    "Etiqueta": "Tipo de hallazgo",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Clasificación|Grado",
+    "Seccion": "Clasificación",
+    "Etiqueta": "Grado",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Clasificación|Auditor",
+    "Seccion": "Clasificación",
+    "Etiqueta": "Auditor",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Clasificación|Aceptación del auditado",
+    "Seccion": "Clasificación",
+    "Etiqueta": "Aceptación del auditado",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Clasificación|Nota de la discusión",
+    "Seccion": "Clasificación",
+    "Etiqueta": "Nota de la discusión",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Requisito, evidencia y declaración|Normas",
+    "Seccion": "Requisito, evidencia y declaración",
+    "Etiqueta": "Normas",
+    "Ancho": 5,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Requisito, evidencia y declaración|Numerales",
+    "Seccion": "Requisito, evidencia y declaración",
+    "Etiqueta": "Numerales",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Requisito, evidencia y declaración|Documento interno (procedimiento, plan de calidad…)",
+    "Seccion": "Requisito, evidencia y declaración",
+    "Etiqueta": "Documento interno (procedimiento, plan de calidad…)",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Requisito, evidencia y declaración|Requisito",
+    "Seccion": "Requisito, evidencia y declaración",
+    "Etiqueta": "Requisito",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Requisito, evidencia y declaración|Evidencia objetiva",
+    "Seccion": "Requisito, evidencia y declaración",
+    "Etiqueta": "Evidencia objetiva",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Requisito, evidencia y declaración|Declaración del hallazgo",
+    "Seccion": "Requisito, evidencia y declaración",
+    "Etiqueta": "Declaración del hallazgo",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Dónde|Procesos",
+    "Seccion": "Dónde",
+    "Etiqueta": "Procesos",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Dónde|Lugares",
+    "Seccion": "Dónde",
+    "Etiqueta": "Lugares",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "consecutivos": {
+  "Secciones": [
+   {
+    "Clave": "Comunicado",
+    "Titulo": "Comunicado",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Respuesta",
+    "Titulo": "Respuesta",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Comunicado|Plantilla",
+    "Seccion": "Comunicado",
+    "Etiqueta": "Plantilla",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Comunicado|Fecha de envío prevista",
+    "Seccion": "Comunicado",
+    "Etiqueta": "Fecha de envío prevista",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Comunicado|Código previsto",
+    "Seccion": "Comunicado",
+    "Etiqueta": "Código previsto",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Comunicado|Asunto",
+    "Seccion": "Comunicado",
+    "Etiqueta": "Asunto",
+    "Ancho": 8,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Comunicado|Dirigido a",
+    "Seccion": "Comunicado",
+    "Etiqueta": "Dirigido a",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Comunicado|Tipo",
+    "Seccion": "Comunicado",
+    "Etiqueta": "Tipo",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Comunicado|Solicitado por",
+    "Seccion": "Comunicado",
+    "Etiqueta": "Solicitado por",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|¿Responde a un comunicado?",
+    "Seccion": "Respuesta",
+    "Etiqueta": "¿Responde a un comunicado?",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|Buscar comunicado",
+    "Seccion": "Respuesta",
+    "Etiqueta": "Buscar comunicado",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|Requiere respuesta",
+    "Seccion": "Respuesta",
+    "Etiqueta": "Requiere respuesta",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|Responsable de responder",
+    "Seccion": "Respuesta",
+    "Etiqueta": "Responsable de responder",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|Observaciones",
+    "Seccion": "Respuesta",
+    "Etiqueta": "Observaciones",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "planes-accion": {
+  "Secciones": [
+   {
+    "Clave": "Hallazgo",
+    "Titulo": "Hallazgo",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Alcance",
+    "Titulo": "Alcance",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Reportó",
+    "Titulo": "Reportó",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Acciones propuestas",
+    "Titulo": "Acciones propuestas",
+    "Bloque": true,
+    "Libre": false
+   },
+   {
+    "Clave": "Verificación de eficacia",
+    "Titulo": "Verificación de eficacia",
+    "Bloque": true,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Hallazgo|Código",
+    "Seccion": "Hallazgo",
+    "Etiqueta": "Código",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Hallazgo|Fecha",
+    "Seccion": "Hallazgo",
+    "Etiqueta": "Fecha",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Hallazgo|Origen del hallazgo",
+    "Seccion": "Hallazgo",
+    "Etiqueta": "Origen del hallazgo",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Hallazgo|Tipo de hallazgo",
+    "Seccion": "Hallazgo",
+    "Etiqueta": "Tipo de hallazgo",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Hallazgo|Descripción del hallazgo",
+    "Seccion": "Hallazgo",
+    "Etiqueta": "Descripción del hallazgo",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Hallazgo|Análisis de causa",
+    "Seccion": "Hallazgo",
+    "Etiqueta": "Análisis de causa",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": true,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance|Procesos",
+    "Seccion": "Alcance",
+    "Etiqueta": "Procesos",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance|Lugares",
+    "Seccion": "Alcance",
+    "Etiqueta": "Lugares",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Alcance|Riesgos",
+    "Seccion": "Alcance",
+    "Etiqueta": "Riesgos",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Reportó|Nombre",
+    "Seccion": "Reportó",
+    "Etiqueta": "Nombre",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Reportó|Cargo",
+    "Seccion": "Reportó",
+    "Etiqueta": "Cargo",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Reportó|Empresa",
+    "Seccion": "Reportó",
+    "Etiqueta": "Empresa",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "programa-auditoria": {
+  "Secciones": [
+   {
+    "Clave": "Programa",
+    "Titulo": "Programa",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Programa|Año",
+    "Seccion": "Programa",
+    "Etiqueta": "Año",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Programa|Título",
+    "Seccion": "Programa",
+    "Etiqueta": "Título",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Programa|Proyecto",
+    "Seccion": "Programa",
+    "Etiqueta": "Proyecto",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Programa|Normas",
+    "Seccion": "Programa",
+    "Etiqueta": "Normas",
+    "Ancho": 8,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Programa|Responsable del programa",
+    "Seccion": "Programa",
+    "Etiqueta": "Responsable del programa",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Programa|Objetivos del programa",
+    "Seccion": "Programa",
+    "Etiqueta": "Objetivos del programa",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Programa|Recursos (auditores, tiempo, viajes, herramientas)",
+    "Seccion": "Programa",
+    "Etiqueta": "Recursos (auditores, tiempo, viajes, herramientas)",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "informe-diario": {
+  "Secciones": [
+   {
+    "Clave": "Encabezado",
+    "Titulo": "Encabezado",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Avance del día",
+    "Titulo": "Avance del día",
+    "Bloque": false,
+    "Libre": true
+   },
+   {
+    "Clave": "Cantidades por ítem",
+    "Titulo": "Cantidades por ítem",
+    "Bloque": false,
+    "Libre": true
+   },
+   {
+    "Clave": "Actividades complementarias",
+    "Titulo": "Actividades complementarias",
+    "Bloque": false,
+    "Libre": true
+   },
+   {
+    "Clave": "Registro fotográfico",
+    "Titulo": "Registro fotográfico",
+    "Bloque": false,
+    "Libre": true
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Encabezado|Fecha",
+    "Seccion": "Encabezado",
+    "Etiqueta": "Fecha",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Encabezado|Clima mañana",
+    "Seccion": "Encabezado",
+    "Etiqueta": "Clima mañana",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Encabezado|Clima tarde",
+    "Seccion": "Encabezado",
+    "Etiqueta": "Clima tarde",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Encabezado|Horas de lluvia",
+    "Seccion": "Encabezado",
+    "Etiqueta": "Horas de lluvia",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Encabezado|Elaboró",
+    "Seccion": "Encabezado",
+    "Etiqueta": "Elaboró",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Encabezado|Revisó",
+    "Seccion": "Encabezado",
+    "Etiqueta": "Revisó",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Encabezado|Aprobó",
+    "Seccion": "Encabezado",
+    "Etiqueta": "Aprobó",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Encabezado|Observaciones",
+    "Seccion": "Encabezado",
+    "Etiqueta": "Observaciones",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "certificaciones": {
+  "Secciones": [
+   {
+    "Clave": "Certificado",
+    "Titulo": "Certificado",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Documento",
+    "Titulo": "Documento",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Certificado|Norma",
+    "Seccion": "Certificado",
+    "Etiqueta": "Norma",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Certificado|Sistema",
+    "Seccion": "Certificado",
+    "Etiqueta": "Sistema",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Certificado|N.º de certificado",
+    "Seccion": "Certificado",
+    "Etiqueta": "N.º de certificado",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Certificado|Organismo certificador",
+    "Seccion": "Certificado",
+    "Etiqueta": "Organismo certificador",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Certificado|Emisión",
+    "Seccion": "Certificado",
+    "Etiqueta": "Emisión",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Certificado|Vencimiento",
+    "Seccion": "Certificado",
+    "Etiqueta": "Vencimiento",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Certificado|Alcance",
+    "Seccion": "Certificado",
+    "Etiqueta": "Alcance",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Documento|Documento del listado",
+    "Seccion": "Documento",
+    "Etiqueta": "Documento del listado",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Documento|Código del documento",
+    "Seccion": "Documento",
+    "Etiqueta": "Código del documento",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Documento|Certificado vigente (PDF o imagen)",
+    "Seccion": "Documento",
+    "Etiqueta": "Certificado vigente (PDF o imagen)",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "comunicados": {
+  "Secciones": [
+   {
+    "Clave": "Identificación",
+    "Titulo": "Identificación",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Contenido",
+    "Titulo": "Contenido",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Respuesta",
+    "Titulo": "Respuesta",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Campos adicionales",
+    "Titulo": "Campos adicionales",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Identificación|Consecutivo",
+    "Seccion": "Identificación",
+    "Etiqueta": "Consecutivo",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Fecha",
+    "Seccion": "Identificación",
+    "Etiqueta": "Fecha",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Entrada / Salida",
+    "Seccion": "Identificación",
+    "Etiqueta": "Entrada / Salida",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Tipo",
+    "Seccion": "Identificación",
+    "Etiqueta": "Tipo",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Remitente",
+    "Seccion": "Identificación",
+    "Etiqueta": "Remitente",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Contenido|Descripción",
+    "Seccion": "Contenido",
+    "Etiqueta": "Descripción",
+    "Ancho": 7,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Contenido|Observaciones",
+    "Seccion": "Contenido",
+    "Etiqueta": "Observaciones",
+    "Ancho": 5,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|Requiere respuesta",
+    "Seccion": "Respuesta",
+    "Etiqueta": "Requiere respuesta",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|Responsable de RTA",
+    "Seccion": "Respuesta",
+    "Etiqueta": "Responsable de RTA",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|Consecutivo RTA",
+    "Seccion": "Respuesta",
+    "Etiqueta": "Consecutivo RTA",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Respuesta|Fecha respuesta",
+    "Seccion": "Respuesta",
+    "Etiqueta": "Fecha respuesta",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "direccionamiento": {
+  "Secciones": [
+   {
+    "Clave": "Clasificación",
+    "Titulo": "Clasificación",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Clasificación|Tipo",
+    "Seccion": "Clasificación",
+    "Etiqueta": "Tipo",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Clasificación|Título",
+    "Seccion": "Clasificación",
+    "Etiqueta": "Título",
+    "Ancho": 8,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "documentos": {
+  "Secciones": [
+   {
+    "Clave": "Documento",
+    "Titulo": "Documento",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Datos del documento",
+    "Titulo": "Datos del documento",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Documento|Código",
+    "Seccion": "Documento",
+    "Etiqueta": "Código",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Documento|Tipo documental",
+    "Seccion": "Documento",
+    "Etiqueta": "Tipo documental",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Documento|Estado",
+    "Seccion": "Documento",
+    "Etiqueta": "Estado",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "indicadores": {
+  "Secciones": [
+   {
+    "Clave": "Indicador",
+    "Titulo": "Indicador",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Meta y periodicidad",
+    "Titulo": "Meta y periodicidad",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Vigencia",
+    "Titulo": "Vigencia",
+    "Bloque": false,
+    "Libre": true
+   },
+   {
+    "Clave": "Origen del dato",
+    "Titulo": "Origen del dato",
+    "Bloque": false,
+    "Libre": true
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Indicador|Nombre",
+    "Seccion": "Indicador",
+    "Etiqueta": "Nombre",
+    "Ancho": 5,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Indicador|Tipo de indicador",
+    "Seccion": "Indicador",
+    "Etiqueta": "Tipo de indicador",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Indicador|Responsable",
+    "Seccion": "Indicador",
+    "Etiqueta": "Responsable",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Indicador|Fórmula de medición",
+    "Seccion": "Indicador",
+    "Etiqueta": "Fórmula de medición",
+    "Ancho": 7,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Indicador|Fuente de información",
+    "Seccion": "Indicador",
+    "Etiqueta": "Fuente de información",
+    "Ancho": 5,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Meta y periodicidad|Objetivo (como se escribe)",
+    "Seccion": "Meta y periodicidad",
+    "Etiqueta": "Objetivo (como se escribe)",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Meta y periodicidad|Meta (para evaluar)",
+    "Seccion": "Meta y periodicidad",
+    "Etiqueta": "Meta (para evaluar)",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Meta y periodicidad|Unidad",
+    "Seccion": "Meta y periodicidad",
+    "Etiqueta": "Unidad",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Meta y periodicidad|Tendencia",
+    "Seccion": "Meta y periodicidad",
+    "Etiqueta": "Tendencia",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Meta y periodicidad|Frecuencia",
+    "Seccion": "Meta y periodicidad",
+    "Etiqueta": "Frecuencia",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Meta y periodicidad|Frecuencia (como se escribe)",
+    "Seccion": "Meta y periodicidad",
+    "Etiqueta": "Frecuencia (como se escribe)",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Meta y periodicidad|Periodo de cálculo",
+    "Seccion": "Meta y periodicidad",
+    "Etiqueta": "Periodo de cálculo",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "materiales": {
+  "Secciones": [
+   {
+    "Clave": "Datos del material",
+    "Titulo": "Datos del material",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": []
+ },
+ "partes-interesadas": {
+  "Secciones": [
+   {
+    "Clave": "Versión",
+    "Titulo": "Versión",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Identificación",
+    "Titulo": "Identificación",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Valoración",
+    "Titulo": "Valoración",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Gestión",
+    "Titulo": "Gestión",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Versión|Guardar en",
+    "Seccion": "Versión",
+    "Etiqueta": "Guardar en",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|#",
+    "Seccion": "Identificación",
+    "Etiqueta": "#",
+    "Ancho": 1,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Parte interesada",
+    "Seccion": "Identificación",
+    "Etiqueta": "Parte interesada",
+    "Ancho": 5,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Procesos que intervienen",
+    "Seccion": "Identificación",
+    "Etiqueta": "Procesos que intervienen",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Necesidades",
+    "Seccion": "Identificación",
+    "Etiqueta": "Necesidades",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Expectativas",
+    "Seccion": "Identificación",
+    "Etiqueta": "Expectativas",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Cómo afecta al SGC",
+    "Seccion": "Identificación",
+    "Etiqueta": "Cómo afecta al SGC",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Valoración|IMP (impacto, 0 a 10)",
+    "Seccion": "Valoración",
+    "Etiqueta": "IMP (impacto, 0 a 10)",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Valoración|INF (influencia, 0 a 10)",
+    "Seccion": "Valoración",
+    "Etiqueta": "INF (influencia, 0 a 10)",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Valoración|Clasificación",
+    "Seccion": "Valoración",
+    "Etiqueta": "Clasificación",
+    "Ancho": 8,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Gestión|Estrategias",
+    "Seccion": "Gestión",
+    "Etiqueta": "Estrategias",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Gestión|Medición",
+    "Seccion": "Gestión",
+    "Etiqueta": "Medición",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Gestión|Periodicidad (según la matriz)",
+    "Seccion": "Gestión",
+    "Etiqueta": "Periodicidad (según la matriz)",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Gestión|Meta",
+    "Seccion": "Gestión",
+    "Etiqueta": "Meta",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Gestión|Observaciones",
+    "Seccion": "Gestión",
+    "Etiqueta": "Observaciones",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Gestión|Supuesto (dato por confirmar)",
+    "Seccion": "Gestión",
+    "Etiqueta": "Supuesto (dato por confirmar)",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "seguimiento-parte": {
+  "Secciones": [
+   {
+    "Clave": "Seguimiento",
+    "Titulo": "Seguimiento",
+    "Bloque": false,
+    "Libre": false
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Seguimiento|Fecha",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Fecha",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Responsable",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Responsable",
+    "Ancho": 4,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Resultado de la medición",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Resultado de la medición",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Cumplimiento de la meta",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Cumplimiento de la meta",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|IMP en este seguimiento",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "IMP en este seguimiento",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|INF en este seguimiento",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "INF en este seguimiento",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Observación",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Observación",
+    "Ancho": 8,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Hallazgo (si aplica)",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Hallazgo (si aplica)",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "riesgos": {
+  "Secciones": [
+   {
+    "Clave": "Identificación",
+    "Titulo": "Identificación",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Valoración",
+    "Titulo": "Valoración",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Análisis",
+    "Titulo": "Análisis",
+    "Bloque": false,
+    "Libre": true
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Identificación|Guardar en",
+    "Seccion": "Identificación",
+    "Etiqueta": "Guardar en",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Código",
+    "Seccion": "Identificación",
+    "Etiqueta": "Código",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": true,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Tipo",
+    "Seccion": "Identificación",
+    "Etiqueta": "Tipo",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Estado actual",
+    "Seccion": "Identificación",
+    "Etiqueta": "Estado actual",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Categoría",
+    "Seccion": "Identificación",
+    "Etiqueta": "Categoría",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Área",
+    "Seccion": "Identificación",
+    "Etiqueta": "Área",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Estrategia de respuesta",
+    "Seccion": "Identificación",
+    "Etiqueta": "Estrategia de respuesta",
+    "Ancho": 2,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Identificación|Riesgo / Oportunidad",
+    "Seccion": "Identificación",
+    "Etiqueta": "Riesgo / Oportunidad",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": true,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Valoración|Probabilidad",
+    "Seccion": "Valoración",
+    "Etiqueta": "Probabilidad",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Valoración|Impacto",
+    "Seccion": "Valoración",
+    "Etiqueta": "Impacto",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Valoración|Nivel",
+    "Seccion": "Valoración",
+    "Etiqueta": "Nivel",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Valoración|Responsable del plan",
+    "Seccion": "Valoración",
+    "Etiqueta": "Responsable del plan",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ },
+ "seguimiento-riesgo": {
+  "Secciones": [
+   {
+    "Clave": "Seguimiento",
+    "Titulo": "Seguimiento",
+    "Bloque": false,
+    "Libre": false
+   },
+   {
+    "Clave": "Hallazgos (dónde se materializó)",
+    "Titulo": "Hallazgos (dónde se materializó)",
+    "Bloque": false,
+    "Libre": true
+   },
+   {
+    "Clave": "Planes de acción",
+    "Titulo": "Planes de acción",
+    "Bloque": false,
+    "Libre": true
+   }
+  ],
+  "Campos": [
+   {
+    "Clave": "Seguimiento|Fecha del seguimiento",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Fecha del seguimiento",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Resultado",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Resultado",
+    "Ancho": 3,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Responsables",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Responsables",
+    "Ancho": 6,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Observación",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Observación",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   },
+   {
+    "Clave": "Seguimiento|Soportes",
+    "Seccion": "Seguimiento",
+    "Etiqueta": "Soportes",
+    "Ancho": 12,
+    "Alto": 1,
+    "Obligatorio": false,
+    "Destacado": false,
+    "Fijo": false,
+    "Catalogo": null
+   }
+  ]
+ }
+}

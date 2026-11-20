@@ -1,0 +1,15 @@
+.ad-proyecto-baja {
+    width: min(40rem, 94vw);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+.ad-proyecto-impacto {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .25rem 1rem;
+}
+.ad-proyecto-impacto dd {
+    margin: 0;
+    text-align: right;
+}
+

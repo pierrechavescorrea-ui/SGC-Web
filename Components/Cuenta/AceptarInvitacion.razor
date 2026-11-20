@@ -1,0 +1,102 @@
+@page "/cuenta/invitacion"
+@layout LayoutCuenta
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using SigWeb.Data.Seguridad
+@inject ServicioInvitaciones Invitaciones
+@inject ServicioProyectos Proyectos
+@inject SignInManager<UsuarioSig> SignIn
+@inject NavigationManager Nav
+
+<PageTitle>Crear cuenta · SGC Web</PageTitle>
+
+@if (inv is null)
+{
+    <h1 class="cu-titulo">Invitación no válida</h1>
+    <div class="cu-aviso error" role="alert">El enlace no existe, ya se usó o venció. Pida al administrador que le envíe una invitación nueva.</div>
+    <p class="cu-alt"><a class="cu-enlace" href="cuenta/ingresar">Ir a iniciar sesión</a></p>
+}
+else
+{
+    <h1 class="cu-titulo">Crear su cuenta</h1>
+    <p class="cu-sub">@(proyecto is null ? "Fue invitado a SGC Web." : $"Fue invitado al proyecto {proyecto}.")</p>
+    @if (errores.Count > 0)
+    {
+        <div class="cu-aviso error" role="alert">
+            @if (errores.Count == 1) { @errores[0] } else { <ul>@foreach (var e in errores) { <li>@e</li> }</ul> }
+        </div>
+    }
+    <form method="post" @formname="invitacion" @onsubmit="CrearAsync">
+        <AntiforgeryToken />
+        <input type="hidden" name="M.T" value="@M.T" />
+        <div class="cu-campo">
+            <input id="email" type="email" value="@inv.Email" placeholder=" " readonly autocomplete="username" />
+            <label for="email">Correo electrónico</label>
+        </div>
+        <div class="cu-campo">
+            <input id="nombre" name="M.Nombre" type="text" value="@M.Nombre" placeholder=" " autocomplete="name" required maxlength="150" autofocus />
+            <label for="nombre">Nombre completo</label>
+        </div>
+        <div class="cu-campo">
+            <input id="clave" name="M.Clave" type="password" placeholder=" " autocomplete="new-password" required minlength="12" maxlength="200" />
+            <label for="clave">Contraseña (mínimo 12 caracteres)</label>
+        </div>
+        <div class="cu-campo">
+            <input id="clave2" name="M.Confirmar" type="password" placeholder=" " autocomplete="new-password" required minlength="12" maxlength="200" />
+            <label for="clave2">Repita la contraseña</label>
+        </div>
+        <label class="cu-check cu-legal">
+            <input type="checkbox" name="M.Autoriza" value="true" required />
+            <span>Autorizo el tratamiento de mis datos personales (nombre, correo, cargo y registros de acceso) según la <a class="cu-enlace" href="privacidad" target="_blank" rel="noopener">política de tratamiento de datos</a> (Ley 1581 de 2012).</span>
+        </label>
+        <button type="submit" class="cu-boton">Crear cuenta y entrar</button>
+    </form>
+}
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "invitacion")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromQuery(Name = "t")] private string? TQ { get; set; }
+
+    private Invitacion? inv;
+    private string? proyecto;
+    private readonly List<string> errores = new();
+
+    public sealed class Modelo
+    {
+        public string? T { get; set; }
+        public string? Nombre { get; set; }
+        public string? Clave { get; set; }
+        public string? Confirmar { get; set; }
+        public bool Autoriza { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        M.T ??= TQ;
+        inv = await Invitaciones.ValidarAsync(M.T);
+        if (inv is not null)
+        {
+            M.Nombre ??= inv.Nombre;
+            proyecto = inv.ProyectoId is int p ? Proyectos.Proyecto(p)?.Nombre : null;
+        }
+    }
+
+    private async Task CrearAsync()
+    {
+        errores.Clear();
+        if (inv is null) return;
+        if (string.IsNullOrWhiteSpace(M.Nombre)) errores.Add("Escriba su nombre.");
+        if ((M.Clave ?? "") != (M.Confirmar ?? "")) errores.Add("Las contraseñas no coinciden.");
+        if (!M.Autoriza) errores.Add("Debe autorizar el tratamiento de datos para crear la cuenta.");
+        if (errores.Count > 0) return;
+
+        var (u, err) = await Invitaciones.AceptarAsync(M.T!, M.Nombre!, M.Clave!, HttpContext.Connection.RemoteIpAddress?.ToString());
+        if (u is null) { errores.AddRange(err); return; }
+        u.UltimoIngreso = DateTime.UtcNow;
+        await SignIn.SignInAsync(u, isPersistent: false);
+        HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieSinAccesoLibre);
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+}

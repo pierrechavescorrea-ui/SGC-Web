@@ -1,0 +1,178 @@
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Models
+@using SigWeb.Data
+@inject IServiceScopeFactory Scopes
+@inject IWebHostEnvironment Env
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (formulario)
+{
+    <div class="frm-linea mb-2">
+        <input class="form-control form-control-sm" aria-label="Nombre de la carpeta" placeholder="Nombre de la carpeta" maxlength="120" @bind="nombre" />
+        <button class="frm-icono-btn" title="Cancelar" @onclick="() => formulario = false"><Ico Nombre="cancelar" /></button>
+        <button class="frm-icono-btn" title="Guardar carpeta" disabled="@ocupado" @onclick="Guardar"><Ico Nombre="guardar" /></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(mensaje)) { <div class="alert alert-warning py-1 small" role="status">@mensaje</div> }
+@if (pendiente is not null)
+{
+    <div class="alert alert-warning">
+        Enviar «@pendiente.Nombre» a la Papelera ocultará @impactoArchivos archivo(s) en @impactoTorres torre(s)@(EsHojaDeVida ? "." : $" y {impactoElementos} elemento(s).")
+        @(EsHojaDeVida ? "La carpeta aplica a todas las torres." : $"La carpeta aplica a todos los elementos «{NombreElemento}» de todas las torres.")
+        <div class="frm-pie frm-pie-plano">
+            <button class="btn btn-sm btn-outline-secondary" title="Cancelar" @onclick="() => pendiente = null"><Ico Nombre="cancelar" /></button>
+            <button class="btn btn-sm btn-danger" title="Eliminar carpeta" disabled="@ocupado" @onclick="EliminarCarpeta"><Ico Nombre="eliminar" /></button>
+        </div>
+    </div>
+}
+<div class="ini-tablero hv-carpetas @(Edicion ? "pw-editando" : "")">
+    <div class="pw-panel hv-carpetas-panel" @ref="panel">
+        @ChildContent
+        @foreach (var carpeta in carpetas)
+        {
+            <div @key="carpeta.Id" class="ficha-bloque pw-w" data-w="@($"carpeta-{carpeta.Id}")" data-ancho="6" data-alto="5">
+                <div class="ficha-bloque-titulo justify-content-between">
+                    <span><Ico Nombre="carpeta" /> @carpeta.Nombre (@archivos.Count(a => a.CarpetaHojaVidaId == carpeta.Id))</span>
+                    <span class="d-flex gap-1">
+                        <button class="hv-quitar" title="Renombrar carpeta global" @onclick="() => Editar(carpeta)"><Ico Nombre="editar" /></button>
+                        <button class="hv-quitar" title="Eliminar carpeta global" disabled="@ocupado" @onclick="() => PedirEliminar(carpeta)"><Ico Nombre="eliminar" /></button>
+                    </span>
+                </div>
+                <div class="hv-carpeta-cuerpo">
+                    <InputFile class="form-control form-control-sm" multiple disabled="@ocupado" OnChange="e => Cargar(e, carpeta.Id)" />
+                    <ul class="small list-unstyled mt-1 pildora-lista">
+                        @foreach (var archivo in archivos.Where(a => a.CarpetaHojaVidaId == carpeta.Id))
+                        {
+                            <li @key="archivo.Id">
+                                <PildoraArchivo Url="@($"/api/hojavida/archivos/{archivo.Id}")" Nombre="@archivo.NombreOriginal" />
+                                <a href="@($"/api/hojavida/archivos/{archivo.Id}?descargar=true")" download="@archivo.NombreOriginal" title="Descargar"><Ico Nombre="exportar" /></a>
+                                <button class="hv-quitar" title="Enviar archivo a la Papelera" disabled="@ocupado" @onclick="() => EliminarArchivo(archivo.Id)"><Ico Nombre="eliminar" /></button>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int TorreId { get; set; }
+    [Parameter] public bool EsHojaDeVida { get; set; }
+    [Parameter] public int? ComponenteId { get; set; }
+    [Parameter] public string NombreElemento { get; set; } = "";
+    [Parameter] public bool Edicion { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private ElementReference panel;
+    private List<CarpetaHojaVida> carpetas = new();
+    private List<ArchivoCarpetaHojaVida> archivos = new();
+    private (int Torre, int? Componente, string? Clave)? contextoCargado;
+    private string? claveElemento;
+    private int? ComponenteActual => EsHojaDeVida ? null : ComponenteId;
+    private string ClaveAlmacenamiento => EsHojaDeVida ? "sigweb.hojavida.panel" : "sigweb.elemento.panel." + Uri.EscapeDataString(claveElemento ?? "");
+    private bool formulario, ocupado, panelAplicado;
+    private int? editandoId;
+    private string nombre = "", mensaje = "";
+    private CarpetaHojaVida? pendiente;
+    private int impactoArchivos, impactoTorres, impactoElementos;
+    protected override async Task OnParametersSetAsync()
+    {
+        claveElemento = EsHojaDeVida ? null : AmbitoCarpetasHojaVida.ClaveElemento(NombreElemento);
+        var contexto = (TorreId, ComponenteActual, claveElemento);
+        if (contextoCargado != contexto) {
+            contextoCargado = contexto; pendiente = null; formulario = false; mensaje = "";
+            await Recargar();
+        }
+    }
+    public Task NuevaCarpeta() { Editar(null); return InvokeAsync(StateHasChanged); }
+    public async Task RestaurarDisposicion() { await JS.InvokeVoidAsync("sigHojaPanel.restaurar", panel); }
+    private async Task Recargar()
+    {
+        using var scope = Scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        carpetas = await db.CarpetasHojaVida.AsNoTracking().Where(c => c.Activo && c.ClaveElemento == claveElemento).OrderBy(c => c.Orden).ThenBy(c => c.Id).ToListAsync();
+        archivos = await db.ArchivosCarpetaHojaVida.AsNoTracking().Where(a => a.ElementoTrazadoId == TorreId && a.ComponenteId == ComponenteActual).OrderByDescending(a => a.FechaCarga).ToListAsync();
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("sigHojaPanel.aplicar", panel, Edicion, ClaveAlmacenamiento); panelAplicado = true;
+    }
+    private void Editar(CarpetaHojaVida? c) { editandoId = c?.Id; nombre = c?.Nombre ?? ""; formulario = true; mensaje = ""; }
+    private static string Normalizar(string s) => string.Join(" ", new string(s.Trim().Normalize(System.Text.NormalizationForm.FormD).Where(c => System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark).ToArray()).ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    private async Task Guardar()
+    {
+        if (ocupado) return;
+        var clave = Normalizar(nombre);
+        if (clave.Length == 0) { mensaje = "Escribe el nombre de la carpeta."; return; }
+        if (new[] { "ARCHIVOS", "PLANOS", "ENSAYOS", "MATERIALES" }.Contains(clave)) { mensaje = "Ya existe una carpeta con ese nombre."; return; }
+        ocupado = true;
+        try {
+            using var scope = Scopes.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            if (await db.CarpetasHojaVida.AnyAsync(c => c.Id != editandoId && c.NombreNormalizado == clave && c.ClaveElemento == claveElemento)) { mensaje = "Ya existe una carpeta con ese nombre."; return; }
+            var c = editandoId is int id ? await db.CarpetasHojaVida.FirstOrDefaultAsync(c => c.Id == id && c.ClaveElemento == claveElemento) : null;
+            if (editandoId.HasValue && c is null) { mensaje = "La carpeta ya no está disponible."; return; }
+            if (c is null) { c = new CarpetaHojaVida { ClaveElemento = claveElemento, Orden = carpetas.Count == 0 ? 0 : carpetas.Max(x => x.Orden) + 1 }; db.CarpetasHojaVida.Add(c); }
+            c.Nombre = nombre.Trim(); c.NombreNormalizado = clave;
+            await db.SaveChangesAsync(); formulario = false; mensaje = ""; await Recargar();
+        } catch (DbUpdateException) { mensaje = "No se guardó la carpeta. Comprueba que el nombre no exista."; }
+        finally { ocupado = false; }
+    }
+    private async Task PedirEliminar(CarpetaHojaVida c)
+    {
+        using var scope = Scopes.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var ids = await db.ArchivosCarpetaHojaVida.IgnoreQueryFilters().Where(a => a.CarpetaHojaVidaId == c.Id && !a.Eliminado).Select(a => new { a.ElementoTrazadoId, a.ComponenteId }).ToListAsync();
+        impactoArchivos = ids.Count; impactoTorres = ids.Select(a => a.ElementoTrazadoId).Distinct().Count();
+        impactoElementos = ids.Where(a => a.ComponenteId != null).Select(a => a.ComponenteId).Distinct().Count(); pendiente = c;
+    }
+    private async Task EliminarCarpeta()
+    {
+        if (pendiente is null || ocupado) return;
+        ocupado = true;
+        try {
+            using var scope = Scopes.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var c = await db.CarpetasHojaVida.FirstOrDefaultAsync(c => c.Id == pendiente.Id && c.ClaveElemento == claveElemento);
+            if (c is not null) { c.Eliminado = true; c.FechaEliminacion = DateTime.Now; await db.SaveChangesAsync(); }
+            pendiente = null; await Recargar();
+        } finally { ocupado = false; }
+    }
+    private async Task EliminarArchivo(int id)
+    {
+        if (ocupado) return;
+        using var scope = Scopes.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var a = await db.ArchivosCarpetaHojaVida.FirstOrDefaultAsync(a => a.Id == id && a.ElementoTrazadoId == TorreId && a.ComponenteId == ComponenteActual);
+        if (a is not null) { a.Eliminado = true; a.FechaEliminacion = DateTime.Now; await db.SaveChangesAsync(); }
+        await Recargar();
+    }
+    private async Task Cargar(InputFileChangeEventArgs e, int carpetaId)
+    {
+        if (ocupado) return;
+        ocupado = true; mensaje = "";
+        const long max = 50L * 1024 * 1024;
+        var torre = TorreId; var componente = ComponenteActual; var ambito = claveElemento;
+        try {
+            using var scope = Scopes.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            if (!await db.CarpetasHojaVida.AnyAsync(c => c.Id == carpetaId && c.Activo && c.ClaveElemento == ambito)) { mensaje = "La carpeta ya no está disponible."; return; }
+            if (componente is int cid && !await db.Componentes.AnyAsync(c => c.Id == cid && c.ElementoTrazadoId == torre && !c.Eliminado)) { mensaje = "El elemento ya no está disponible."; return; }
+            var dir = Path.Combine(Env.WebRootPath, "uploads", "hojavida", torre.ToString()); Directory.CreateDirectory(dir);
+            foreach (var file in e.GetMultipleFiles(100)) {
+                if (file.Size > max) { mensaje += $"{file.Name}: supera 50 MB. "; continue; }
+                // Identificador aleatorio, sin extensión ejecutable: se conserva el nombre original para descargar.
+                var fisico = Guid.NewGuid().ToString("N") + ".bin";
+                var ruta = Path.Combine(dir, fisico);
+                try {
+                    await using (var origen = file.OpenReadStream(max))
+                    await using (var destino = File.Create(ruta)) { await origen.CopyToAsync(destino); }
+                    db.ArchivosCarpetaHojaVida.Add(new ArchivoCarpetaHojaVida { CarpetaHojaVidaId = carpetaId, ElementoTrazadoId = torre, ComponenteId = componente, NombreOriginal = Path.GetFileName(file.Name), Ruta = $"/uploads/hojavida/{torre}/{fisico}", Tamano = file.Size, ContentType = file.ContentType, FechaCarga = DateTime.Now });
+                    await db.SaveChangesAsync();
+                } catch { db.ChangeTracker.Clear(); if (File.Exists(ruta)) File.Delete(ruta); throw; }
+            }
+            await Recargar();
+        } catch (Exception ex) when (ex is IOException or InvalidOperationException or DbUpdateException) { mensaje = "No se completó la carga. Los archivos guardados siguen disponibles."; await Recargar(); }
+        finally { ocupado = false; }
+    }
+    public async ValueTask DisposeAsync()
+    {
+        try { if (panelAplicado) await JS.InvokeVoidAsync("sigHojaPanel.destruir", panel); } catch (JSDisconnectedException) { }
+    }
+}

@@ -1,0 +1,427 @@
+@page "/mi-cuenta"
+@using System.Text
+@using Microsoft.AspNetCore.Identity
+@using SigWeb.Data.Bot
+@using SigWeb.Data.Seguridad
+@inject UserManager<UsuarioSig> Usuarios
+@inject SignInManager<UsuarioSig> SignIn
+@inject UsuarioActual Actual
+@inject ServicioPermisos Permisos
+@inject ServicioBotTelegram Bot
+@inject AuditoriaAccesos Auditoria
+@inject EnviadorCorreo Correo
+@inject IConfiguration Cfg
+@inject NavigationManager Nav
+@inject SeguridadDbContext Db
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Notificaciones
+
+<PageTitle>Mi cuenta · SGC Web</PageTitle>
+
+<EncabezadoPagina Titulo="Mi cuenta" Subtitulo="@u?.Email" Icono="cuenta" Atras="/" />
+
+@if (u is null) { return; }
+@if (Actual.VeComoOtro)
+{
+    <div class="alert alert-warning">Está viendo la aplicación como otro usuario: la cuenta no se puede modificar.</div>
+    return;
+}
+@if (aviso is not null)
+{
+    <div class="alert @(avisoError ? "alert-danger" : "alert-success")" role="alert">@aviso</div>
+}
+@if (exigirMfa)
+{
+    <div class="alert alert-warning">Como administrador debe activar la verificación en dos pasos para continuar.</div>
+}
+
+<div class="ad-rejilla ad-rejilla-2">
+    @* ---------- Perfil: foto y ficha de contacto ---------- *@
+    <section class="ad-tarjeta mc-perfil">
+        <div class="mc-cabeza">
+            <div class="mc-foto">
+                @if (u.FotoVersion is long v)
+                {
+                    <img src="cuenta/foto/@u.Id?v=@v" alt="Foto de perfil" />
+                }
+                else
+                {
+                    <span>@Iniciales</span>
+                }
+            </div>
+            <div class="mc-quien">
+                <div class="mc-nombre">@u.NombreCompleto</div>
+                <div class="text-muted small">@(string.Join(" · ", new[] { u.Cargo, u.Area, u.Empresa }.Where(x => !string.IsNullOrWhiteSpace(x))))</div>
+                <div class="d-flex gap-2 mt-2 flex-wrap">
+                    <form method="post" action="cuenta/foto" enctype="multipart/form-data" class="mc-subir" data-enhance="false">
+                        <AntiforgeryToken />
+                        <label class="btn btn-outline-secondary btn-sm mb-0" title="Cambiar foto (PNG, JPG o WebP, máx. 2 MB)">
+                            <Ico Nombre="camara" />
+                            <input type="file" name="archivo" accept="image/png,image/jpeg,image/webp" hidden />
+                        </label>
+                    </form>
+                    @if (u.FotoVersion is not null)
+                    {
+                        <form method="post" action="cuenta/foto" data-enhance="false"><AntiforgeryToken /><input type="hidden" name="quitar" value="1" />
+                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Quitar foto"><Ico Nombre="eliminar" /></button></form>
+                    }
+                </div>
+            </div>
+        </div>
+        <form method="post" @formname="perfil" @onsubmit="GuardarPerfilAsync">
+            <AntiforgeryToken />
+            <div class="mc-campos">
+                <div class="mc-ancho"><label for="p-nombre">Nombre completo</label><input id="p-nombre" name="Perfil.Nombre" class="form-control" value="@(Perfil.Nombre ?? u.NombreCompleto)" maxlength="150" required /></div>
+                <div><label for="p-cargo">Cargo</label><input id="p-cargo" name="Perfil.Cargo" class="form-control" value="@(Perfil.Cargo ?? u.Cargo)" maxlength="120" /></div>
+                <div><label for="p-area">Área o proceso</label><input id="p-area" name="Perfil.Area" class="form-control" value="@(Perfil.Area ?? u.Area)" maxlength="120" /></div>
+                <div><label for="p-empresa">Empresa</label><input id="p-empresa" name="Perfil.Empresa" class="form-control" value="@(Perfil.Empresa ?? u.Empresa)" maxlength="150" /></div>
+                <div><label for="p-jefe">Jefe inmediato</label><input id="p-jefe" name="Perfil.JefeInmediato" class="form-control" value="@(Perfil.JefeInmediato ?? u.JefeInmediato)" maxlength="150" /></div>
+                <div><label for="p-prof">Profesión</label><input id="p-prof" name="Perfil.Profesion" class="form-control" value="@(Perfil.Profesion ?? u.Profesion)" maxlength="120" /></div>
+                <div><label for="p-mat">Tarjeta o matrícula profesional</label><input id="p-mat" name="Perfil.MatriculaProfesional" class="form-control" value="@(Perfil.MatriculaProfesional ?? u.MatriculaProfesional)" maxlength="60" /></div>
+                <div><label for="p-email">Correo de la cuenta</label><input id="p-email" class="form-control" value="@u.Email" readonly title="Lo cambia el administrador" /></div>
+                <div><label for="p-alt">Correo alterno</label><input id="p-alt" name="Perfil.CorreoAlterno" type="email" class="form-control" value="@(Perfil.CorreoAlterno ?? u.CorreoAlterno)" maxlength="256" /></div>
+                <div><label for="p-cel">Celular</label><input id="p-cel" name="Perfil.Celular" type="tel" class="form-control" value="@(Perfil.Celular ?? u.PhoneNumber)" maxlength="30" autocomplete="tel" /></div>
+                <div><label for="p-fijo">Teléfono fijo y extensión</label><input id="p-fijo" name="Perfil.TelefonoFijo" type="tel" class="form-control" value="@(Perfil.TelefonoFijo ?? u.TelefonoFijo)" maxlength="40" /></div>
+                <div><label for="p-ciudad">Ciudad o sede</label><input id="p-ciudad" name="Perfil.Ciudad" class="form-control" value="@(Perfil.Ciudad ?? u.Ciudad)" maxlength="120" /></div>
+            </div>
+            <div class="ad-pie"><button type="submit" class="btn btn-primary" title="Guardar"><Ico Nombre="guardar" /></button></div>
+        </form>
+    </section>
+
+    @* ---------- Contraseña ---------- *@
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Contraseña</h5>
+        @if (!tieneClave)
+        {
+            <p class="text-muted small">Esta cuenta no tiene contraseña (acceso de desarrollo).</p>
+        }
+        else
+        {
+            <form method="post" @formname="clave" @onsubmit="CambiarClaveAsync">
+                <AntiforgeryToken />
+                <div class="mb-3"><label for="c-actual">Contraseña actual</label><input id="c-actual" name="Clave.Actual" type="password" class="form-control" autocomplete="current-password" required maxlength="200" /></div>
+                <div class="mb-3"><label for="c-nueva">Contraseña nueva (mínimo 12)</label><input id="c-nueva" name="Clave.Nueva" type="password" class="form-control" autocomplete="new-password" required minlength="12" maxlength="200" /></div>
+                <div class="mb-3"><label for="c-conf">Repita la contraseña nueva</label><input id="c-conf" name="Clave.Confirmar" type="password" class="form-control" autocomplete="new-password" required minlength="12" maxlength="200" /></div>
+                <div class="ad-pie"><button type="submit" class="btn btn-primary" title="Cambiar contraseña"><Ico Nombre="guardar" /></button></div>
+            </form>
+        }
+    </section>
+
+    @* ---------- Verificación en dos pasos ---------- *@
+    <section class="ad-tarjeta" id="mfa">
+        <h5 class="ad-tit">Verificación en dos pasos <span class="ad-chip @(mfaActiva ? "ok" : "")">@(mfaActiva ? "Activa" : "Inactiva")</span></h5>
+        @if (codigosNuevos is not null)
+        {
+            <p class="small">Guarde estos códigos de recuperación en un lugar seguro. Cada uno sirve una vez si pierde el teléfono. <b>No se volverán a mostrar.</b></p>
+            <div class="ad-codigos">@foreach (var c in codigosNuevos) { <code>@c</code> }</div>
+        }
+        else if (mfaActiva)
+        {
+            <p class="small text-muted">Al entrar se pide el código de su aplicación autenticadora. Le quedan @codigosRestantes códigos de recuperación.</p>
+            <div class="d-flex gap-2 flex-wrap">
+                <form method="post" @formname="regenerar" @onsubmit="RegenerarAsync"><AntiforgeryToken />
+                    <button type="submit" class="btn btn-outline-secondary" title="Generar códigos de recuperación nuevos"><Ico Nombre="restaurar" /></button></form>
+                @if (!exigirMfaAdmin)
+                {
+                    <form method="post" @formname="desactivar" @onsubmit="DesactivarMfaAsync" class="d-flex gap-2 align-items-start"><AntiforgeryToken />
+                        @if (tieneClave) { <div><label for="m-clave">Contraseña para desactivar</label><input id="m-clave" name="Desactivar.Clave" type="password" class="form-control" autocomplete="current-password" maxlength="200" required /></div> }
+                        <button type="submit" class="btn btn-outline-danger" title="Desactivar la verificación en dos pasos"><Ico Nombre="cancelar" /></button></form>
+                }
+            </div>
+        }
+        else
+        {
+            <ol class="small ad-pasos">
+                <li>Instale una aplicación autenticadora (Microsoft Authenticator, Google Authenticator, 1Password…).</li>
+                <li>Escanee el código o escriba la clave: <code class="ad-clave">@ClaveLegible</code></li>
+                <li>Escriba el código de 6 dígitos que muestra la aplicación.</li>
+            </ol>
+            <div class="d-flex gap-3 align-items-center flex-wrap">
+                <img class="ad-qr" src="@qr" alt="Código QR para la aplicación autenticadora" width="168" height="168" />
+                <form method="post" @formname="mfa" @onsubmit="ActivarMfaAsync" class="d-flex gap-2 align-items-start"><AntiforgeryToken />
+                    <div><label for="m-codigo">Código</label><input id="m-codigo" name="Mfa.Codigo" class="form-control" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required /></div>
+                    <button type="submit" class="btn btn-primary" title="Activar"><Ico Nombre="aceptar" /></button>
+                </form>
+            </div>
+        }
+    </section>
+
+    @* ---------- Telegram ---------- *@
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Bot de Telegram</h5>
+        @if (!Bot.TieneToken)
+        {
+            <p class="small text-muted">El bot no está configurado en este servidor.</p>
+        }
+        else if (codigoBot is not null)
+        {
+            <p class="small">Abra el bot @(Bot.UsuarioBot is null ? "" : "@" + Bot.UsuarioBot) en Telegram y envíe:</p>
+            <div class="ad-codigos"><code>/vincular @codigoBot</code></div>
+            <p class="small text-muted mt-2">Vence a las @venceBot?.ToLocalTime().ToString("HH:mm"). El chat queda ligado a su usuario y a @Actual.Proyecto?.Nombre; con /proyecto cambia de proyecto.</p>
+        }
+        else
+        {
+            <p class="small text-muted">Genere aquí su código personal para consultar torres, planos y documentos con sus permisos de SGC Web.</p>
+            <form method="post" @formname="telegram" @onsubmit="CodigoTelegram"><AntiforgeryToken />
+                <button type="submit" class="btn btn-outline-secondary" title="Generar código de vinculación"><Ico Nombre="enlace" /></button></form>
+        }
+    </section>
+
+    @* ---------- Avisos por correo ---------- *@
+    <section class="ad-tarjeta" id="avisos">
+        <h5 class="ad-tit">Avisos por correo</h5>
+        <p class="small text-muted">Lo que le llega a @u.Email cuando un aviso del proyecto le corresponde. Desmarque lo que no quiera recibir.</p>
+        <form method="post" @formname="avisos" @onsubmit="GuardarAvisosAsync">
+            <AntiforgeryToken />
+            <input type="hidden" name="Avisos.Enviado" value="1" />
+            <div class="mc-avisos">
+                @foreach (var (clave, nombre, desc) in TiposAviso)
+                {
+                    <label class="mc-aviso" title="@desc"><input type="checkbox" name="Avisos.Recibir" value="@clave" checked="@(!avisosApagados.Contains(clave))" /> <span>@nombre</span></label>
+                }
+            </div>
+            <div class="ad-pie"><button type="submit" class="btn btn-primary" title="Guardar"><Ico Nombre="guardar" /></button></div>
+        </form>
+    </section>
+
+    @* ---------- Accesos ---------- *@
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Mis proyectos</h5>
+        <ul class="ad-lista">
+            @foreach (var p in proyectos)
+            {
+                var pe = Permisos.De(u.Id, p.Id);
+                <li><span class="ad-punto" style="--c:@(p.Color ?? "#EC1C24")"></span><b>@p.Nombre</b> <span class="text-muted small">@(pe.AdminGlobal ? "Administrador SGC" : pe.AuditorGlobal ? "Auditor SGC" : pe.Rol ?? "")</span></li>
+            }
+        </ul>
+    </section>
+
+    @* ---------- Datos y sesiones ---------- *@
+    <section class="ad-tarjeta">
+        <h5 class="ad-tit">Privacidad y sesiones</h5>
+        <p class="small text-muted mb-2">Último ingreso: @(u.UltimoIngreso?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "—"). Autorizó el tratamiento de datos: @(u.AutorizoDatosEn?.ToLocalTime().ToString("dd/MM/yyyy") ?? "—") (política @(u.VersionPolitica ?? "—")).</p>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-secondary" href="cuenta/mis-datos" download title="Descargar mis datos (JSON)"><Ico Nombre="exportar" /></a>
+            <a class="btn btn-outline-secondary" href="privacidad" title="Política de tratamiento de datos"><Ico Nombre="documento" /></a>
+            <form method="post" @formname="sesiones" @onsubmit="CerrarSesionesAsync"><AntiforgeryToken />
+                <button type="submit" class="btn btn-outline-danger" title="Cerrar la sesión en todos los demás equipos"><Ico Nombre="candado" /></button></form>
+        </div>
+    </section>
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "perfil")] private PerfilM Perfil { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "clave")] private ClaveM Clave { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "mfa")] private MfaM Mfa { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "desactivar")] private DesactivarM Desactivar { get; set; } = new();
+    [SupplyParameterFromQuery(Name = "mfa")] private string? ExigirQ { get; set; }
+    [SupplyParameterFromQuery(Name = "foto")] private string? FotoQ { get; set; }
+    [SupplyParameterFromForm(FormName = "avisos")] private AvisosM Avisos { get; set; } = new();
+
+    public sealed class PerfilM
+    {
+        public string? Nombre { get; set; } public string? Cargo { get; set; } public string? Empresa { get; set; }
+        public string? Area { get; set; } public string? Profesion { get; set; } public string? MatriculaProfesional { get; set; }
+        public string? Celular { get; set; } public string? TelefonoFijo { get; set; } public string? CorreoAlterno { get; set; }
+        public string? Ciudad { get; set; } public string? JefeInmediato { get; set; }
+    }
+    public sealed class AvisosM { public string? Enviado { get; set; } public List<string> Recibir { get; set; } = new(); }
+
+    private static readonly (string Clave, string Nombre, string Desc)[] TiposAviso = CatalogoNotificaciones.Lista
+        .Select(t => (t.Clave, t.Nombre, t.Descripcion))
+        .Append((CatalogoNotificaciones.Manual, "Avisos enviados por otros usuarios", "Cuando alguien le envía un registro desde un módulo (botón de correo)"))
+        .ToArray();
+    private HashSet<string> avisosApagados = new();
+    private string Iniciales => string.Concat((u?.NombreCompleto ?? "?").Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
+    public sealed class ClaveM { public string? Actual { get; set; } public string? Nueva { get; set; } public string? Confirmar { get; set; } }
+    public sealed class MfaM { public string? Codigo { get; set; } }
+    public sealed class DesactivarM { public string? Clave { get; set; } }
+
+    private UsuarioSig? u;
+    private bool tieneClave, mfaActiva, exigirMfa, exigirMfaAdmin, avisoError;
+    private int codigosRestantes;
+    private string? aviso, clave, qr, codigoBot;
+    private DateTime? venceBot;
+    private IEnumerable<string>? codigosNuevos;
+    private IReadOnlyList<Proyecto> proyectos = Array.Empty<Proyecto>();
+
+    private string ClaveLegible => clave is null ? "" : string.Join(' ', Enumerable.Range(0, (clave.Length + 3) / 4).Select(i => clave.Substring(i * 4, Math.Min(4, clave.Length - i * 4)))).ToLowerInvariant();
+
+    protected override async Task OnInitializedAsync()
+    {
+        u = await Usuarios.GetUserAsync(HttpContext.User);
+        if (u is null) return;
+        exigirMfaAdmin = Actual.EsAdministrador && Cfg.GetValue("Seguridad:MfaObligatoriaAdministradores", false) && !Actual.Desarrollo;
+        exigirMfa = exigirMfaAdmin && ExigirQ == "1";
+        switch (FotoQ)
+        {
+            case "ok": Ok("Foto actualizada."); break;
+            case "quitada": Ok("Foto quitada."); break;
+            case "grande": Mal("La foto pesa más de 2 MB."); break;
+            case "formato": Mal("La foto debe ser PNG, JPG o WebP."); break;
+            case "vacia": Mal("Elija una imagen."); break;
+            case "bloqueado": Mal("Viendo como otro usuario no se puede cambiar la foto."); break;
+        }
+        await RefrescarAsync();
+    }
+
+    private async Task RefrescarAsync()
+    {
+        u = await Usuarios.FindByIdAsync(u!.Id);
+        tieneClave = await Usuarios.HasPasswordAsync(u!);
+        mfaActiva = await Usuarios.GetTwoFactorEnabledAsync(u!);
+        codigosRestantes = mfaActiva ? await Usuarios.CountRecoveryCodesAsync(u!) : 0;
+        proyectos = Permisos.ProyectosDe(u!.Id);
+        avisosApagados = (await Db.PreferenciasNotificacion.AsNoTracking().Where(p => p.UsuarioId == u!.Id && !p.Recibir).Select(p => p.Tipo).ToListAsync()).ToHashSet();
+        if (!mfaActiva)
+        {
+            clave = await Usuarios.GetAuthenticatorKeyAsync(u!);
+            if (string.IsNullOrEmpty(clave))
+            {
+                await Usuarios.ResetAuthenticatorKeyAsync(u!);
+                clave = await Usuarios.GetAuthenticatorKeyAsync(u!);
+            }
+            var emisor = Uri.EscapeDataString("SGC Web");
+            var uri = $"otpauth://totp/{emisor}:{Uri.EscapeDataString(u!.Email!)}?secret={clave}&issuer={emisor}&digits=6";
+            using var gen = new QRCoder.QRCodeGenerator();
+            using var datos = gen.CreateQrCode(uri, QRCoder.QRCodeGenerator.ECCLevel.M);
+            qr = "data:image/png;base64," + Convert.ToBase64String(new QRCoder.PngByteQRCode(datos).GetGraphic(6));
+        }
+    }
+
+    private void Ok(string m) { aviso = m; avisoError = false; }
+    private void Mal(string m) { aviso = m; avisoError = true; }
+
+    private async Task GuardarPerfilAsync()
+    {
+        if (u is null || Actual.VeComoOtro) return;
+        var nombre = Perfil.Nombre?.Trim();
+        if (string.IsNullOrEmpty(nombre)) { Mal("Escriba su nombre."); return; }
+        u.NombreCompleto = nombre.Length > 150 ? nombre[..150] : nombre;
+        var alterno = Limpio(Perfil.CorreoAlterno, 256);
+        if (alterno is not null && !ServicioNotificaciones.EsCorreo(alterno)) { Mal("El correo alterno no es válido."); return; }
+        var cel = Limpio(Perfil.Celular, 30);
+        if (cel is not null && !System.Text.RegularExpressions.Regex.IsMatch(cel, @"^[+0-9 ()\-.]{5,30}$")) { Mal("Revise el celular (solo números, espacios, +, -, paréntesis)."); return; }
+        u.Cargo = Limpio(Perfil.Cargo, 120); u.Empresa = Limpio(Perfil.Empresa, 150);
+        u.Area = Limpio(Perfil.Area, 120); u.Profesion = Limpio(Perfil.Profesion, 120); u.MatriculaProfesional = Limpio(Perfil.MatriculaProfesional, 60);
+        u.PhoneNumber = cel; u.TelefonoFijo = Limpio(Perfil.TelefonoFijo, 40); u.CorreoAlterno = alterno;
+        u.Ciudad = Limpio(Perfil.Ciudad, 120); u.JefeInmediato = Limpio(Perfil.JefeInmediato, 150);
+        await Usuarios.UpdateAsync(u);
+        await SignIn.RefreshSignInAsync(u);
+        Auditoria.Registrar(HttpContext, "Perfil actualizado", true, null, u.Id, u.Email);
+        Perfil = new();
+        Ok("Datos guardados.");
+        await RefrescarAsync();
+    }
+
+    private async Task GuardarAvisosAsync()
+    {
+        if (u is null || Actual.VeComoOtro || Avisos.Enviado != "1") return;
+        var si = Avisos.Recibir.ToHashSet();
+        var guardadas = await Db.PreferenciasNotificacion.Where(p => p.UsuarioId == u.Id).ToListAsync();
+        foreach (var (clave, _, _) in TiposAviso)
+        {
+            var p = guardadas.FirstOrDefault(x => x.Tipo == clave);
+            if (si.Contains(clave)) { if (p is not null) Db.PreferenciasNotificacion.Remove(p); }   // por omisión recibe
+            else if (p is null) Db.PreferenciasNotificacion.Add(new PreferenciaNotificacion { UsuarioId = u.Id, Tipo = clave, Recibir = false });
+            else p.Recibir = false;
+        }
+        await Db.SaveChangesAsync();
+        Auditoria.Registrar(HttpContext, "Preferencias de avisos", true, $"{TiposAviso.Length - si.Count} desactivado(s)", u.Id, u.Email);
+        Avisos = new();
+        Ok("Preferencias de avisos guardadas.");
+        await RefrescarAsync();
+    }
+
+    private async Task CambiarClaveAsync()
+    {
+        if (u is null || Actual.VeComoOtro) return;
+        if (Clave.Nueva != Clave.Confirmar) { Mal("Las contraseñas nuevas no coinciden."); return; }
+        var r = await Usuarios.ChangePasswordAsync(u, Clave.Actual ?? "", Clave.Nueva ?? "");
+        if (!r.Succeeded)
+        {
+            Auditoria.Registrar(HttpContext, "Cambio de contraseña", false, string.Join(", ", r.Errors.Select(e => e.Code)), u.Id, u.Email);
+            Mal(string.Join(" ", r.Errors.Select(e => e.Description)));
+            return;
+        }
+        await SignIn.RefreshSignInAsync(u);   // el sello cambió: las demás sesiones se cierran, esta sigue
+        Auditoria.Registrar(HttpContext, "Cambio de contraseña", true, "Otras sesiones cerradas", u.Id, u.Email);
+        _ = Task.Run(() => Correo.EnviarAsync(u.Email!, "Su contraseña de SGC Web cambió", EnviadorCorreo.Plantilla("Contraseña cambiada",
+            $"<p>La contraseña de su cuenta se cambió el {DateTime.Now:dd/MM/yyyy HH:mm} desde Mi cuenta.</p><p>Si no fue usted, avise de inmediato al administrador.</p>")));
+        Ok("Contraseña cambiada. Se cerraron las sesiones en otros equipos.");
+        await RefrescarAsync();
+    }
+
+    private async Task ActivarMfaAsync()
+    {
+        if (u is null || Actual.VeComoOtro) return;
+        var codigo = (Mfa.Codigo ?? "").Replace(" ", "").Replace("-", "");
+        if (!await Usuarios.VerifyTwoFactorTokenAsync(u, Usuarios.Options.Tokens.AuthenticatorTokenProvider, codigo))
+        {
+            Auditoria.Registrar(HttpContext, "Activar verificación en 2 pasos", false, "Código incorrecto", u.Id, u.Email);
+            Mal("El código no coincide. Revise la hora del teléfono y vuelva a intentar.");
+            await RefrescarAsync();
+            return;
+        }
+        await Usuarios.SetTwoFactorEnabledAsync(u, true);
+        Permisos.Invalidar();
+        codigosNuevos = await Usuarios.GenerateNewTwoFactorRecoveryCodesAsync(u, 10);
+        await SignIn.RefreshSignInAsync(u);
+        Auditoria.Registrar(HttpContext, "Activar verificación en 2 pasos", true, null, u.Id, u.Email);
+        Ok("Verificación en dos pasos activada.");
+        exigirMfa = false;
+        await RefrescarAsync();
+    }
+
+    private async Task RegenerarAsync()
+    {
+        if (u is null || Actual.VeComoOtro || !await Usuarios.GetTwoFactorEnabledAsync(u)) return;
+        codigosNuevos = await Usuarios.GenerateNewTwoFactorRecoveryCodesAsync(u, 10);
+        Auditoria.Registrar(HttpContext, "Códigos de recuperación regenerados", true, null, u.Id, u.Email);
+        Ok("Códigos nuevos generados; los anteriores ya no sirven.");
+        await RefrescarAsync();
+    }
+
+    private async Task DesactivarMfaAsync()
+    {
+        if (u is null || Actual.VeComoOtro || exigirMfaAdmin) return;
+        if (await Usuarios.HasPasswordAsync(u) && !await Usuarios.CheckPasswordAsync(u, Desactivar.Clave ?? ""))
+        {
+            Auditoria.Registrar(HttpContext, "Desactivar verificación en 2 pasos", false, "Contraseña incorrecta", u.Id, u.Email);
+            Mal("Contraseña incorrecta.");
+            return;
+        }
+        await Usuarios.SetTwoFactorEnabledAsync(u, false);
+        await Usuarios.ResetAuthenticatorKeyAsync(u);
+        await SignIn.RefreshSignInAsync(u);
+        Auditoria.Registrar(HttpContext, "Desactivar verificación en 2 pasos", true, null, u.Id, u.Email);
+        Ok("Verificación en dos pasos desactivada.");
+        await RefrescarAsync();
+    }
+
+    private void CodigoTelegram()
+    {
+        if (u is null || Actual.VeComoOtro) return;
+        if (exigirMfaAdmin && !u.TwoFactorEnabled)
+        {
+            Mal("Active la verificación en dos pasos antes de vincular Telegram.");
+            return;
+        }
+        (codigoBot, var vence) = Bot.GenerarCodigo(string.IsNullOrEmpty(u.NombreCompleto) ? u.Email! : u.NombreCompleto, u.Id, Actual.Proyecto?.Id);
+        venceBot = vence;
+        Auditoria.Registrar(HttpContext, "Código de Telegram generado", true, null, u.Id, u.Email);
+    }
+
+    private async Task CerrarSesionesAsync()
+    {
+        if (u is null || Actual.VeComoOtro) return;
+        await Usuarios.UpdateSecurityStampAsync(u);
+        await SignIn.RefreshSignInAsync(u);
+        Auditoria.Registrar(HttpContext, "Cerrar sesiones", true, "Todas las demás sesiones", u.Id, u.Email);
+        Ok("Se cerró la sesión en los demás equipos (tarda hasta 5 minutos en las pantallas abiertas).");
+        await RefrescarAsync();
+    }
+
+    private static string? Limpio(string? s, int max) { s = s?.Trim(); return string.IsNullOrEmpty(s) ? null : s.Length > max ? s[..max] : s; }
+}

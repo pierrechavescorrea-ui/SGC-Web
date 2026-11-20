@@ -1,0 +1,153 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Costo por actividad (ítem): el costo diario de cada cuadrilla (más su parte de administración) se
+   descuenta de los ítems que produjo ese día según el criterio de Ajustes; una asignación manual
+   fija el valor de un ítem en un día y el resto se reparte entre los demás. *@
+
+<div class="cp-filtros">
+    <label class="cp-check">Desde <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(desde)" @onchange="e => { desde = Fec(e.Value) ?? desde; Calcular(); }" /></label>
+    <label class="cp-check">Hasta <input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(hasta)" @onchange="e => { hasta = Fec(e.Value) ?? hasta; Calcular(); }" /></label>
+    <span class="cp-sub">Criterio: @NombreCriterio(S.Config.CriterioReparto) (Ajustes)</span>
+    <input class="form-control form-control-sm" style="max-width:200px" placeholder="Buscar ítem…" @bind="buscar" @bind:event="oninput" />
+    @if (r is not null)
+    {
+        <span class="cp-sub ms-auto">ingreso @FormatoCostos.Millones(r.Items.Sum(i => i.Ingreso)) · costo asignado @FormatoCostos.Millones(r.Items.Sum(i => i.Costo)) · sin asignar @FormatoCostos.Millones(r.SinAsignar.Values.Sum())</span>
+    }
+</div>
+
+@if (r is not null)
+{
+    <div class="cp-tablero">
+        <div class="cp-caja cp-caja-ancha">
+            <div class="tabla-scroll tabla-auto cp-marco">
+                <table class="table table-sm cp-tabla cp-costo-act">
+                    <thead class="tabla-pin">
+                        <tr><th class="cp-fija">Ítem</th><th>Descripción</th><th class="cp-num">Ingreso</th><th class="cp-num">Costo asignado</th><th class="cp-num">· manual</th><th class="cp-num">Indirectos</th><th class="cp-num">Margen</th><th class="cp-num">% margen</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in r.Items.Where(Coincide))
+                        {
+                            var it = S.ItemPorId.GetValueOrDefault(c.ItemId);
+                            var pm = c.Ingreso != 0 ? c.Margen / c.Ingreso : (decimal?)null;
+                            <tr class="cp-clic @(sel == c.ItemId ? "cp-sel" : "")" @onclick="() => sel = sel == c.ItemId ? null : c.ItemId">
+                                <td class="cp-fija">@it?.Codigo</td><td class="cp-desc" title="@it?.Descripcion">@it?.Descripcion</td>
+                                <td class="cp-num">@FormatoCostos.Dinero(c.Ingreso)</td><td class="cp-num">@FormatoCostos.Dinero(c.Costo)</td>
+                                <td class="cp-num cp-sub">@(c.Manual != 0 ? FormatoCostos.Dinero(c.Manual) : "")</td>
+                                <td class="cp-num">@FormatoCostos.Dinero(c.Indirectos)</td>
+                                <td class="cp-num @(c.Margen < 0 ? "cp-sobre" : "")">@FormatoCostos.Dinero(c.Margen)</td>
+                                <td class="cp-num" style="background:@FormatoCostos.ColorPct(pm is decimal x ? 0.5m + x * 2 : null)">@FormatoCostos.Pct(pm)</td>
+                            </tr>
+                            @if (sel == c.ItemId)
+                            {
+                                <tr class="cp-hist"><td></td><td colspan="7">
+                                    @foreach (var d in r.Detalle.Where(kv => kv.Key.ItemId == c.ItemId).OrderBy(kv => kv.Key.Dia).ThenBy(kv => kv.Key.Cuadrilla))
+                                    {
+                                        <span class="cp-dia-costo">@d.Key.Dia.ToString("dd/MM") · @d.Key.Cuadrilla · @FormatoCostos.Dinero(d.Value)</span>
+                                    }
+                                </td></tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="cp-caja">
+            <div class="cp-panel-tit">Sin asignar <span class="cp-sub">días con costo y sin producción de la cuadrilla</span></div>
+            <table class="table table-sm cp-tabla mb-0">
+                <tbody>
+                    @foreach (var (k, v) in r.SinAsignar.OrderByDescending(kv => kv.Value))
+                    {
+                        <tr><td>@(k == "" ? "(sin cuadrilla)" : k)</td><td class="cp-num">@FormatoCostos.Dinero(v)</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="cp-caja">
+            <div class="cp-panel-tit">Asignaciones manuales <span class="cp-sub">mandan sobre el reparto</span></div>
+            <table class="table table-sm cp-tabla mb-0">
+                <thead><tr><th>Fecha</th><th>Cuadrilla</th><th>Ítem</th><th class="cp-num">Valor</th><th>Motivo</th>@if (Editando) { <th></th> }</tr></thead>
+                <tbody>
+                    @foreach (var m in Editando ? man : S.AsignacionesManual.Where(m => m.Fecha >= desde && m.Fecha <= hasta).OrderBy(m => m.Fecha).ToList())
+                    {
+                        @if (Editando)
+                        {
+                            <tr>
+                                <td><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(m.Fecha)" @onchange="e => m.Fecha = Fec(e.Value) ?? m.Fecha" /></td>
+                                <td><select class="form-select form-select-sm" @bind="m.Cuadrilla">@foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }</select></td>
+                                <td><select class="form-select form-select-sm" @bind="m.ItemPagoId"><option value="0">—</option>@foreach (var i in items) { <option value="@i.Id">@i.Codigo</option> }</select></td>
+                                <td><input class="form-control form-control-sm cp-in-num" @bind="m.Valor" /></td>
+                                <td><input class="form-control form-control-sm" @bind="m.Motivo" /></td>
+                                <td><button type="button" class="btn btn-sm btn-link p-0" title="Quitar" @onclick="() => man.Remove(m)"><Ico Nombre="cancelar" /></button></td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr><td>@FormatoCostos.Fecha(m.Fecha)</td><td>@m.Cuadrilla</td><td>@S.ItemPorId.GetValueOrDefault(m.ItemPagoId)?.Codigo</td><td class="cp-num">@FormatoCostos.Dinero(m.Valor)</td><td class="cp-sub">@m.Motivo</td></tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private DateTime desde, hasta;
+    private InstantaneaCostos.ResultadoCostoActividad? r;
+    private List<ItemPago> items = new();
+    private List<AsignacionCostoActividad> man = new();
+    private string buscar = "";
+    private int? sel;
+
+    public override string? SelectorExportar => "table.cp-costo-act";
+
+    private bool Coincide(InstantaneaCostos.CostoItem c) =>
+        buscar.Trim() == "" || $"{S.ItemPorId.GetValueOrDefault(c.ItemId)?.Codigo} {S.ItemPorId.GetValueOrDefault(c.ItemId)?.Descripcion}".Contains(buscar.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    public static string NombreCriterio(CriterioRepartoCosto c) => c switch
+    {
+        CriterioRepartoCosto.Cantidad => "cantidad ejecutada",
+        CriterioRepartoCosto.PartesIguales => "partes iguales",
+        _ => "valor producido"
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (!DatosNuevos()) return;
+        items = S.Items.Where(i => !i.EsCapitulo).OrderBy(i => i.Orden).ToList();
+        if (desde == default) { desde = new DateTime(Corte.Year, Corte.Month, 1); hasta = Corte.Date; }
+        Calcular();
+    }
+
+    private void Calcular() => r = S.CostoPorActividad(desde, hasta, Corte);
+
+    public override Task EditarAsync()
+    {
+        man = S.AsignacionesManual.Where(m => m.Fecha >= desde && m.Fecha <= hasta)
+            .Select(m => new AsignacionCostoActividad { Id = m.Id, Fecha = m.Fecha, Cuadrilla = m.Cuadrilla, ItemPagoId = m.ItemPagoId, Valor = m.Valor, Motivo = m.Motivo }).ToList();
+        return base.EditarAsync();
+    }
+
+    public override async Task AgregarAsync()
+    {
+        if (!Editando) await EditarAsync();
+        var it = sel is int s0 ? S.ItemPorId.GetValueOrDefault(s0) : null;
+        man.Add(new AsignacionCostoActividad { Fecha = Corte.Date, Cuadrilla = InstantaneaCostos.Norm(it?.CuadrillaPorDefecto) is { Length: > 0 } c ? c : S.Cuadrillas.FirstOrDefault() ?? "", ItemPagoId = it?.Id ?? 0 });
+        await Avisar();
+    }
+
+    // Las asignaciones son configuración del reparto: se reemplazan las del rango (borrado directo).
+    protected override async Task GuardarCambiosAsync()
+    {
+        if (man.Any(m => m.ItemPagoId <= 0 || string.IsNullOrWhiteSpace(m.Cuadrilla))) throw new InvalidOperationException("Cada asignación necesita cuadrilla e ítem.");
+        var viejas = await Db.AsignacionesCostoActividad.Where(m => m.Fecha >= desde && m.Fecha <= hasta).ToListAsync();
+        Db.AsignacionesCostoActividad.RemoveRange(viejas);
+        foreach (var m in man)
+            Db.AsignacionesCostoActividad.Add(new AsignacionCostoActividad { Fecha = m.Fecha.Date, Cuadrilla = InstantaneaCostos.Norm(m.Cuadrilla), ItemPagoId = m.ItemPagoId, Valor = m.Valor, Motivo = m.Motivo });
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+    }
+}

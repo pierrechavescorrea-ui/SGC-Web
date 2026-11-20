@@ -1,0 +1,179 @@
+@page "/ensayos/resumen"
+@rendermode InteractiveServer
+@using SigWeb.Data.Ensayos
+
+<div class="@(pantallaCompleta ? "ens-pantalla" : "")">
+<EncabezadoPagina Titulo="Resumen de ensayos" Icono="ensayos" Subtitulo="Todas las torres · columnas marcadas «Resumen» en cada ensayo" OnAtras="AtrasCb">
+    <Acciones>
+        <button type="button" class="pg-btn @(pantallaCompleta ? "activo" : "")" title="@(pantallaCompleta ? "Salir de pantalla completa" : "Pantalla completa")" @onclick="() => pantallaCompleta = !pantallaCompleta"><Ico Nombre="pantalla-completa" /></button>
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(vista == "ensayo" ? "activo" : "")" title="Por ensayo (una tabla por tipo)" @onclick='() => vista = "ensayo"'><Ico Nombre="tabla" /></button>
+            <button type="button" class="pg-btn @(vista == "torre" ? "activo" : "")" title="Por torre (todos sus ensayos)" @onclick='() => vista = "torre"'><Ico Nombre="torre" /></button>
+        </span>
+        <span class="pg-sep"></span>
+        <button type="button" class="pg-btn" title="Exportar a Excel (una hoja por ensayo, lo filtrado)" disabled="@(tipos is null)" @onclick="ExportarAsync"><Ico Nombre="exportar-excel" /></button>
+    </Acciones>
+</EncabezadoPagina>
+
+@if (error is not null)
+{
+    <div class="alert alert-warning py-1 small">@error</div>
+}
+else if (tipos is null)
+{
+    <Esqueleto Tipo="tabla" Filas="8" />
+}
+else
+{
+    <div class="er-filtros">
+        <input class="form-control form-control-sm er-buscar" placeholder="Buscar en lo mostrado (torre, valor…)" data-sin-flotante data-recordar="buscar" @bind="buscar" @bind:event="oninput" />
+        <select class="form-select form-select-sm" data-sin-flotante @bind="fGrupo" title="Grupo de ensayos">
+            <option value="">Todos los grupos</option>
+            @foreach (var g in tipos.Select(t => t.Grupo).Where(g => g != "").Distinct()) { <option value="@g">@g</option> }
+        </select>
+        @if (vista == "torre")
+        {
+            <select class="form-select form-select-sm" data-sin-flotante @bind="fTorre" title="Torre o localización">
+                <option value="">Todas las torres</option>
+                @foreach (var l in Lugares) { <option value="@l">@l</option> }
+            </select>
+        }
+        <span class="er-cuenta">@TiposVisibles.Sum(t => FilasDe(t).Count()) resultado(s)</span>
+    </div>
+
+    @if (vista == "torre")
+    {
+        @VistaTorre()
+    }
+    else
+    {
+        @VistaEnsayo()
+    }
+}
+</div>
+
+@code {
+    // Solo fragmentos; la lógica en EnsayosResumen.razor.cs.
+
+    // ---------- Por ensayo: pestañas por tipo + tabla con sus columnas «Resumen» ----------
+    private RenderFragment VistaEnsayo() => __builder =>
+    {
+        var visibles = TiposVisibles.ToArray();
+        var actual = visibles.FirstOrDefault(t => t.Id == tipoSel) ?? visibles.FirstOrDefault();
+        <div class="er-pestanas">
+            @foreach (var t in visibles)
+            {
+                var tt = t;
+                <button type="button" class="er-pestana @(actual?.Id == tt.Id ? "activo" : "") @(tt.SinMarcas ? "er-sin" : "")" title="@(tt.SinMarcas ? "Sin columnas marcadas «Resumen»" : tt.Grupo)" @onclick="() => { tipoSel = tt.Id; limite = 200; }">
+                    @tt.Nombre <span class="er-num">@(tt.SinMarcas ? "—" : FilasDe(tt).Count().ToString())</span>
+                </button>
+            }
+        </div>
+        @if (actual is null)
+        {
+            <div class="text-muted small p-3">No hay tipos de ensayo.</div>
+        }
+        else if (actual.SinMarcas)
+        {
+            <div class="er-vacio">
+                <Ico Nombre="informacion" />
+                <div><b>«@actual.Nombre» no tiene columnas marcadas «Resumen».</b>
+                    <div class="small text-muted">En el ensayo, abra Campos y marque en la columna «Resumen» los datos que quiere ver aquí (localización, elemento, fechas, resultados…). Tiene @actual.Filas.Count resultado(s).</div></div>
+                <a class="btn btn-sm btn-primary" href="@($"ensayos/{actual.Id}")" title="Abrir el ensayo para marcar sus columnas"><Ico Nombre="editar" /></a>
+            </div>
+        }
+        else
+        {
+            var filas = FilasDe(actual).ToArray();
+            <div class="tabla-scroll tabla-auto">
+                <table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin er-tabla">
+                    <thead>
+                        <tr>
+                            @foreach (var c in actual.Columnas)
+                            {
+                                var col = c;
+                                <th class="th-ordenable" @onclick="() => Ordenar(col)">@col@(orden == col ? (ordenDesc ? " ▼" : " ▲") : "")</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var f in filas.Take(limite))
+                        {
+                            var fila = f;
+                            <tr @ondblclick="() => AbrirEnsayo(actual.Id, fila.Id)" title="Doble clic: abrir en el ensayo">
+                                @foreach (var c in actual.Columnas) { <td>@(fila.Valores.GetValueOrDefault(c) ?? "")</td> }
+                            </tr>
+                        }
+                        @if (filas.Length == 0)
+                        {
+                            <tr><td colspan="@actual.Columnas.Count" class="text-muted small text-center py-2"><em>Sin resultados.</em></td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (filas.Length > limite)
+            {
+                <div class="er-mas">
+                    <span class="small text-muted">@limite de @filas.Length</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => limite += 500">＋ 500</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => limite = int.MaxValue">Todas</button>
+                </div>
+            }
+        }
+    };
+
+    // ---------- Por torre: una tarjeta por torre/localización con cada ensayo y sus columnas «Resumen» ----------
+    private RenderFragment VistaTorre() => __builder =>
+    {
+        var grupos = PorLugar().ToArray();
+        <div class="er-torres">
+            @foreach (var g in grupos.Take(limiteTorres))
+            {
+                var lugar = g.Lugar;
+                <div class="er-torre">
+                    <div class="er-torre-cab">
+                        @if (g.TorreId is int tid)
+                        {
+                            <a class="er-torre-nom" href="@($"trazado?torre={tid}&hdv=true")" title="Hoja de vida de la torre">@lugar</a>
+                        }
+                        else
+                        {
+                            <span class="er-torre-nom">@(lugar == "" ? "Sin torre ni localización" : lugar)</span>
+                        }
+                        <span class="er-num">@g.Total resultado(s)</span>
+                    </div>
+                    @foreach (var (tipo, filas) in g.PorTipo)
+                    {
+                        var tp = tipo;
+                        <div class="er-torre-tipo">
+                            <div class="er-torre-tit"><a href="@($"ensayos/{tp.Id}")" title="Abrir el ensayo">@tp.Nombre</a> <span class="er-num">@filas.Length</span></div>
+                            @foreach (var f in filas.Take(6))
+                            {
+                                var fila = f;
+                                <div class="er-linea" @ondblclick="() => AbrirEnsayo(tp.Id, fila.Id)">
+                                    @foreach (var c in tp.Columnas)
+                                    {
+                                        @if (fila.Valores.TryGetValue(c, out var v)) { <span class="er-par"><span class="er-par-n">@c</span> @v</span> }
+                                    }
+                                </div>
+                            }
+                            @if (filas.Length > 6) { <div class="small text-muted">… y @(filas.Length - 6) más</div> }
+                        </div>
+                    }
+                </div>
+            }
+            @if (grupos.Length == 0)
+            {
+                <div class="text-muted small p-3">Sin resultados (o ningún ensayo tiene columnas marcadas «Resumen»).</div>
+            }
+        </div>
+        @if (grupos.Length > limiteTorres)
+        {
+            <div class="er-mas">
+                <span class="small text-muted">@limiteTorres de @grupos.Length torres</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => limiteTorres += 60">＋ 60</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => limiteTorres = int.MaxValue">Todas</button>
+            </div>
+        }
+    };
+}

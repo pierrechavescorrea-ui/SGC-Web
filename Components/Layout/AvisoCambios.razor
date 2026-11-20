@@ -1,0 +1,7 @@
+@* Cambios sin guardar de la pantalla: con Pendientes > 0, js/volver.js pide confirmar antes de salir
+   (botón volver, vínculos de la app, cerrar o recargar la pestaña). *@
+<span hidden data-sig-pendientes="@Pendientes"></span>
+
+@code {
+    [Parameter] public int Pendientes { get; set; }
+}

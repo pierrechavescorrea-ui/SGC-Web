@@ -1,0 +1,150 @@
+@inherits VistaCostosBase
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data.Costos
+@using SigWeb.Models
+
+@* Personal: valor día = salario/30 × factor prestacional × (1 + recargos) + auxilio/30 + adicional
+   (parámetros en Ajustes). Su costo entra a su código (MOD/MOI), a su cuadrilla y al PF1. *@
+
+<div class="cp-filtros">
+    <input class="form-control form-control-sm" style="max-width:240px" placeholder="Buscar nombre, cédula, cargo…" @bind="buscar" @bind:event="oninput" />
+    <select class="form-select form-select-sm" style="max-width:180px" @bind="cuadrilla">
+        <option value="">Todas las cuadrillas</option>
+        @foreach (var c in S.Cuadrillas) { <option value="@c">@c</option> }
+    </select>
+    <label class="cp-check"><input type="checkbox" @bind="soloActivos" /> Activos al corte</label>
+    <span class="cp-sub ms-auto">@Filas.Count(p => p.Id > 0 && InstantaneaCostos.Activa(p, Corte)) activo(s) · día @FormatoCostos.Dinero(Filas.Where(p => InstantaneaCostos.Activa(p, Corte)).Sum(S.ValorDia)) · cargado @FormatoCostos.Dinero(Filas.Sum(p => S.Cargado(p, Corte)))</span>
+</div>
+
+<div class="tabla-scroll tabla-auto cp-marco">
+    <table class="table table-sm cp-tabla cp-personal">
+        <thead class="tabla-pin">
+            <tr>
+                <th class="cp-fija">Nombre</th><th>Cédula</th><th>Cargo</th><th>Código</th><th>Cuadrilla</th><th>Ingreso</th><th>Retiro</th>
+                <th class="cp-num">Salario</th><th class="cp-num">Auxilio</th><th class="cp-num">Valor día</th><th class="cp-num">Cargado</th>
+                @if (Editando) { <th></th> }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in Filas)
+            {
+                var e = Editando ? (p.Id <= 0 ? p : ed.GetValueOrDefault(p.Id)) : null;
+                var borrar = borrados.Contains(p.Id);
+                var x0 = e ?? p;
+                <tr class="@(p.Id <= 0 ? "cp-nueva" : "") @(borrar ? "cp-borrar" : "") @(InstantaneaCostos.Activa(p, Corte) ? "" : "cp-apagada")">
+                    @if (e is not null)
+                    {
+                        <td class="cp-fija"><input class="form-control form-control-sm" @bind="e.Nombre" /></td>
+                        <td><input class="form-control form-control-sm cp-in-cod" @bind="e.Cedula" /></td>
+                        <td><input class="form-control form-control-sm" @bind="e.Cargo" /></td>
+                        <td>
+                            <select class="form-select form-select-sm" @bind="e.CodigoPresupuestoId">
+                                <option value="">—</option>
+                                @foreach (var k in S.Codigos) { <option value="@k.Id">@k.Codigo</option> }
+                            </select>
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm" @bind="e.Cuadrilla">
+                                <option value="">—</option>
+                                @foreach (var q in S.Cuadrillas) { <option value="@q">@q</option> }
+                            </select>
+                        </td>
+                        <td><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(e.Ingreso)" @onchange="x => e.Ingreso = Fec(x.Value)" /></td>
+                        <td><input type="date" class="form-control form-control-sm" value="@FormatoCostos.Iso(e.Retiro)" @onchange="x => e.Retiro = Fec(x.Value)" /></td>
+                        <td><input class="form-control form-control-sm cp-in-num" @bind="e.Salario" /></td>
+                        <td><input class="form-control form-control-sm cp-in-num" @bind="e.Auxilio" /></td>
+                    }
+                    else
+                    {
+                        <td class="cp-fija">@p.Nombre</td><td>@p.Cedula</td><td>@p.Cargo</td>
+                        <td>@S.Codigos.FirstOrDefault(k => k.Id == p.CodigoPresupuestoId)?.Codigo</td><td>@p.Cuadrilla</td>
+                        <td>@FormatoCostos.Fecha(p.Ingreso)</td><td>@FormatoCostos.Fecha(p.Retiro)</td>
+                        <td class="cp-num">@FormatoCostos.Dinero(p.Salario)</td><td class="cp-num">@FormatoCostos.Dinero(p.Auxilio)</td>
+                    }
+                    <td class="cp-num">@FormatoCostos.Dinero(S.ValorDia(x0))</td>
+                    <td class="cp-num">@FormatoCostos.Dinero(S.Cargado(x0, Corte))</td>
+                    @if (e is not null)
+                    {
+                        <td>
+                            @if (p.Id <= 0)
+                            {
+                                <button type="button" class="btn btn-sm btn-link p-0" title="Quitar" @onclick="() => nuevos.Remove(p)"><Ico Nombre="cancelar" /></button>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-sm btn-link p-0" title="@(borrar ? "No eliminar" : "Eliminar (a la Papelera al guardar)")" @onclick="() => { if (!borrados.Remove(p.Id)) borrados.Add(p.Id); }"><Ico Nombre="@(borrar ? "restaurar" : "eliminar")" /></button>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private string buscar = "", cuadrilla = "";
+    private bool soloActivos = true;
+    private Dictionary<int, Persona> ed = new();
+    private HashSet<int> borrados = new();
+    private List<Persona> nuevos = new();
+    private int sigId;
+
+    public override string? SelectorExportar => "table.cp-personal";
+
+    private IEnumerable<Persona> Filas
+    {
+        get
+        {
+            var q = buscar.Trim();
+            return nuevos.Concat(S.Personas.OrderBy(p => p.Cuadrilla).ThenBy(p => p.Nombre)).Where(p => p.Id <= 0 || (
+                (cuadrilla == "" || InstantaneaCostos.Norm(p.Cuadrilla) == cuadrilla)
+                && (!soloActivos || InstantaneaCostos.Activa(p, Corte))
+                && (q == "" || $"{p.Nombre} {p.Cedula} {p.Cargo}".Contains(q, StringComparison.OrdinalIgnoreCase))));
+        }
+    }
+
+    public override Task EditarAsync()
+    {
+        ed = S.Personas.ToDictionary(p => p.Id, p => new Persona
+        {
+            Id = p.Id, Nombre = p.Nombre, Cedula = p.Cedula, Cargo = p.Cargo, CodigoPresupuestoId = p.CodigoPresupuestoId, Cuadrilla = p.Cuadrilla,
+            Ingreso = p.Ingreso, Retiro = p.Retiro, Salario = p.Salario, Auxilio = p.Auxilio
+        });
+        borrados.Clear();
+        return base.EditarAsync();
+    }
+
+    public override async Task AgregarAsync()
+    {
+        if (!Editando) await EditarAsync();
+        var mod = S.Codigos.FirstOrDefault(c => c.Codigo == "MOD");
+        nuevos.Insert(0, new Persona { Id = --sigId, Ingreso = Corte.Date, CodigoPresupuestoId = mod?.Id, Cuadrilla = cuadrilla == "" ? null : cuadrilla });
+        await Avisar();
+    }
+
+    public override void Cancelar() { nuevos.Clear(); ed.Clear(); borrados.Clear(); base.Cancelar(); }
+
+    protected override async Task GuardarCambiosAsync()
+    {
+        if (nuevos.Concat(ed.Values).Any(p => string.IsNullOrWhiteSpace(p.Nombre)))
+            throw new InvalidOperationException("Cada persona necesita nombre.");
+        foreach (var p in nuevos.Concat(ed.Values))
+            if (p.Ingreso is DateTime i && p.Retiro is DateTime r && r < i)
+                throw new InvalidOperationException($"{p.Nombre}: el retiro es anterior al ingreso.");
+        foreach (var n in nuevos) { n.Id = 0; Db.Personas.Add(n); }
+        var ahora = DateTime.Now;
+        var ids = ed.Keys.ToList();
+        foreach (var p in await Db.Personas.Where(p => ids.Contains(p.Id)).ToListAsync())
+        {
+            if (borrados.Contains(p.Id)) { p.Eliminado = true; p.FechaEliminacion = ahora; continue; }
+            var e = ed[p.Id];
+            p.Nombre = e.Nombre.Trim(); p.Cedula = e.Cedula; p.Cargo = e.Cargo; p.CodigoPresupuestoId = e.CodigoPresupuestoId;
+            p.Cuadrilla = string.IsNullOrWhiteSpace(e.Cuadrilla) ? null : e.Cuadrilla;
+            p.Ingreso = e.Ingreso; p.Retiro = e.Retiro; p.Salario = e.Salario; p.Auxilio = e.Auxilio;
+        }
+        await Db.SaveChangesAsync();
+        Db.ChangeTracker.Clear();
+        nuevos.Clear(); ed.Clear(); borrados.Clear();
+    }
+}

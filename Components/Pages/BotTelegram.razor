@@ -1,0 +1,6 @@
+@page "/bot-telegram"
+@inject NavigationManager Nav
+
+@code {
+    protected override void OnInitialized() => Nav.NavigateTo("admin/telegram", replace: true);
+}

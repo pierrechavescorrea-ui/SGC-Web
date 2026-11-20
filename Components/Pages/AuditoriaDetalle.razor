@@ -1,0 +1,358 @@
+@page "/auditoria-interna/{Id:int}"
+@rendermode InteractiveServer
+@using SigWeb.Models
+@using SigWeb.Data.Auditorias
+
+<PageTitle>@(aud?.Codigo ?? "Auditoría")</PageTitle>
+
+<EncabezadoPagina Titulo="@(aud?.Codigo ?? "Auditoría")" Icono="auditoria-interna" OnAtras="Atras"
+                  Subtitulo="@(aud is null ? null : string.Join(" · ", new[] { aud.Tipo, EscalaAuditoria.Mes(aud.Mes) + (Rango.Length > 0 ? $" ({Rango})" : ""), prog?.Titulo }.Where(x => !string.IsNullOrWhiteSpace(x))))">
+    <Acciones>
+        @if (aud is not null)
+        {
+            <button type="button" class="pg-btn @(informe ? "activo" : "")" title="@(informe ? "Volver a los hallazgos" : "Informe de auditoría (imprimible)")" @onclick="AlternarInforme"><Ico Nombre="acta" /></button>
+            <BotonNotificar Modulo="auditoria-interna" Asunto="@($"Auditoría {aud.Codigo}")" Enlace="@($"auditoria-interna/{aud.Id}")" />
+            <span class="pg-sep"></span>
+            <button type="button" class="pg-btn pg-btn-peligro" title="Eliminar auditoría" @onclick='() => PedirEliminar("auditoria", aud.Id, aud.Codigo)'><Ico Nombre="eliminar" /></button>
+            <button type="button" class="pg-btn @(formAud is not null ? "activo" : "")" title="Editar datos de la auditoría" @onclick="EditarAuditoria"><Ico Nombre="editar" /></button>
+            <button type="button" class="pg-btn pg-btn-primario" title="Agregar hallazgo" disabled="@(!PuedeHallazgos)" @onclick="NuevoHallazgo"><Ico Nombre="agregar" /></button>
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert @(error ? "alert-warning" : "alert-success") py-1 px-2 small d-flex align-items-center gap-2">
+        <span class="flex-grow-1">@mensaje</span>
+        <button type="button" class="btn-close btn-sm" title="Cerrar" @onclick='() => mensaje = ""'></button>
+    </div>
+}
+
+@if (cargado && aud is null)
+{
+    <div class="alert alert-warning py-1 small">La auditoría no existe o está en la Papelera.</div>
+}
+
+@if (elim is not null)
+{
+    <div class="card panel-formulario mb-3 border-danger">
+        <div class="card-body">
+            <div class="mb-2"><Ico Nombre="eliminar" /> <strong>@elim.Titulo</strong></div>
+            <PanelImpacto Informe="elim.Informe" OnEntendido="@(v => elim.Entendido = v)" />
+            <div class="frm-pie frm-pie-plano">
+                <button class="btn btn-secondary btn-sm" type="button" title="Cancelar" @onclick="() => elim = null"><Ico Nombre="cancelar" /></button>
+                <button data-texto="Eliminar" class="btn btn-danger btn-sm" type="button" title="Eliminar (va a la Papelera)" disabled="@(BloqueadoPorImpacto || guardando)" @onclick="ConfirmarEliminar"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (aud is not null)
+{
+    @if (formAud is not null)
+    {
+        <FormularioSig Titulo="@aud.Codigo" Icono="auditoria-interna" Clase="mb-3" OnCerrar="() => formAud = null">
+            <ChildContent>
+                <CamposAuditoria Modelo="formAud" Op="op" MostrarEstado="true" />
+            </ChildContent>
+            <Acciones>
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formAud = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@guardando" @onclick="GuardarAuditoria"><Ico Nombre="guardar" /></button>
+            </Acciones>
+        </FormularioSig>
+    }
+    else if (!informe)
+    {
+        @* ---------- Resumen: avance de la auditoría, datos clave y cifras ---------- *@
+        <div class="au-cab">
+            <div class="au-pasos">
+                @if (aud.Estado == EstadoAuditoria.Cancelada)
+                {
+                    <span class="au-paso actual">Cancelada</span>
+                }
+                else
+                {
+                    @foreach (var (paso, i) in Pasos.Select((x, i) => (x, i)))
+                    {
+                        var p = paso;
+                        var actual = (int)aud.Estado;
+                        var esSiguiente = i == actual + 1;
+                        var bloqueado = p == EstadoAuditoria.Cerrada && !TodosCerrados;
+                        @if (i > 0) { <span class="au-paso-linea @(i <= actual ? "hecha" : "")"></span> }
+                        @if (esSiguiente)
+                        {
+                            <button type="button" class="au-paso siguiente" disabled="@(guardando || bloqueado)"
+                                    title="@(bloqueado ? "Para cerrar, todos los hallazgos deben estar cerrados" : $"Pasar a «{EscalaAuditoria.Nombre(p)}»")" @onclick="() => Avanzar(p)">
+                                <span class="au-paso-n">@(i + 1)</span>@EscalaAuditoria.Nombre(p)
+                            </button>
+                        }
+                        else
+                        {
+                            <span class="au-paso @(i < actual ? "hecho" : i == actual ? "actual" : "")" title="@(i == actual && p == EstadoAuditoria.Cerrada ? "" : "")">
+                                <span class="au-paso-n">@(i < actual ? "✓" : (i + 1).ToString())</span>@EscalaAuditoria.Nombre(p)
+                            </span>
+                        }
+                    }
+                    @if (aud.Estado == EstadoAuditoria.Cerrada)
+                    {
+                        <button type="button" class="ens-mini ms-1" title="Reabrir auditoría" disabled="@guardando" @onclick="() => Avanzar(EstadoAuditoria.InformeEmitido)"><Ico Nombre="candado-abierto" /></button>
+                    }
+                }
+            </div>
+            <div class="au-datos">
+                <span><b>Procesos</b> @(string.Join(", ", ServicioAuditorias.Lista(aud.Procesos)) is { Length: > 0 } pr ? pr : "—")</span>
+                <span><b>Normas</b> @(string.Join(", ", ServicioAuditorias.Lista(aud.Normas)) is { Length: > 0 } nr ? nr : "—")</span>
+                <span><b>Auditor líder</b> @(aud.AuditorLider ?? "—")</span>
+                @if (!string.IsNullOrWhiteSpace(aud.Alcance)) { <span class="au-datos-largo" title="@aud.Alcance"><b>Alcance</b> @aud.Alcance</span> }
+                <button type="button" class="au-vermas" title="@(verMas ? "Ocultar detalle" : "Ver objetivo, criterios, equipo, lugares y cambios")" @onclick="() => verMas = !verMas">@(verMas ? "▲" : "▼")</button>
+            </div>
+            @if (verMas)
+            {
+                <div class="au-ficha mt-2">
+                    <div class="au-ficha-grupo">
+                        <dl>
+                            <dt>Modalidad</dt><dd>@aud.Modalidad</dd>
+                            <dt>Proyecto o frente</dt><dd>@aud.Proyecto</dd>
+                            <dt>Lugares</dt><dd class="au-multi">@string.Join("\n", lugaresAud)</dd>
+                            <dt>Objetivo</dt><dd class="au-multi">@aud.Objetivo</dd>
+                            <dt>Alcance</dt><dd class="au-multi">@aud.Alcance</dd>
+                            <dt>Criterios</dt><dd class="au-multi">@aud.Criterios</dd>
+                        </dl>
+                    </div>
+                    <div class="au-ficha-grupo">
+                        <dl>
+                            <dt>Auditores</dt><dd class="au-multi">@aud.Auditores</dd>
+                            <dt>Experto técnico</dt><dd>@aud.ExpertoTecnico</dd>
+                            <dt>Observadores</dt><dd>@aud.Observadores</dd>
+                            <dt>Auditados</dt><dd>@aud.Auditados</dd>
+                        </dl>
+                        @if (cambios.Count > 0)
+                        {
+                            <table class="table table-sm table-bordered tabla-compacta mt-2 mb-0">
+                                <thead><tr><th>Fecha</th><th>Cambio</th><th>Antes</th><th>Después</th><th>Motivo</th></tr></thead>
+                                <tbody>
+                                    @foreach (var c in cambios)
+                                    {
+                                        <tr><td class="small">@c.Fecha.ToString("dd/MM/yyyy HH:mm")</td><td>@c.Campo</td><td>@c.Anterior</td><td>@c.Nuevo</td><td class="small">@c.Motivo</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            }
+            <div class="au-cifras">
+                <span class="au-cifra" title="Hallazgos registrados"><b>@hallazgos.Count</b> hallazgos</span>
+                <span class="au-cifra @(kAbiertos > 0 ? "alerta" : "")" title="Hallazgos sin cerrar"><b>@kAbiertos</b> sin cerrar</span>
+                <span class="au-cifra @(kSinPlan > 0 ? "alerta" : "")" title="No conformidades u observaciones sin plan de acción"><b>@kSinPlan</b> sin plan</span>
+                <span class="au-cifra @(kVencidas > 0 ? "alerta" : "")" title="Planes cerrados a los que les falta verificar la eficacia (entre paréntesis, con la fecha vencida)"><b>@kPorVerificar</b> por verificar@(kVencidas > 0 ? $" ({kVencidas} vencidas)" : "")</span>
+                <span class="au-cifra" title="Eficacia = planes eficaces / planes verificados"><b>@(kVerificados == 0 ? "—" : $"{100 * kEficaces / kVerificados} %")</b> eficacia@(kVerificados == 0 ? "" : $" ({kEficaces}/{kVerificados})")</span>
+            </div>
+        </div>
+
+        @if (marcados.Count > 1)
+        {
+            <div class="au-marcados">
+                <b>@marcados.Count</b> marcados
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Un solo plan de acción para los hallazgos marcados" @onclick="() => AbrirPlan(marcados)"><Ico Nombre="plan-accion" /></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" title="Quitar marcas" @onclick="() => marcados.Clear()"><Ico Nombre="cancelar" /></button>
+            </div>
+        }
+
+        @* ---------- Hallazgos en tarjetas; cada uno con sus planes de acción ---------- *@
+        <div class="au-hallazgos">
+            @foreach (var h in hallazgos)
+            {
+                var hid = h.Id;
+                @if (formHall is not null && formHall.Hallazgo.Id == hid)
+                {
+                    @FormHallazgo
+                    continue;
+                }
+                var est = EstadoDe(h);
+                planesH.TryGetValue(hid, out var pls);
+                var esNc = ServicioAuditorias.EsNoConformidad(h.Tipo);
+                var admitePlan = !h.Tipo.Equals("Fortaleza", StringComparison.OrdinalIgnoreCase);
+                <div id="au-h-@hid" class="au-hcard @(selHallazgo == hid ? "foco" : "") @(est == EstadoHallazgoAuditoria.Cerrado ? "cerrado" : "")">
+                    <div class="au-hcard-cab">
+                        @if (admitePlan && est != EstadoHallazgoAuditoria.Cerrado)
+                        {
+                            <input type="checkbox" class="form-check-input" title="Marcar para un plan común con otros hallazgos" checked="@marcados.Contains(hid)" @onchange="e => Marcar(hid, (bool)(e.Value ?? false))" />
+                        }
+                        <b>@h.Codigo</b>
+                        <ValorCatalogo Tipo="Plan de acción — tipo de hallazgo" Valor="@h.Tipo" />
+                        @if (!string.IsNullOrWhiteSpace(h.Grado)) { <ValorCatalogo Tipo="@ServicioAuditorias.GradoNc" Valor="@h.Grado" /> }
+                        <span class="ms-auto"><ValorCatalogo Tipo="@ServicioAuditorias.EstadoHallazgoCat" Valor="@EscalaAuditoria.Nombre(est)" /></span>
+                    </div>
+                    <div class="au-hcard-cuerpo">
+                        <div class="au-hcard-decl">@h.Descripcion</div>
+                        @if (!string.IsNullOrWhiteSpace(h.Evidencia)) { <div class="au-hcard-linea" title="@h.Evidencia"><span>Evidencia</span> @h.Evidencia</div> }
+                        @if (ServicioAuditorias.Lista(h.Normas).Count > 0 || !string.IsNullOrWhiteSpace(h.Numerales) || !string.IsNullOrWhiteSpace(h.Requisito))
+                        {
+                            <div class="au-hcard-linea" title="@h.Requisito"><span>Requisito</span> @(string.Join(", ", ServicioAuditorias.Lista(h.Normas)))@(string.IsNullOrWhiteSpace(h.Numerales) ? "" : $" · {h.Numerales}")@(string.IsNullOrWhiteSpace(h.Requisito) ? "" : $" · {h.Requisito}")</div>
+                        }
+                        <div class="au-hcard-meta">
+                            @h.Fecha.ToString("dd/MM/yyyy")@(string.IsNullOrWhiteSpace(h.Auditor) ? "" : $" · {h.Auditor}")@(string.IsNullOrWhiteSpace(h.Procesos) ? "" : $" · {string.Join(", ", ServicioAuditorias.Lista(h.Procesos))}")@(lugaresH.TryGetValue(hid, out var lg) && lg.Count > 0 ? $" · {string.Join(", ", lg)}" : "")
+                            @if (h.Aceptacion != AceptacionHallazgo.Aceptado) { <span> · @EscalaAuditoria.Nombre(h.Aceptacion)</span> }
+                            @if (h.FechaCierre is not null) { <span> · cerrado @h.FechaCierre?.ToString("dd/MM/yyyy") @h.CerradoPor</span> }
+                        </div>
+                        @if (anexosH.TryGetValue(hid, out var axs) && axs.Count > 0)
+                        {
+                            <div class="au-anexos mt-1">
+                                @foreach (var x in axs)
+                                {
+                                    var esImg = SigWeb.Data.Planes.AlmacenAnexos.EsImagen(x.RutaArchivo);
+                                    <a class="au-anexo" href="@x.RutaArchivo" target="_blank" rel="noopener" title="@(x.Descripcion ?? x.NombreOriginal)">
+                                        @if (esImg) { <img src="@x.RutaArchivo" alt="" loading="lazy" /> }
+                                        else { <span class="au-anexo-doc"><Ico Nombre="documento" /></span> }
+                                        <span class="au-anexo-txt">@(string.IsNullOrWhiteSpace(x.Descripcion) ? x.NombreOriginal : x.Descripcion)</span>
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </div>
+                    @if (admitePlan)
+                    {
+                        <div class="au-hcard-planes">
+                            <span class="au-hcard-planes-tit">Planes de acción</span>
+                            @foreach (var pl in pls ?? new())
+                            {
+                                var plId = pl.Id;
+                                var ef = pl.Eficacia;
+                                <span class="au-plan">
+                                    <a href="@($"planes-accion/{plId}")" title="Abrir el plan">
+                                        <b>@pl.Codigo</b>
+                                        <span class="rg-pill" style="background:@EscalaAccion.Color(pl.Estado);color:@EscalaAccion.ColorTexto(pl.Estado)">@EscalaAccion.Nombre(pl.Estado)</span>
+                                        @if (ef != EstadoEficacia.PlanAbierto) { <span class="rg-pill" style="background:@EscalaEficacia.Color(ef);color:#fff">@EscalaEficacia.Nombre(ef, pl.Programada)</span> }
+                                    </a>
+                                    <button type="button" class="rg-chip-x" title="Quitar vínculo (el plan se conserva)" @onclick="() => Desligar(hid, plId)">✕</button>
+                                </span>
+                            }
+                            @if (est != EstadoHallazgoAuditoria.Cerrado)
+                            {
+                                <button type="button" class="au-plan-nuevo" title="Crear un plan de acción para este hallazgo (queda ligado a él)" @onclick="() => AbrirPlan(new[] { hid })">＋ Plan de acción</button>
+                                <select @key="vueltaLigar" class="form-select form-select-sm au-ligar" title="Ligar a un plan de acción que ya existe" @onchange="e => Ligar(hid, e)">
+                                    <option value="">Ligar existente…</option>
+                                    @foreach (var o in planesLigables.Where(o => pls is null || pls.All(p => p.Id != o.Id)))
+                                    {
+                                        <option value="@o.Id">@o.Etiqueta</option>
+                                    }
+                                </select>
+                            }
+                        </div>
+                    }
+                    @if (formCierre?.HallazgoId == hid)
+                    {
+                        <div class="au-hcard-cierre">
+                            <div class="row g-2">
+                                <div class="col-md-3"><label class="form-label">Fecha de cierre</label><input type="date" class="form-control" @bind="formCierre.Fecha" required /></div>
+                                <div class="col-md-4"><label class="form-label">Cerró</label><input class="form-control" @bind="formCierre.Por" /></div>
+                                <div class="col-md-5"><label class="form-label">Observación</label><input class="form-control" @bind="formCierre.Observacion" /></div>
+                            </div>
+                            <div class="frm-pie frm-pie-plano">
+                                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formCierre = null"><Ico Nombre="cancelar" /></button>
+                                <button type="button" class="btn btn-primary btn-sm" title="Cerrar hallazgo" disabled="@guardando" @onclick="Cerrar"><Ico Nombre="aprobar" /></button>
+                            </div>
+                        </div>
+                    }
+                    <div class="au-hcard-acc">
+                        @if (!esNc && h.FechaCierre is null)
+                        {
+                            <button type="button" class="ens-mini" title="Cerrar hallazgo" @onclick="() => AbrirCierre(hid)"><Ico Nombre="aprobar" /></button>
+                        }
+                        @if (h.FechaCierre is not null)
+                        {
+                            <button type="button" class="ens-mini" title="Reabrir hallazgo" @onclick="() => Reabrir(hid)"><Ico Nombre="restaurar" /></button>
+                        }
+                        <button type="button" class="ens-mini" title="Editar hallazgo" @onclick="() => EditarHallazgo(hid)"><Ico Nombre="editar" /></button>
+                        <button type="button" class="ens-mini" title="Eliminar hallazgo" @onclick='() => PedirEliminar("hallazgo", hid, h.Codigo)'><Ico Nombre="eliminar" /></button>
+                    </div>
+                </div>
+            }
+            @if (formHall is not null && formHall.Hallazgo.Id == 0)
+            {
+                @FormHallazgo
+            }
+            else if (PuedeHallazgos)
+            {
+                <button type="button" class="au-hnuevo @(hallazgos.Count == 0 ? "vacio" : "")" title="Agregar hallazgo" @onclick="NuevoHallazgo">
+                    <span class="au-hnuevo-mas">＋</span>
+                    <span>@(hallazgos.Count == 0 ? "Agregar el primer hallazgo" : "Agregar hallazgo")</span>
+                    @if (hallazgos.Count == 0) { <small>No conformidad, observación, oportunidad de mejora o fortaleza</small> }
+                </button>
+            }
+        </div>
+
+        @* ---------- Planes creados sobre la auditoría, sin hallazgo ---------- *@
+        <div class="au-planes-aud">
+            <span class="au-hcard-planes-tit">Planes sobre la auditoría (sin hallazgo)</span>
+            @foreach (var p in planesAud.Where(x => x.Hallazgos.Count == 0))
+            {
+                var ef = EscalaEficacia.De(p.Eficaz, p.Programada, p.Estado);
+                <span class="au-plan">
+                    <a href="@($"planes-accion/{p.Id}")" title="@p.Descripcion">
+                        <b>@p.Codigo</b>
+                        <span class="rg-pill" style="background:@EscalaAccion.Color(p.Estado);color:@EscalaAccion.ColorTexto(p.Estado)">@EscalaAccion.Nombre(p.Estado)</span>
+                        @if (ef != EstadoEficacia.PlanAbierto) { <span class="rg-pill" style="background:@EscalaEficacia.Color(ef);color:#fff">@EscalaEficacia.Nombre(ef, p.Programada)</span> }
+                    </a>
+                </span>
+            }
+            @if (aud.Estado != EstadoAuditoria.Cancelada)
+            {
+                <button type="button" class="au-plan-nuevo" title="Crear un plan de acción sobre la auditoría, sin hallazgo" @onclick="NuevoPlanAuditoria">＋ Plan</button>
+            }
+        </div>
+    }
+    else
+    {
+        @* ---------- Informe para entregar (ISO 19011 6.5) ---------- *@
+        <div class="au-informe-barra no-imprimir">
+            <span class="small text-body-secondary">Vista del informe</span>
+            <span class="ms-auto d-flex gap-1">
+                @if (!editandoInforme)
+                {
+                    <button type="button" class="ens-mini" title="Editar fortalezas y conclusiones" @onclick="EditarInforme"><Ico Nombre="editar" /></button>
+                }
+                <button type="button" class="ens-mini" title="Exportar a PDF (imprimir y guardar como PDF)" @onclick="Imprimir"><Ico Nombre="exportar-pdf" /></button>
+                <a class="ens-mini" title="Exportar a Word" href="/api/auditorias/@aud.Id/informe.docx" download><Ico Nombre="exportar-word" /></a>
+                <a class="ens-mini" title="Exportar a Excel" href="/api/auditorias/@aud.Id/informe.xlsx" download><Ico Nombre="exportar-excel" /></a>
+            </span>
+        </div>
+        @if (editandoInforme)
+        {
+            <FormularioSig Titulo="Fortalezas y conclusiones" Icono="acta" Clase="mb-3 no-imprimir" OnCerrar="() => editandoInforme = false">
+                <ChildContent>
+                    <div class="row g-2">
+                        <div class="col-md-3"><label class="form-label">Fecha del informe</label><input type="date" class="form-control" @bind="informeFecha" /></div>
+                        <div class="col-md-12"><label class="form-label">Fortalezas</label><textarea class="form-control" rows="3" @bind="informeFortalezas"></textarea></div>
+                        <div class="col-md-12"><label class="form-label">Conclusiones</label><textarea class="form-control" rows="5" @bind="informeConclusiones"></textarea></div>
+                    </div>
+                </ChildContent>
+                <Acciones>
+                    <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => editandoInforme = false"><Ico Nombre="cancelar" /></button>
+                    <button type="button" class="btn btn-primary btn-sm" title="Guardar" disabled="@guardando" @onclick="GuardarInforme"><Ico Nombre="guardar" /></button>
+                </Acciones>
+            </FormularioSig>
+        }
+        @if (datosInforme is not null)
+        {
+            <InformeDocumento D="datosInforme" />
+        }
+    }
+}
+
+@code {
+    // Formulario del hallazgo, en el lugar de su tarjeta (o al final si es nuevo).
+    private RenderFragment FormHallazgo => __builder =>
+    {
+        <FormularioSig Titulo="@(formHall!.Hallazgo.Id == 0 ? "Nuevo hallazgo" : formHall.Hallazgo.Codigo)" Icono="hallazgo" Clase="au-hform" OnCerrar="() => formHall = null">
+            <ChildContent>
+                <CamposHallazgo Modelo="formHall" Op="op" Auditores="Equipo" OnError="m => { mensaje = m; error = true; }" />
+            </ChildContent>
+            <Acciones>
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => formHall = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-primary btn-sm" title="Guardar hallazgo" disabled="@guardando" @onclick="GuardarHallazgo"><Ico Nombre="guardar" /></button>
+            </Acciones>
+        </FormularioSig>
+    };
+}

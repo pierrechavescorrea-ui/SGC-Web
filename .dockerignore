@@ -1,0 +1,16 @@
+# No van a la imagen: compilados, secretos, documentos de clientes, herramientas y datos locales.
+**/bin/
+**/obj/
+.git/
+.vs/
+.vscode/
+.idea/
+App_Data/
+wwwroot/uploads/
+**/*.user
+**/secrets.json
+.env
+*.env
+Dockerfile
+.dockerignore
+deploy/

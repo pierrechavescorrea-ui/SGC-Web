@@ -1,0 +1,629 @@
+/* =====================================================================
+   Formularios de creación/edición (todos los módulos).
+   - Mejoras generales sobre lo existente: .panel-formulario y ventanas
+     .modal-box-custom (etiquetas, cajas de texto, foco, pie de acciones).
+   - Piezas compartidas: <FormularioSig> (.frm), <SeccionFormulario>
+     (.frm-sec, numeradas), <CampoFormulario> (.frm-campo) y .frm-linea
+     (alta rápida en una línea: grupos, actividades, parámetros…).
+   Usa las variables de temas.css; sin tema = rojo institucional.
+   Va después de temas.css (App.razor).
+   ===================================================================== */
+
+:root {
+    --frm-ac: var(--t-acento, var(--sig-rojo, #EC1C24));
+    --frm-sup: var(--t-superficie, #ffffff);
+    --frm-sup-2: var(--t-superficie-2, #f6f8fb);
+    --frm-borde: var(--t-borde, #dfe4ec);
+    --frm-borde-fuerte: #b9c2d0;
+    --frm-texto: var(--t-texto, #1f2a3a);
+    --frm-texto-2: var(--t-texto-2, #5f6b7c);
+    --frm-anillo: color-mix(in srgb, var(--frm-ac) 16%, transparent);
+    --frm-tinte: color-mix(in srgb, var(--frm-ac) 6%, var(--frm-sup));
+}
+html:is([data-tema="oscuro"],[data-tema="cristal"]) { --frm-borde-fuerte: #4a4a55; }
+
+/* ---------- Contenedores ---------- */
+.panel-formulario {
+    border: 1px solid var(--frm-borde);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 4px 14px rgba(16, 24, 40, .05);
+}
+.panel-formulario > .card-header {
+    font-weight: 700;
+    letter-spacing: .01em;
+    padding: .65rem 1rem;
+    border-radius: 12px 12px 0 0;
+}
+
+.modal-box-custom {
+    border-radius: 14px;
+    border-top: 4px solid var(--frm-ac);
+    box-shadow: 0 20px 50px rgba(16, 24, 40, .28);
+    padding: 1.25rem 1.4rem;
+}
+.modal-box-custom h5 {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--frm-texto);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.modal-box-custom > .d-flex > h5::before {
+    content: "";
+    width: 4px;
+    height: 1.1em;
+    border-radius: 2px;
+    background: var(--frm-ac);
+}
+
+/* ---------- Etiquetas ---------- */
+/* Sin mayúsculas forzadas: las etiquetas llevan unidades (MPa, kN, mm). */
+:is(.panel-formulario, .modal-box-custom, .frm-linea) .form-label {
+    font-size: .8rem !important;
+    font-weight: 600;
+    letter-spacing: .01em;
+    margin-bottom: .3rem !important;
+    transition: color .15s ease;
+}
+:is(.panel-formulario, .modal-box-custom, .frm-linea) .form-label:not(.label-campo-diligenciar) {
+    color: var(--frm-texto-2) !important;
+}
+/* La etiqueta del campo que se está diligenciando toma el acento. */
+:is(.panel-formulario, .modal-box-custom, .frm-linea) :is([class*="col"], .frm-campo):focus-within > .form-label:not(.label-campo-diligenciar) {
+    color: var(--frm-ac) !important;
+}
+.frm-req {
+    color: var(--frm-ac);
+    font-weight: 800;
+    margin-left: .15rem;
+}
+
+/* ---------- Cajas de texto y listas (fuera de tablas) ---------- */
+:is(.panel-formulario, .modal-box-custom, .frm-linea) :is(.form-control, .form-select):not(td *):not(.form-control-color):not([type="file"]) {
+    background-color: var(--frm-sup-2);
+    border: 1px solid var(--frm-borde);
+    border-radius: 10px;
+    min-height: 40px;
+    color: var(--frm-texto);
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+:is(.panel-formulario, .modal-box-custom, .frm-linea) :is(.form-control, .form-select):not(td *):not(.form-control-color):hover {
+    border-color: var(--frm-borde-fuerte);
+}
+:is(.panel-formulario, .modal-box-custom, .frm-linea) :is(.form-control, .form-select):not(td *):focus,
+article.content:has(.pg-cab) :is(.panel-formulario, .modal-box-custom, .frm-linea) :is(.form-control, .form-select):not(td *):focus,
+html[data-tema] :is(.panel-formulario, .modal-box-custom, .frm-linea) :is(.form-control, .form-select):not(td *):focus {
+    background-color: var(--frm-sup);
+    border-color: var(--frm-ac);
+    box-shadow: 0 0 0 3px var(--frm-anillo);
+    outline: none;
+}
+:is(.panel-formulario, .modal-box-custom, .frm-linea) textarea.form-control:not(td *) { line-height: 1.45; }
+:is(.panel-formulario, .modal-box-custom, .frm-linea) .form-control::placeholder { color: var(--frm-texto-2); opacity: .6; }
+:is(.panel-formulario, .modal-box-custom, .frm-linea) .form-check-input:checked { background-color: var(--frm-ac); border-color: var(--frm-ac); }
+:is(.panel-formulario, .modal-box-custom, .frm-linea) .form-check-input:focus { box-shadow: 0 0 0 3px var(--frm-anillo); border-color: var(--frm-ac); }
+
+/* ---------- <FormularioSig> ---------- */
+.frm {
+    position: relative;
+    counter-reset: frmsec;
+    background: var(--frm-sup);
+    margin-bottom: 1rem;
+}
+.frm::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: -1px;
+    bottom: -1px;
+    width: 4px;
+    border-radius: 12px 0 0 12px;
+    background: var(--frm-ac);
+}
+.frm-cab {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .8rem 1.1rem .7rem 1.3rem;
+    border-bottom: 1px solid var(--frm-borde);
+    background: linear-gradient(180deg, var(--frm-tinte), var(--frm-sup));
+    border-radius: 12px 12px 0 0;
+}
+.frm-cab-ico {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--frm-ac);
+    color: #fff;
+    box-shadow: 0 3px 8px var(--frm-anillo);
+}
+.frm-cab-ico .ico-img { filter: brightness(0) invert(1); }
+.frm-cab-tit {
+    font-weight: 700;
+    font-size: 1.02rem;
+    color: var(--frm-texto);
+    letter-spacing: .01em;
+}
+.frm-cab-sub {
+    font-size: .82rem;
+    color: var(--frm-texto-2);
+    padding-left: .65rem;
+    border-left: 1px solid var(--frm-borde);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+.frm-cerrar {
+    margin-left: auto;
+    border: 0;
+    background: transparent;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: var(--frm-texto-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.frm-cerrar:hover { background: var(--frm-anillo); color: var(--frm-ac); }
+.frm-cuerpo { padding: 1rem 1.2rem 1.1rem 1.3rem; }
+
+/* Pie de acciones (también suelto, al final de cualquier formulario). */
+.frm-pie {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: .5rem;
+    padding: .7rem 1.2rem;
+    border-top: 1px solid var(--frm-borde);
+    background: var(--frm-sup-2);
+    border-radius: 0 0 12px 12px;
+}
+.frm-cuerpo .frm-pie,
+.modal-box-custom .frm-pie {
+    margin: 1rem -1.2rem -1.1rem -1.3rem;
+}
+.modal-box-custom .frm-pie { margin: 1.1rem -1.4rem -1.25rem; border-radius: 0 0 14px 14px; }
+.frm-pie .btn { min-width: 40px; min-height: 34px; border-radius: 8px; }
+
+/* ---------- <SeccionFormulario> ---------- */
+.frm-sec { counter-increment: frmsec; }
+.frm-sec + .frm-sec { margin-top: 1.15rem; padding-top: 1rem; border-top: 1px dashed var(--frm-borde); }
+.frm-sec-tit {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .75rem;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--frm-texto);
+}
+.frm-sec-tit::before {
+    content: counter(frmsec);
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    background: var(--frm-anillo);
+    color: var(--frm-ac);
+    border: 1px solid color-mix(in srgb, var(--frm-ac) 35%, transparent);
+}
+.frm-sec-ico { display: inline-flex; color: var(--frm-texto-2); }
+.frm-sec-extra { margin-left: auto; display: inline-flex; gap: .35rem; align-items: center; text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+/* ---------- <CampoFormulario> ---------- */
+.frm-campo { display: flex; flex-direction: column; }
+.frm-campo > .form-label { display: flex; align-items: center; gap: .1rem; line-height: 1.25; min-height: 1.25em; }
+.frm-req { line-height: 1; }
+/* Campo principal (nombre, consecutivo, código): más grande y con peso. */
+.frm-destacado :is(.form-control, .form-select):not(td *) {
+    font-size: 1rem !important;
+    font-weight: 600;
+    border-left: 3px solid var(--frm-ac) !important;
+}
+/* Obligatorio vacío: borde de acento suave para que salte a la vista. */
+.frm-obligatorio :is(input.form-control, select.form-select):placeholder-shown,
+.frm-obligatorio input.form-control[value=""] {
+    border-color: color-mix(in srgb, var(--frm-ac) 40%, var(--frm-borde));
+}
+
+/* ---------- .frm-linea: alta rápida (una línea) ---------- */
+.frm-linea {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: .75rem;
+    padding: .8rem 1rem;
+    margin-bottom: .9rem;
+    border: 1px solid color-mix(in srgb, var(--frm-ac) 25%, var(--frm-borde));
+    border-left: 4px solid var(--frm-ac);
+    border-radius: 10px;
+    background: var(--frm-tinte);
+}
+.frm-linea > .frm-campo { flex: 1 1 220px; min-width: 0; }
+.frm-linea > .frm-campo.frm-corto { flex: 0 1 140px; }
+.frm-linea-btns { display: flex; gap: .4rem; align-items: center; }
+.frm-linea-btns .btn { min-width: 40px; min-height: 34px; border-radius: 8px; }
+.frm-icono-btn {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 52px;
+    padding: 4px;
+    border-radius: 10px;
+    border: 2px dashed var(--frm-borde-fuerte);
+    background: var(--frm-sup);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color .15s ease;
+}
+.frm-icono-btn:hover { border-color: var(--frm-ac); }
+.frm-icono-btn img { width: 100%; height: 100%; object-fit: contain; }
+
+/* Lista de filas repetibles dentro de un formulario (campos de un catálogo, etc.). */
+.frm-filas { display: flex; flex-direction: column; gap: .45rem; }
+.frm-fila {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    padding: .45rem .55rem;
+    border: 1px solid var(--frm-borde);
+    border-radius: 9px;
+    background: var(--frm-sup);
+}
+.frm-fila > .frm-fila-n {
+    width: 22px;
+    text-align: center;
+    font-size: .75rem;
+    font-weight: 700;
+    color: var(--frm-texto-2);
+}
+.frm-vacio {
+    border: 1px dashed var(--frm-borde-fuerte);
+    border-radius: 9px;
+    padding: .6rem;
+    text-align: center;
+    color: var(--frm-texto-2);
+    font-size: .85rem;
+}
+
+@media (max-width: 767.98px) {
+    .frm-cuerpo { padding: .85rem .9rem; }
+    .frm-cuerpo .frm-pie { margin: 1rem -.9rem -.85rem; }
+}
+
+/* Mismo tamaño para todos los controles de un formulario (normales y -sm, incl. Campos personalizados). */
+:is(.frm, .modal-box-custom, .frm-linea) :is(.form-control, .form-select):not(td *):not(.form-control-color):not([type="file"]) {
+    font-size: .9rem;
+    padding-top: .45rem;
+    padding-bottom: .45rem;
+    min-height: 40px;
+}
+:is(.frm, .modal-box-custom, .frm-linea) .form-control:not(td *):not(.form-control-color):not([type="file"]) { padding-left: .7rem; padding-right: .7rem; }
+:is(.frm, .modal-box-custom, .frm-linea) .form-select:not(td *) { padding-left: .7rem; }
+
+/* Ventanas (.modal-box-custom): secciones numeradas y cabecera (la fila con el h5) separada. */
+.modal-box-custom { counter-reset: frmsec; }
+.modal-box-custom > .d-flex:has(> h5):first-of-type {
+    margin: -1.25rem -1.4rem 1rem !important;
+    padding: .9rem 1.4rem .8rem;
+    border-bottom: 1px solid var(--frm-borde);
+    background: linear-gradient(180deg, var(--frm-tinte), var(--frm-sup));
+    border-radius: 10px 10px 0 0;
+}
+.panel-formulario, .rg-plan-borrador { counter-reset: frmsec; }
+.frm-nivel { display: inline-flex; align-items: center; min-height: 36px; padding: 0 .9rem; font-weight: 700; align-self: flex-start; }
+.frm-cab-sub:empty { display: none; }
+:is(.panel-formulario, .modal-box-custom, .frm-linea) .input-group > :is(.form-control, .form-select, .btn, .input-group-text):not(:first-child) { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; }
+:is(.panel-formulario, .modal-box-custom, .frm-linea) .input-group > :is(.form-control, .form-select, .btn, .input-group-text):not(:last-child) { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+:is(.panel-formulario, .modal-box-custom, .frm-linea) .input-group-text { background: var(--frm-sup-2); border-color: var(--frm-borde); font-size: .8rem; font-weight: 600; color: var(--frm-texto-2); }
+
+/* =====================================================================
+   Etiquetas flotantes (todos los formularios) — js/camposFlotantes.js
+   La etiqueta vive dentro de la caja: vacía = título en bajo contraste;
+   con foco o valor = sube y queda pequeña. Marcas data-* puestas por JS:
+     label[data-flot="abajo|arriba"], [data-flot-foco], [data-flot-error],
+     [data-flot-req], [data-flot-area]; caja [data-flot-caja], [data-flot-vacia].
+   :not(#_) solo sube la especificidad sobre .form-label/.small/.mb-1 de Bootstrap.
+   Para excluir una zona: data-sin-flotante en el contenedor.
+   ===================================================================== */
+:root { --flot-alto: 3.25rem; --flot-pad: .75rem; }
+
+/* Esquinas redondeadas en toda caja de texto/lista (fuera de tablas). */
+.form-control:not(td *):not(.form-control-color), .form-select:not(td *):not(.form-select-x) { border-radius: 10px; }
+
+/* La caja: alta y con espacio arriba para el título. */
+[data-flot-caja]:not(#_) {
+    min-height: var(--flot-alto);
+    padding: 1.4rem var(--flot-pad) .35rem;
+    font-size: .95rem;
+    line-height: 1.35;
+    border-radius: 10px;
+}
+select[data-flot-caja]:not(#_) { padding-right: 2.25rem; }
+/* En .input-group Bootstrap sube la caja con foco (z-index 5) y taparía el título. */
+.input-group > [data-flot-caja]:not(#_) { z-index: auto; }
+textarea[data-flot-caja]:not(#_) { padding-top: 1.55rem; min-height: 6rem; }
+/* Mientras el título está abajo no se ve el placeholder ni el "dd/mm/aaaa" o "-- Seleccione --". */
+[data-flot-caja]:not(:focus)::placeholder { color: transparent !important; }
+[data-flot-caja][data-flot-vacia]:not(:focus):not(#_) { color: transparent; }
+select[data-flot-caja] option { color: var(--frm-texto); }
+
+/* El título. Ocupa su línea y la devuelve con margen negativo: queda encima de la caja. */
+label[data-flot]:not(#_) {
+    display: block;
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+    height: 1.3em;
+    line-height: 1.3em;
+    margin: 0 0 -1.3em 0 !important;
+    padding: 0;
+    font-size: .95rem !important;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--frm-texto-2) !important;
+    opacity: .8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: calc(var(--flot-w, 100%) - 2.6rem);
+    transform-origin: 0 0;
+    transform: translate(calc(var(--flot-pad) + 1px), calc((var(--flot-alto) - 1.3em) / 2));
+    transition: transform .16s ease, opacity .16s ease, color .16s ease;
+}
+label[data-flot][data-flot-area]:not(#_) { transform: translate(calc(var(--flot-pad) + 1px), .95rem); }
+label[data-flot="arriba"]:not(#_),
+label[data-flot="arriba"][data-flot-area]:not(#_) {
+    transform: translate(calc(var(--flot-pad) + 1px), .42rem) scale(.76);
+    max-width: calc((var(--flot-w, 100%) - 1.6rem) / .76);
+    font-weight: 600;
+    opacity: 1;
+}
+label[data-flot][data-flot-foco]:not(#_),
+label[data-flot][data-flot-error]:not(#_) { color: var(--frm-ac) !important; }
+label[data-flot] .frm-req { margin-left: .2rem; }
+/* Obligatorio por atributo required (sin <CampoFormulario Obligatorio>): mismo asterisco. */
+label[data-flot][data-flot-req]:not(:has(.frm-req))::after { content: "*"; color: var(--frm-ac); font-weight: 800; margin-left: .2rem; }
+
+/* Validación en línea: Blazor (.invalid) y nativa tras interactuar (:user-invalid). */
+:is(.form-control, .form-select).invalid:not(td *),
+[data-flot-caja]:user-invalid {
+    outline: none;
+    border-color: var(--frm-ac) !important;
+    box-shadow: 0 0 0 3px var(--frm-anillo);
+}
+.valid.modified:not([type=checkbox]):is(.form-control, .form-select) { outline: none; }
+.validation-message { color: var(--frm-ac); font-size: .78rem; font-weight: 600; margin-top: .25rem; padding-left: var(--flot-pad); }
+
+/* Teléfono: 16 px evita que el navegador haga zoom al escribir. */
+@media (max-width: 575.98px) {
+    [data-flot-caja]:not(#_) { font-size: 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    label[data-flot]:not(#_) { transition: none; }
+}
+
+/* =====================================================================
+   Botones de los formularios: una sola ubicación (2026-11-09).
+   1) Formulario de un registro (tarjeta <FormularioSig>, ventana .modal-box-custom, panel lateral o pantalla
+      completa): barra .frm-pie al PIE, pegada al borde inferior visible mientras se desplaza (sticky).
+      Orden fijo (lo impone el CSS aunque el marcado venga distinto):
+      [Eliminar] … [otras acciones] [Cancelar] [Guardar]  → Guardar siempre el último, a la derecha.
+      Guardar (primario) y Cancelar (secundario) muestran ícono + texto (el texto es su title).
+   2) Edición en línea (una fila, renombrar, alta rápida .frm-linea): solo íconos al final de la fila, Cancelar → Guardar.
+   3) Modo edición de una tabla, matriz o diagrama: en el encabezado (Editar → Cancelar → aviso → Guardar).
+   Imprimir, exportar y PDF: en el encabezado (bloque 2), nunca dentro del formulario.
+   ===================================================================== */
+.frm-pie {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    flex-wrap: wrap;
+    box-shadow: 0 -8px 14px -12px rgba(16, 24, 40, .35);
+}
+/* Las tarjetas recortan con overflow:hidden (app.css), que anula el sticky: clip recorta igual sin crear desplazamiento. */
+article.content .card:has(.frm-pie):not(#_),
+.panel-formulario:has(.frm-pie):not(#_) { overflow: clip; }
+/* Suelto (pantalla completa o panel sin tarjeta): barra redondeada propia. */
+.frm-pie.frm-pie-suelto {
+    margin: 1rem 0 0;
+    border: 1px solid var(--frm-borde);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--frm-sup-2) 92%, transparent);
+    backdrop-filter: blur(6px);
+}
+.frm-pie > * { order: 5; }
+/* Eliminar dentro de un formulario de edición (contorno rojo): a la izquierda, lejos de Guardar.
+   En una confirmación de borrado el botón rojo lleno ES la acción principal: va último, como Guardar. */
+.frm-pie > :is(.btn-outline-danger, .frm-pie-izq) { order: 1; margin-right: auto; }
+.frm-pie > .frm-pie-msg { order: 2; margin-right: auto; font-size: .82rem; }
+.frm-pie > :is(.btn-secondary, .btn-light, .btn-outline-secondary)[title^="Cancelar"],
+.frm-pie > :is(.btn-secondary, .btn-light, .btn-outline-secondary)[title^="Cerrar"],
+.frm-pie > :is(.btn-secondary, .btn-light, .btn-outline-secondary)[title^="Descartar"] { order: 8; }
+.frm-pie > :is(.btn-primary, .btn-danger) { order: 9; }
+/* Botones del pie: SOLO ícono (estándar de la app); el título es la ayuda al pasar el cursor.
+   Nada de texto inyectado ni escrito en el botón. */
+.frm-pie > .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; }
+.frm-pie > :is(.btn-primary, .btn-danger) { padding-left: .9rem; padding-right: .9rem; min-width: 48px; box-shadow: 0 1px 2px rgba(16, 24, 40, .12); }
+.frm-pie > :is(.btn-secondary, .btn-light, .btn-outline-secondary):is([title^="Cancelar"], [title^="Cerrar"], [title^="Descartar"]) {
+    background: var(--frm-sup);
+    color: var(--frm-texto);
+    border: 1px solid var(--frm-borde-fuerte);
+    padding-left: .85rem; padding-right: .9rem;
+}
+.frm-pie > :is(.btn-secondary, .btn-light, .btn-outline-secondary):is([title^="Cancelar"], [title^="Cerrar"], [title^="Descartar"]):hover {
+    background: var(--frm-sup-2);
+    border-color: var(--frm-texto-2);
+}
+.frm-pie > .btn-primary .spinner-border { width: .95rem; height: .95rem; border-width: .15em; }
+/* Pie dentro de un panel lateral o editor que ya tiene su propio relleno. */
+.frm-pie.frm-pie-plano { margin: .8rem 0 0; border-radius: 10px; border: 1px solid var(--frm-borde); }
+@media (max-width: 575.98px) {
+    .frm-pie > .btn-primary { flex: 1 1 auto; }
+}
+
+/* ---------- Adjuntos con descripción (<AdjuntosDescritos>) ---------- */
+.adj-desc { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .5rem; align-items: start; }
+.adj-desc-fila { display: flex; gap: .5rem; align-items: flex-start; padding: .4rem; border: 1px solid var(--bs-border-color); border-radius: .6rem; background: var(--bs-body-bg); }
+.adj-desc-nuevo { border-style: dashed; }
+.adj-desc-mini { flex: 0 0 64px; height: 64px; border-radius: .45rem; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+.adj-desc-mini img { width: 100%; height: 100%; object-fit: cover; }
+.adj-desc-mini svg { width: 28px; height: 28px; }
+.adj-desc-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .25rem; }
+.adj-desc-nombre { font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.adj-desc-txt textarea { resize: vertical; min-height: 2.6rem; font-size: .85rem; }
+.adj-desc-agregar { display: flex; align-items: center; justify-content: center; gap: .4rem; min-height: 78px; border: 1.5px dashed var(--bs-border-color); border-radius: .6rem; cursor: pointer; color: var(--bs-secondary-color); font-size: .85rem; }
+.adj-desc-agregar:hover { border-color: var(--sig-rojo, #EC1C24); color: var(--bs-body-color); }
+
+/* Campos y catálogos legibles también en columnas estrechas y temas oscuros. */
+:is(.panel-formulario, .modal-box-custom, .modal-content, .frm-linea) :is(.row > *, .frm-campo, .input-group) { min-width: 0; }
+:is(.rg-multisel, .rg-chip) { max-width: 100%; }
+.rg-multisel { flex-wrap: wrap; }
+.rg-multisel .form-select { flex: 1 1 16rem; width: auto; min-width: min(16rem, 100%); max-width: 100%; }
+.rg-multisel .rg-chip { white-space: normal; overflow: visible; overflow-wrap: anywhere; height: auto; }
+/* Etiquetas flotantes: NO anularlas aquí (2026-11-14 un parche las devolvió encima de la caja).
+   Etiqueta larga = una línea con "…" dentro de la caja; el texto completo queda en su title
+   (js/camposFlotantes.js) y en el lector de pantalla (label for). */
+:is(.panel-formulario, .modal-box-custom, .frm-linea) label:not([data-flot]) { white-space: normal; overflow-wrap: anywhere; }
+/* Chromium permite listas nativas con opciones multilínea, sin portales ni JS de selección. */
+@supports (appearance: base-select) {
+    select:not([multiple]):not([size]), select:not([multiple])[size="1"],
+    select:not([multiple]):not([size])::picker(select), select:not([multiple])[size="1"]::picker(select) { appearance: base-select; }
+    select:not([multiple]):not([size]), select:not([multiple])[size="1"] {
+        white-space: normal; overflow-wrap: anywhere; height: auto; background-image: none; padding-right: .75rem;
+        /* Valor y flecha en la misma línea (sin esto la flecha bajaba a un segundo renglón). */
+        display: flex; align-items: center; gap: .5rem;
+    }
+    select:not([multiple])::picker-icon { margin-inline-start: auto; flex: none; color: var(--frm-texto-2, currentColor); transition: rotate .16s ease; }
+    select:not([multiple]):open::picker-icon { rotate: 180deg; }
+    select[data-flot-caja]:not(#_) { padding-right: .75rem; }
+    /* La caja flotante tiene 1.4rem arriba para el título: la flecha se sube para quedar centrada en la caja. */
+    select[data-flot-caja]::picker-icon { translate: 0 -.5rem; }
+    select::picker(select) {
+        max-width: calc(100vw - 1rem); max-height: min(65vh, 30rem); overflow: auto;
+        background: var(--frm-sup, var(--bs-body-bg)); color: var(--frm-texto, var(--bs-body-color));
+        border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: .6rem;
+    }
+    select option { white-space: normal; overflow-wrap: anywhere; padding: .45rem .65rem; height: auto; }
+}
+
+/* ---------- Plantillas de proyecto (Catálogos › Plantillas) ---------- */
+.pp-modulos { display: flex; flex-wrap: wrap; gap: .35rem 1.4rem; }
+.pp-modulos .form-check { margin: 0; }
+.pp-num { text-align: right; width: 7.5rem; }
+.pp-tabla td, .pp-tabla th { vertical-align: middle; }
+.pp-scroll { max-height: 280px; }
+.pp-scroll-hist { max-height: 420px; }
+.pp-errores thead th { background: color-mix(in srgb, var(--bs-danger) 14%, transparent); }
+.pp-confirma > td { background: color-mix(in srgb, var(--bs-danger) 8%, transparent); }
+.pp-estado { white-space: nowrap; }
+.pp-vacio { color: var(--bs-secondary-color); font-size: .85rem; }
+
+/* =====================================================================
+   Diseño de formularios (Configuración › Catálogos › Formularios, 2026-11-15).
+   Solo actúa con un diseño guardado (.frm-diseno-activo); sin diseño el formulario es el de siempre.
+   El formulario diseñado es UNA rejilla de 12 columnas con todos los pasos (filas en grid-template-rows, ContextoFormulario):
+   las secciones con rejilla se vuelven transparentes (display: contents) y su título (--pf) y sus campos se ubican en su
+   fila; así un campo se ve en el paso que diga el diseño aunque el código lo declare en otro. Bloques y pasos libres van
+   enteros en su fila (--pf). Campos: --fx (columna desde 0), --fy (fila absoluta desde 1), --fw/--fh (columnas/filas),
+   --fo (orden en teléfono).
+   ===================================================================== */
+.frm-diseno-activo {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 1rem;
+    row-gap: .9rem;
+    align-items: start;
+}
+.frm-diseno-activo > * { min-width: 0; grid-column: 1 / -1; }
+.frm-diseno-activo > .frm-sec-plano,
+.frm-diseno-activo > .frm-sec-plano > .frm-rejilla { display: contents; }
+/* Títulos de paso, bloques y pasos libres: a todo el ancho en su fila, con la línea divisoria (menos el primero visible). */
+.frm-diseno-activo .frm-sec-plano > .frm-sec-tit,
+.frm-diseno-activo > :is(.frm-sec-libre, .frm-bloque) {
+    grid-column: 1 / -1; grid-row: var(--pf);
+    margin: .35rem 0 0; padding-top: 1rem; border-top: 1px dashed var(--frm-borde);
+}
+.frm-diseno-activo :is(.frm-sec-tit, .frm-sec-libre, .frm-bloque).frm-sec-primero { margin-top: 0; padding-top: 0; border-top: 0; }
+.frm-diseno-activo > .frm-sec-plano > .frm-sec-tit { margin-bottom: 0; }
+.frm-diseno-activo > .frm-bloque > .rg-bloque { margin-top: 0 !important; }
+.frm-sec-tit[data-n]::before { content: attr(data-n); }
+
+/* Campos en su sitio. Las clases col-md-N del código no deben fijar ancho dentro de la rejilla. */
+.frm-rejilla > .frm-campo:not(#_) { width: auto; max-width: none; flex: none; padding: 0; margin: 0; min-width: 0; }
+.frm-diseno-activo .frm-ub { grid-column: calc(var(--fx) + 1) / span var(--fw); grid-row: var(--fy) / span var(--fh); }
+/* Lo que no es un campo (avisos, listas de datos): a todo el ancho, donde caiga. */
+.frm-rejilla > :not(.frm-campo) { grid-column: 1 / -1; }
+.frm-rejilla > .frm-oculto, .frm-campo.frm-oculto { display: none !important; }
+/* Campo de varias filas: ocupa todo su alto y la caja crece. */
+.frm-diseno-activo .frm-alto { align-self: stretch; height: 100%; }
+.frm-diseno-activo .frm-alto > :is(textarea, .form-control, .rg-multisel) { flex: 1 1 auto; }
+.frm-diseno-activo .frm-alto > textarea.form-control:not(#_) { min-height: 0; height: 100%; }
+
+/* Teléfono: una columna en el orden de lectura del diseño (fila, columna). */
+@media (max-width: 767.98px) {
+    .frm-diseno-activo { grid-template-columns: 1fr; grid-template-rows: none !important; }
+    .frm-diseno-activo .frm-ub { grid-column: 1 / -1; grid-row: auto; order: var(--fo); }
+    .frm-diseno-activo .frm-sec-plano > .frm-sec-tit,
+    .frm-diseno-activo > :is(.frm-sec-libre, .frm-bloque) { grid-row: auto; order: calc(var(--pf) * 12); }
+}
+
+
+/* Campo "Archivos adjuntos" de un formulario diseñado: recuadro con su título (la etiqueta) y los archivos. */
+.frm-campo-archivos > .form-label { font-weight: 600; }
+.frm-archivos { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; min-height: var(--flot-alto, 3.25rem); height: 100%;
+    border: 1px dashed var(--frm-borde, var(--bs-border-color)); border-radius: 10px; background: var(--frm-sup-2, transparent); }
+.frm-archivo { display: flex; align-items: center; gap: 6px; font-size: .85rem; min-width: 0; }
+.frm-archivo > a { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 auto; text-decoration: none; }
+.frm-archivo > a > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frm-adjuntar { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
+
+
+/* ---------- Paso "N/A" (no aplica a este registro), 2026-11-16 ---------- */
+.frm-na-btn {
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent); background: transparent; color: inherit;
+    font-size: .68rem; font-weight: 600; letter-spacing: .04em; line-height: 1; padding: .28rem .5rem; border-radius: 999px;
+    opacity: .55; cursor: pointer; transition: opacity .15s, background .15s, color .15s, border-color .15s;
+}
+.frm-na-btn:hover, .frm-na-btn:focus-visible { opacity: 1; }
+.frm-na-btn.activo { opacity: 1; background: var(--t-acento, var(--sig-rojo, #EC1C24)); border-color: transparent; color: #fff; }
+.frm-na-chip {
+    display: inline-block; margin-left: .5rem; padding: .12rem .5rem; border-radius: 999px; font-size: .68rem; font-weight: 600;
+    letter-spacing: .03em; text-transform: none; vertical-align: middle;
+    background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; opacity: .85;
+}
+/* Contenido del paso apagado (no se oculta: el diseño mantiene sus filas). inert impide editarlo. */
+.frm-sec-na > :not(.frm-sec-tit),
+.frm-sec-na > .frm-rejilla > * { opacity: .32; transition: opacity .2s; }
+.frm-sec-na .frm-sec-txt { text-decoration: line-through; text-decoration-thickness: 1px; opacity: .7; }
+.vr-paso-na .vr-paso-tit { opacity: .75; }
+
+/* Campo asociado a "todas las opciones": una casilla por cada opción elegida en la lista. */
+.frm-por-opcion { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border: 1px solid var(--frm-borde, var(--bs-border-color)); border-radius: 10px; }
+.frm-por-opcion-fila { display: grid; grid-template-columns: minmax(90px, 40%) 1fr; align-items: center; gap: 8px; }
+.frm-por-opcion-op { font-size: .82rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Avisar por correo (BotonNotificar) */
+.bn-caja { max-width: 560px; width: calc(100% - 2rem); max-height: calc(100vh - 2rem); overflow: auto; color: var(--bs-body-color); text-align: left; }
+.bn-buscar { margin-bottom: .5rem; }
+.bn-personas { max-height: 15rem; overflow: auto; border: 1px solid var(--bs-border-color, #ddd); border-radius: 10px; padding: .25rem; }
+.bn-persona { display: flex; gap: .55rem; align-items: center; padding: .35rem .5rem; border-radius: 8px; cursor: pointer; font-size: .88rem; }
+.bn-persona:hover { background: var(--bs-tertiary-bg, #f4f4f5); }
+.bn-persona span { display: flex; flex-direction: column; line-height: 1.2; }
+.bn-persona small { opacity: .65; font-size: .75rem; }
+.bn-persona input { accent-color: var(--sig-rojo, #EC1C24); }

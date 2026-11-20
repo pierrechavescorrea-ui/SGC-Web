@@ -1,0 +1,17 @@
+@* Botón «Base de datos» del encabezado de toda pantalla que se alimenta con Excel: abre la gestión de
+   sus cargas (qué archivo, cuándo, cuántos registros, ver solo esa carga, eliminarla a la Papelera). *@
+<button type="button" class="pg-btn @(Activo ? "activo" : "")" title="@TituloCompleto" aria-label="Base de datos" disabled="@Deshabilitado" @onclick="OnClick">
+    <Ico Nombre="cargas" />@(Cantidad > 0 ? $" {Cantidad}" : "")
+</button>
+
+@code {
+    [Parameter] public bool Activo { get; set; }
+    // Número de cargas (se muestra junto al ícono si es mayor que 0).
+    [Parameter] public int Cantidad { get; set; }
+    // Texto del tooltip después de «Base de datos: »; si no se da, «n carga(s)».
+    [Parameter] public string? Detalle { get; set; }
+    [Parameter] public bool Deshabilitado { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string TituloCompleto => "Base de datos: " + (Detalle ?? $"{Cantidad} carga{(Cantidad == 1 ? "" : "s")}");
+}

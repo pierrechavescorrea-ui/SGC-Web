@@ -1,0 +1,592 @@
+@page "/organigrama"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using SigWeb.Data
+@using SigWeb.Data.Impacto
+@using SigWeb.Data.Navegacion
+@using SigWeb.Data.Organigrama
+@using SigWeb.Models
+@inject AppDbContext Db
+@inject IJSRuntime JS
+@inject AnalizadorImpacto Impacto
+@implements IAsyncDisposable
+
+@* Organigrama con control de cambios. Cada versión es una foto completa; solo el borrador se edita
+   (Editar sobre la vigente crea el borrador copiándola) y al aprobarlo pasa a Vigente. Los cargos
+   conservan su Clave entre versiones: Control de cambios compara versiones y la ficha muestra la
+   historia de cada cargo. Todo lo editado queda en memoria hasta Guardar. *@
+<PageTitle>Organigrama</PageTitle>
+
+<div class="org-pagina @(pantallaCompleta ? "org-pc" : "")" @ref="pagina">
+<EncabezadoPagina Titulo="Organigrama" Icono="organigrama" Atras="/" Subtitulo="@SubtituloVersion()">
+    <Acciones>
+        <span class="pg-vistas">
+            <button type="button" class="pg-btn @(vista == "diagrama" ? "activo" : "")" title="Organigrama" @onclick='() => CambiarVista("diagrama")'><Ico Nombre="organigrama" /></button>
+            <button type="button" class="pg-btn @(vista == "lista" ? "activo" : "")" title="Lista de cargos" @onclick='() => CambiarVista("lista")'><Ico Nombre="listado" /></button>
+            <button type="button" class="pg-btn @(vista == "cambios" ? "activo" : "")" title="Versiones y control de cambios" @onclick='() => CambiarVista("cambios")'><Ico Nombre="versiones" /></button>
+        </span>
+        @if (vista == "diagrama")
+        {
+            <button type="button" class="pg-btn" title="Pantalla completa" @onclick="PantallaCompleta"><Ico Nombre="pantalla-completa" /></button>
+        }
+        <span class="pg-sep"></span>
+        <button type="button" class="pg-btn @(verImportar ? "activo" : "")" title="Importar organigrama (Excel) a un borrador" disabled="@editando" @onclick="AlternarImportar"><Ico Nombre="cargar-excel" /></button>
+        <BotonExportar Titulo="Organigrama" Deshabilitado="@(ver is null)" OnExportar="Exportar" />
+        <span class="pg-sep"></span>
+        @if (editando)
+        {
+            <button type="button" class="pg-btn" title="Agregar cargo (subordinado del seleccionado)" @onclick="() => AgregarCargo(sel, false)"><Ico Nombre="agregar" /></button>
+            <button type="button" class="pg-btn" title="Cancelar edición" @onclick="CancelarEdicion"><Ico Nombre="cancelar" /></button>
+            <AvisoCambios Pendientes="pendientes" />
+            <button type="button" class="pg-btn pg-btn-primario" title="Guardar" disabled="@(guardando || pendientes == 0)" @onclick="Guardar"><Ico Nombre="guardar" />@(pendientes > 0 ? $" {pendientes}" : "")</button>
+        }
+        else if (ver is not null)
+        {
+            <button type="button" class="pg-btn" title="Eliminar versión v@(ver.Numero)" @onclick="PedirEliminarVersion"><Ico Nombre="eliminar" /></button>
+            <button type="button" class="pg-btn" title="@(ver.Estado == EstadoOrganigrama.Borrador ? "Editar borrador" : borrador is not null ? $"Editar borrador v{borrador.Numero}" : "Editar (crea un borrador)")" disabled="@guardando" @onclick="Editar"><Ico Nombre="editar" /></button>
+            @if (ver.Estado == EstadoOrganigrama.Borrador)
+            {
+                <button type="button" class="pg-btn pg-btn-primario @(pub is not null ? "activo" : "")" title="Aprobar y publicar v@(ver.Numero)" @onclick="AbrirPublicar"><Ico Nombre="aprobar" /></button>
+            }
+        }
+        else
+        {
+            <button type="button" class="pg-btn pg-btn-primario" title="Crear organigrama (borrador)" disabled="@guardando" @onclick="Editar"><Ico Nombre="agregar" /></button>
+        }
+    </Acciones>
+</EncabezadoPagina>
+
+@if (!string.IsNullOrEmpty(mensaje))
+{
+    <div class="alert @(error ? "alert-danger" : "alert-success") py-1 small d-flex justify-content-between align-items-center">
+        <span>@mensaje</span><button type="button" class="btn-close btn-sm" title="Cerrar" @onclick='() => mensaje = ""'></button>
+    </div>
+}
+
+@* ---------- Importar ---------- *@
+@if (verImportar)
+{
+    <FormularioSig Titulo="Importar organigrama" Icono="cargar-excel" Clase="mb-3" OnCerrar="() => verImportar = false">
+        <ChildContent>
+            <SeccionFormulario Titulo="Archivo">
+                <CampoFormulario Etiqueta="Excel (columnas N.º, Cargo, Ocupante, Área, Jefe inmediato…)" Ancho="col-md-6">
+                    <label class="form-control mb-0 org-archivo" title="Elegir archivo">
+                        <Ico Nombre="adjuntar" /> <span>@(importe?.Archivo ?? "")</span>
+                        <InputFile class="d-none" accept=".xlsx" OnChange="LeerImportacion" />
+                    </label>
+                </CampoFormulario>
+                @if (importe is not null)
+                {
+                    <div class="col-md-6 small org-imp-res">
+                        <div><b>@importe.Nodos.Count</b> cargos · <b>@importe.Nodos.Count(n => n.Jefe is null)</b> sin jefe · <b>@importe.Reusados</b> ligados a la v@(importe.BaseNumero)</div>
+                        @if (borrador is not null)
+                        {
+                            <div class="text-danger">Reemplaza el contenido del borrador v@(borrador.Numero) (lo actual va a la Papelera).</div>
+                        }
+                        @foreach (var a in importe.Avisos.Take(8)) { <div class="text-warning-emphasis">@a</div> }
+                        @if (importe.Avisos.Count > 8) { <div>+@(importe.Avisos.Count - 8)</div> }
+                    </div>
+                }
+            </SeccionFormulario>
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => verImportar = false"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Crear borrador con lo importado" disabled="@(guardando || importe is null || importe.Nodos.Count == 0)" @onclick="AplicarImportacion"><Ico Nombre="guardar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@* ---------- Publicar ---------- *@
+@if (pub is not null && ver is not null)
+{
+    <FormularioSig Titulo="@($"Aprobar y publicar v{ver.Numero}")" Icono="aprobar" Clase="mb-3" OnCerrar="() => pub = null">
+        <ChildContent>
+            <SeccionFormulario Titulo="Versión">
+                <CampoFormulario Etiqueta="Título" Ancho="col-md-6" Obligatorio="true"><input class="form-control" @bind="pubTitulo" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Alcance (proyecto / tramo)" Ancho="col-md-6"><input class="form-control" @bind="pubAlcance" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Vigente desde" Ancho="col-md-3" Obligatorio="true"><input type="date" class="form-control" @bind="pub.VigenteDesde" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Motivo del cambio" Ancho="col-md-9" Obligatorio="true" Destacado="true"><input class="form-control" @bind="pub.Motivo" @bind:event="oninput" /></CampoFormulario>
+            </SeccionFormulario>
+            <SeccionFormulario Titulo="Firmas">
+                <CampoFormulario Etiqueta="Elaboró" Ancho="col-md-3"><input class="form-control" list="dl-org-personas" @bind="pub.Elaboro" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Revisó" Ancho="col-md-3"><input class="form-control" list="dl-org-personas" @bind="pub.Reviso" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Aprobó" Ancho="col-md-3"><input class="form-control" list="dl-org-personas" @bind="pub.Aprobo" /></CampoFormulario>
+                <CampoFormulario Etiqueta="Fecha de aprobación" Ancho="col-md-3"><input type="date" class="form-control" @bind="pub.FechaAprobacion" /></CampoFormulario>
+            </SeccionFormulario>
+            <SeccionFormulario Titulo="@(vigente is null ? "Cambios" : $"Cambios frente a la v{vigente.Numero} vigente")" SinFila="true">
+                @if (erroresPub.Count > 0)
+                {
+                    <div class="alert alert-danger py-1 small mb-2">@foreach (var e in erroresPub) { <div>@e</div> }</div>
+                }
+                @TablaCambios(cambiosPub)
+            </SeccionFormulario>
+        </ChildContent>
+        <Acciones>
+            <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => pub = null"><Ico Nombre="cancelar" /></button>
+            <button type="button" class="btn btn-primary btn-sm" title="Publicar como vigente" disabled="@(guardando || erroresPub.Count > 0 || string.IsNullOrWhiteSpace(pub.Motivo) || string.IsNullOrWhiteSpace(pubTitulo) || pub.VigenteDesde is null)" @onclick="Publicar"><Ico Nombre="aprobar" /></button>
+        </Acciones>
+    </FormularioSig>
+}
+
+@* ---------- Eliminar versión ---------- *@
+@if (elimVersion is not null)
+{
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <PanelImpacto Informe="elimVersion.Informe" OnEntendido="v => elimVersion.Entendido = v" />
+            <div class="frm-pie frm-pie-plano">
+                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => elimVersion = null"><Ico Nombre="cancelar" /></button>
+                <button type="button" class="btn btn-danger btn-sm" title="Enviar a la Papelera" disabled="@(elimVersion.Informe.RequiereEntender && !elimVersion.Entendido)" @onclick="ConfirmarEliminarVersion"><Ico Nombre="eliminar" /></button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ---------- Barra: versiones, indicadores, filtros (fuera del encabezado) ---------- *@
+@if (versiones.Count > 0)
+{
+    <div class="org-barra">
+        <SelectorVersiones Items="ItemsVersiones" SeleccionadaId="ver?.Id" Deshabilitado="editando" OnSeleccionar="SeleccionarVersion" />
+        @if (vista != "cambios")
+        {
+            <div class="org-kpis">
+                <button type="button" class="org-kpi @(resaltar == null && area == null ? "activo" : "")" title="Cargos" @onclick="LimpiarResalte"><b>@nodos.Count</b><span>cargos</span></button>
+                <button type="button" class="org-kpi" title="Personas nombradas" @onclick="LimpiarResalte"><b>@nodos.Sum(n => ServicioOrganigrama.Personas(n.Ocupante).Count)</b><span>personas</span></button>
+                <button type="button" class="org-kpi @(resaltar == "sin" ? "activo" : "")" title="Cargos sin ocupante" @onclick='() => Resaltar("sin")'><b>@nodos.Count(n => string.IsNullOrWhiteSpace(n.Ocupante))</b><span>sin asignar</span></button>
+                @if (nodos.Any(n => n.Supuesto is not null))
+                {
+                    <button type="button" class="org-kpi org-kpi-sup @(resaltar == "sup" ? "activo" : "")" title="Cargos con supuestos por confirmar" @onclick='() => Resaltar("sup")'><b>@nodos.Count(n => n.Supuesto is not null)</b><span>supuestos</span></button>
+                }
+                <span class="org-kpi-niv" title="Niveles jerárquicos"><b>@niveles</b><span>niveles</span></span>
+            </div>
+            <div class="org-areas">
+                @foreach (var a in areas)
+                {
+                    var aa = a;
+                    <button type="button" class="org-area @(area == aa ? "activo" : "")" style="--a:@ColorArea(aa)" title="@aa" @onclick="() => FiltrarArea(aa)">
+                        <i></i>@aa <small>@nodos.Count(n => n.Area == aa)</small>
+                    </button>
+                }
+            </div>
+            <input class="form-control form-control-sm org-buscar" data-recordar="buscar" placeholder="Buscar cargo o persona" title="Buscar cargo o persona" @bind="buscar" @bind:event="oninput" @bind:after="Buscar" />
+        }
+    </div>
+}
+
+@if (ver is null)
+{
+    <div class="pg-vacio" title="Sin organigrama">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos("organigrama"))</svg>
+    </div>
+}
+else if (vista == "diagrama")
+{
+    <div class="org-cuerpo">
+        <div class="org-marco @(editando ? "org-editando" : "") @(Arrastrando ? "org-arrastrando" : "")" @ref="marco">
+            <div class="org-herr"><div class="org-herr-in" role="toolbar">
+                @if (editando)
+                {
+                    <div class="org-pieza" role="button" tabindex="0" draggable="true" title="Nuevo cargo: arrástralo sobre un jefe o una línea de mando"
+                         @ondragstart='() => ArrastrarNuevo("linea")' @ondragend="FinArrastre" @onclick="() => AgregarCargo(sel, false)"><Ico Nombre="subordinado" /></div>
+                    <div class="org-pieza" role="button" tabindex="0" draggable="true" title="Nuevo cargo de apoyo: arrástralo sobre un jefe"
+                         @ondragstart='() => ArrastrarNuevo("apoyo")' @ondragend="FinArrastre" @onclick="() => AgregarCargo(sel, true)"><Ico Nombre="apoyo" /></div>
+                    <span></span>
+                }
+                <button type="button" title="Acercar" data-accion="org-zoom" data-factor="1.15"><Ico Nombre="acercar" /></button>
+                <button type="button" title="Alejar" data-accion="org-zoom" data-factor="0.8695652"><Ico Nombre="alejar" /></button>
+                <button type="button" title="Ajustar a la pantalla" data-accion="org-ajustar"><Ico Nombre="ajustar" /></button>
+                <span></span>
+                <button type="button" title="Plegar todo" @onclick="PlegarTodo"><Ico Nombre="plegar" /></button>
+                <button type="button" title="Desplegar todo" @onclick="() => plegados.Clear()"><Ico Nombre="desplegar" /></button>
+            </div></div>
+            <div class="org-lienzo">
+                <div class="org-encabezado-impresion">
+                    <b>@ver.Titulo</b>
+                    <span>@ver.Alcance</span>
+                    <span>v@(ver.Numero) · @ver.Estado@(ver.VigenteDesde is DateTime d0 ? $" · desde {d0:dd/MM/yyyy}" : "")</span>
+                </div>
+                <ul class="org-arbol">
+                    @foreach (var r in raices)
+                    {
+                        <li class="@ClaseLi(r)">@Rama(r)</li>
+                    }
+                </ul>
+            </div>
+        </div>
+        @if (Sel() is { } ns)
+        {
+            @Ficha(ns)
+        }
+    </div>
+}
+else if (vista == "lista")
+{
+    <div class="org-cuerpo">
+        <div class="tabla-scroll tabla-auto org-lista-marco">
+            <table class="table table-sm table-bordered table-hover tabla-compacta align-middle mb-0 tabla-pin org-tabla">
+                <thead>
+                    <tr>
+                        <th>Cargo</th><th>N.º</th><th>Ocupante</th><th>Área</th><th>Jefe inmediato</th><th>Tipo</th><th>Plazas</th><th title="Subordinados directos / total">A cargo</th><th>Notas</th><th>Supuesto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var (n, num, nivel) in ordenados)
+                    {
+                        var nn = n;
+                        <tr @key="nn.Clave" class="@(sel == nn.Clave ? "table-active" : "") @(Tenue(nn) ? "org-fila-tenue" : "")" @onclick="() => Seleccionar(nn.Clave)">
+                            @if (editando)
+                            {
+                                <td style="padding-left:@((nivel - 1) * 14 + 6)px"><input class="form-control form-control-sm" value="@nn.Nombre" @onchange="e => Cambiar(nn, x => x.Nombre = e.Value?.ToString() ?? x.Nombre)" /></td>
+                                <td class="text-nowrap small">@num</td>
+                                <td><input class="form-control form-control-sm" value="@nn.Ocupante" list="dl-org-personas" @onchange="e => Cambiar(nn, x => x.Ocupante = ServicioOrganigrama.Limpio(e.Value?.ToString()))" /></td>
+                                <td><input class="form-control form-control-sm" value="@nn.Area" list="dl-org-areas" @onchange="e => Cambiar(nn, x => x.Area = ServicioOrganigrama.Limpio(e.Value?.ToString()))" /></td>
+                                <td>
+                                    <select class="form-select form-select-sm" @onchange="e => CambiarJefe(nn, e.Value?.ToString())">
+                                        <option value="" selected="@(nn.Jefe is null)">(raíz)</option>
+                                        @foreach (var (j, jn, _) in ordenados.Where(o => PuedeSerJefe(nn, o.Nodo)))
+                                        {
+                                            <option value="@j.Clave" selected="@(nn.Jefe == j.Clave)">@jn · @j.Nombre</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" disabled="@(nn.Jefe is null)" @onchange='e => Cambiar(nn, x => x.Staff = e.Value?.ToString() == "1")'>
+                                        <option value="0" selected="@(!nn.Staff)">Línea</option><option value="1" selected="@nn.Staff">Apoyo</option>
+                                    </select>
+                                </td>
+                                <td><input type="number" min="1" class="form-control form-control-sm org-num" value="@nn.Plazas" @onchange="e => Cambiar(nn, x => x.Plazas = int.TryParse(e.Value?.ToString(), out var p) && p > 0 ? p : null)" /></td>
+                                <td class="text-nowrap small">@Directos(nn) / @Total(nn)</td>
+                                <td><input class="form-control form-control-sm" value="@nn.Notas" @onchange="e => Cambiar(nn, x => x.Notas = ServicioOrganigrama.Limpio(e.Value?.ToString()))" /></td>
+                                <td><input class="form-control form-control-sm" value="@nn.Supuesto" @onchange="e => Cambiar(nn, x => x.Supuesto = ServicioOrganigrama.Limpio(e.Value?.ToString()))" /></td>
+                            }
+                            else
+                            {
+                                <td class="fw-semibold" style="padding-left:@((nivel - 1) * 14 + 6)px"><i class="org-punto" style="--a:@ColorArea(nn.Area)"></i>@nn.Nombre</td>
+                                <td class="text-nowrap small">@num</td>
+                                <td>@if (string.IsNullOrWhiteSpace(nn.Ocupante)) { <span class="org-sin">Sin asignar</span> } else { @nn.Ocupante }</td>
+                                <td>@nn.Area</td>
+                                <td>@NombreJefe(nn)</td>
+                                <td>@(nn.Staff ? "Apoyo" : "Línea")</td>
+                                <td class="text-end">@nn.Plazas</td>
+                                <td class="text-nowrap small">@Directos(nn) / @Total(nn)</td>
+                                <td class="small org-trunc" title="@nn.Notas">@nn.Notas</td>
+                                <td class="small org-sup-txt" title="@nn.Supuesto">@nn.Supuesto</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Sel() is { } ns)
+        {
+            @Ficha(ns)
+        }
+    </div>
+}
+else
+{
+    @* ---------- Versiones y control de cambios ---------- *@
+    <div class="org-cambios">
+        <div class="org-linea-tiempo">
+            @foreach (var v in versiones)
+            {
+                var vv = v;
+                <div class="org-hito org-ver-@vv.Estado.ToLowerInvariant() @(ver?.Id == vv.Id ? "activo" : "")" @key="vv.Id" @onclick="() => SeleccionarVersion(vv.Id)">
+                    <div class="org-hito-cab">
+                        <b>v@(vv.Numero)</b>
+                        <span class="org-estado">@vv.Estado</span>
+                        <span class="org-hito-fechas">@RangoVigencia(vv)</span>
+                    </div>
+                    <div class="org-hito-motivo">@(vv.MotivoCambio ?? "")</div>
+                    <div class="org-hito-firmas">
+                        @if (vv.Elaboro is not null) { <span title="Elaboró">✎ @vv.Elaboro</span> }
+                        @if (vv.Reviso is not null) { <span title="Revisó">◎ @vv.Reviso</span> }
+                        @if (vv.Aprobo is not null) { <span title="Aprobó">✓ @vv.Aprobo@(vv.FechaAprobacion is DateTime fa ? $" · {fa:dd/MM/yyyy}" : "")</span> }
+                    </div>
+                    <div class="org-hito-pie">
+                        <span title="Origen">@vv.Origen</span>
+                        <span title="Cargos">@(cargosPorVersion.TryGetValue(vv.Id, out var nc) ? nc : 0) cargos</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(vv.Notas))
+                    {
+                        <div class="org-hito-notas" title="Notas">@vv.Notas</div>
+                    }
+                </div>
+            }
+        </div>
+        <div class="org-comparar">
+            <div class="org-comparar-sel">
+                <Ico Nombre="comparar" />
+                <select class="form-select form-select-sm" title="Versión anterior" @bind="compA" @bind:after="Comparar">
+                    @foreach (var v in versiones) { <option value="@v.Id">v@(v.Numero) · @v.Estado</option> }
+                </select>
+                <span>→</span>
+                <select class="form-select form-select-sm" title="Versión posterior" @bind="compB" @bind:after="Comparar">
+                    @foreach (var v in versiones) { <option value="@v.Id">v@(v.Numero) · @v.Estado</option> }
+                </select>
+            </div>
+            <div class="org-resumen">
+                @foreach (var g in cambiosComp.GroupBy(c => c.Tipo))
+                {
+                    var t = g.Key;
+                    <button type="button" class="org-chip-cambio org-c-@t.ToString().ToLowerInvariant() @(filtroCambio == t ? "activo" : "")" @onclick="() => filtroCambio = filtroCambio == t ? null : t">
+                        @ServicioOrganigrama.NombreTipo(t) <b>@g.Count()</b>
+                    </button>
+                }
+            </div>
+            @TablaCambios(filtroCambio is null ? cambiosComp : cambiosComp.Where(c => c.Tipo == filtroCambio).ToList())
+        </div>
+    </div>
+}
+</div>
+
+<datalist id="dl-org-areas">@foreach (var a in areas) { <option value="@a"></option> }</datalist>
+<datalist id="dl-org-personas">@foreach (var p in personas) { <option value="@p"></option> }</datalist>
+
+@code {
+    private RenderFragment Rama(NodoOrg n) => __builder =>
+    {
+        var linea = Linea(n);
+        var apoyos = Apoyos(n);
+        var plegado = plegados.Contains(n.Clave);
+        <div class="org-caja">
+            @Tarjeta(n, linea.Count + apoyos.Count)
+            @if (apoyos.Count > 0 && !plegado)
+            {
+                <div class="org-apoyos">
+                    @foreach (var a in apoyos)
+                    {
+                        <div class="org-apoyo">@Tarjeta(a, Directos(a))</div>
+                    }
+                </div>
+            }
+        </div>
+        @if (linea.Count > 0 && !plegado)
+        {
+            <ul class="@(Vertical(n) ? "org-vert" : "")">
+                @foreach (var h in linea)
+                {
+                    <li class="@ClaseLi(h)" @key="h.Clave">@Ranuras(h)@Rama(h)</li>
+                }
+            </ul>
+        }
+    };
+
+    // Línea de mando sobre cada cargo (solo en edición): mitad antes / mitad después, para soltar en esa posición.
+    private RenderFragment Ranuras(NodoOrg n) => __builder =>
+    {
+        if (editando)
+        {
+            <div class="org-ranura org-ranura-a @(RanuraActiva(n, false) ? "activa" : "")" @ondragenter="() => EntrarRanura(n, false)" @ondragover:preventDefault="true" @ondrop="() => SoltarRanura(n, false)"></div>
+            <div class="org-ranura org-ranura-d @(RanuraActiva(n, true) ? "activa" : "")" @ondragenter="() => EntrarRanura(n, true)" @ondragover:preventDefault="true" @ondrop="() => SoltarRanura(n, true)"></div>
+        }
+    };
+
+    private RenderFragment Tarjeta(NodoOrg n, int directos) => __builder =>
+    {
+        var personasN = ServicioOrganigrama.Personas(n.Ocupante);
+        var plegado = plegados.Contains(n.Clave);
+        <div class="org-card @(sel == n.Clave ? "sel" : "") @(Tenue(n) ? "org-tenue" : "") @(coinciden.Contains(n.Clave) && HayFiltro ? "org-coincide" : "") @(n.Staff ? "org-card-apoyo" : "") @(destino == n.Clave ? "org-destino" : "") @(arrastrado == n.Clave ? "org-arrastrado" : "")"
+             style="--a:@ColorArea(n.Area)" data-clave="@n.Clave" tabindex="0"
+             draggable="@(editando ? "true" : "false")"
+             @onclick="() => Seleccionar(n.Clave)"
+             @ondragstart="() => Arrastrar(n)" @ondragenter="() => Entrar(n)" @ondragover:preventDefault="true"
+             @ondrop="() => Soltar(n)" @ondragend="FinArrastre">
+            <div class="org-card-area">@(n.Area ?? "")</div>
+            <div class="org-card-cargo @(string.IsNullOrWhiteSpace(n.Nombre) ? "org-sin-nombre" : "")">@(string.IsNullOrWhiteSpace(n.Nombre) ? "Cargo nuevo" : n.Nombre)</div>
+            <div class="org-card-pers">
+                @if (personasN.Count == 0)
+                {
+                    <span class="org-av org-av-vacio" aria-hidden="true"></span>
+                    <span class="org-sin">Sin asignar</span>
+                }
+                else
+                {
+                    <span class="org-av" aria-hidden="true">@Iniciales(personasN[0])</span>
+                    <span class="org-nombre" title="@string.Join(", ", personasN)">@personasN[0]@(personasN.Count > 1 ? $" +{personasN.Count - 1}" : "")</span>
+                }
+            </div>
+            @if (n.Plazas is int p || n.Supuesto is not null)
+            {
+                <div class="org-card-marcas">
+                    @if (n.Plazas is int pl) { <span class="org-plazas" title="Plazas">×@pl</span> }
+                    @if (n.Supuesto is not null) { <span class="org-sup" title="Supuesto: @n.Supuesto">!</span> }
+                </div>
+            }
+            @if (directos > 0)
+            {
+                <button type="button" class="org-plegar" title="@(plegado ? $"Desplegar ({Total(n)} a cargo)" : "Plegar")" @onclick="() => AlternarPlegado(n.Clave)" @onclick:stopPropagation="true">
+                    @(plegado ? $"+{Total(n)}" : "−")
+                </button>
+            }
+        </div>
+    };
+
+    private RenderFragment Ficha(NodoOrg n) => __builder =>
+    {
+        var jefe = n.Jefe is Guid j && porClave.TryGetValue(j, out var pj) ? pj : null;
+        var subs = hijos.TryGetValue(n.Clave, out var hs) ? hs : new List<NodoOrg>();
+        var numero = ordenados.Where(o => o.Nodo.Clave == n.Clave).Select(o => o.Numero).FirstOrDefault();
+        var ps = ServicioOrganigrama.Personas(n.Ocupante);
+        <aside class="org-ficha" style="--a:@ColorArea(n.Area)" @key="@(autoNodo == n.Clave ? $"{n.Clave}-{autoSeq}" : n.Clave.ToString())">
+            <div class="org-ficha-cab">
+                <div>
+                    <div class="org-card-area">@(n.Area ?? "")</div>
+                    <h6>@(string.IsNullOrWhiteSpace(n.Nombre) ? "Cargo nuevo" : n.Nombre)</h6>
+                    <span class="org-tipo">@(n.Staff ? "Apoyo" : "Línea")</span>
+                    @if (numero is not null) { <span class="org-tipo">N.º @numero</span> }
+                </div>
+                <button type="button" class="btn-close" title="Cerrar" @onclick="CerrarFicha"></button>
+            </div>
+            @if (editando)
+            {
+                <div class="org-ficha-cuerpo org-ficha-form">
+                    <div class="org-campo">
+                        <label>Cargo</label>
+                        <input class="form-control org-foco" required value="@n.Nombre" @onchange="e => Cambiar(n, x => x.Nombre = e.Value?.ToString() ?? x.Nombre)" />
+                    </div>
+                    <div class="org-campo">
+                        <label>Ocupante(s)</label>
+                        <textarea class="form-control" rows="2" title="Varios: uno por línea o separados por coma" @onchange="e => Cambiar(n, x => x.Ocupante = ServicioOrganigrama.Limpio(e.Value?.ToString()))" value="@n.Ocupante"></textarea>
+                    </div>
+                    <div class="org-dos">
+                        <div class="org-campo @Auto(n, "area")">
+                            <label>Área</label>
+                            <input class="form-control" list="dl-org-areas" value="@n.Area" @onchange="e => Cambiar(n, x => x.Area = ServicioOrganigrama.Limpio(e.Value?.ToString()))" />
+                        </div>
+                        <div class="org-campo">
+                            <label>Plazas</label>
+                            <input type="number" min="1" inputmode="numeric" class="form-control" value="@n.Plazas" @onchange="e => Cambiar(n, x => x.Plazas = int.TryParse(e.Value?.ToString(), out var p) && p > 0 ? p : null)" />
+                        </div>
+                    </div>
+                    <div class="org-campo @Auto(n, "jefe")">
+                        <label>Jefe inmediato</label>
+                        <select class="form-select" @onchange="e => CambiarJefe(n, e.Value?.ToString())">
+                            <option value="" selected="@(n.Jefe is null)">(raíz)</option>
+                            @foreach (var (o, num, _) in ordenados.Where(x => PuedeSerJefe(n, x.Nodo)))
+                            {
+                                <option value="@o.Clave" selected="@(n.Jefe == o.Clave)">@num · @o.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="org-seg @Auto(n, "tipo")" role="group">
+                        <button type="button" class="@(!n.Staff ? "activo" : "")" title="Cargo de línea" @onclick="() => Cambiar(n, x => x.Staff = false)">Línea</button>
+                        <button type="button" class="@(n.Staff ? "activo" : "")" title="Cargo de apoyo (staff) del jefe" disabled="@(n.Jefe is null)" @onclick="() => Cambiar(n, x => x.Staff = true)">Apoyo</button>
+                    </div>
+                    <div class="org-campo">
+                        <label>Notas</label>
+                        <textarea class="form-control" rows="2" @onchange="e => Cambiar(n, x => x.Notas = ServicioOrganigrama.Limpio(e.Value?.ToString()))" value="@n.Notas"></textarea>
+                    </div>
+                    <div class="org-campo">
+                        <label>Supuesto</label>
+                        <textarea class="form-control" rows="2" @onchange="e => Cambiar(n, x => x.Supuesto = ServicioOrganigrama.Limpio(e.Value?.ToString()))" value="@n.Supuesto"></textarea>
+                    </div>
+                    <div class="org-ficha-acc">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Agregar subordinado" @onclick="() => AgregarCargo(n.Clave, false)"><Ico Nombre="subordinado" /></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Agregar cargo de apoyo" @onclick="() => AgregarCargo(n.Clave, true)"><Ico Nombre="apoyo" /></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Mover antes" @onclick="() => Mover(n, -1)"><Ico Nombre="subir" /></button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" title="Mover después" @onclick="() => Mover(n, 1)"><Ico Nombre="bajar" /></button>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-auto" title="Quitar cargo" @onclick="() => PedirQuitar(n)"><Ico Nombre="eliminar" /></button>
+                    </div>
+                    @if (elimNodo is not null && elimNodo.Clave == n.Clave)
+                    {
+                        <div class="org-quitar">
+                            <PanelImpacto Informe="elimNodo.Informe" OnEntendido="v => elimNodo.Entendido = v" />
+                            @if (subs.Count > 0)
+                            {
+                                <div class="org-seg mb-2" role="group">
+                                    <button type="button" class="@(elimNodo.Reasignar ? "activo" : "")" title="@(jefe is null ? "Sus subordinados quedan como raíz" : $"Sus subordinados pasan a «{jefe.Nombre}»")" @onclick="() => elimNodo.Reasignar = true">Reasignar</button>
+                                    <button type="button" class="@(!elimNodo.Reasignar ? "activo" : "")" title="Quitar también toda su rama" @onclick="() => elimNodo.Reasignar = false">Toda la rama</button>
+                                </div>
+                            }
+                            <div class="frm-pie frm-pie-plano">
+                                <button type="button" class="btn btn-secondary btn-sm" title="Cancelar" @onclick="() => elimNodo = null"><Ico Nombre="cancelar" /></button>
+                                <button type="button" class="btn btn-danger btn-sm" title="Quitar" disabled="@(elimNodo.Informe.RequiereEntender && !elimNodo.Entendido)" @onclick="ConfirmarQuitar"><Ico Nombre="eliminar" /></button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="org-ficha-cuerpo">
+                    @if (n.Supuesto is not null)
+                    {
+                        <div class="org-ficha-sup" title="Supuesto por confirmar">@n.Supuesto</div>
+                    }
+                    <dl class="org-dl">
+                        <dt>Ocupante(s)</dt>
+                        <dd>
+                            @if (ps.Count == 0) { <span class="org-sin">Sin asignar</span> }
+                            @foreach (var persona in ps) { <div class="org-persona"><span class="org-av">@Iniciales(persona)</span>@persona</div> }
+                        </dd>
+                        <dt>Jefe inmediato</dt>
+                        <dd>@if (jefe is not null) { <a href="#" @onclick:preventDefault="true" @onclick="() => SeleccionarYVer(jefe.Clave)">@jefe.Nombre</a> } else { <span>—</span> }</dd>
+                        <dt>A cargo</dt>
+                        <dd>@subs.Count directo(s) · @Total(n) en total</dd>
+                        @if (n.Plazas is int pl) { <dt>Plazas</dt><dd>@pl</dd> }
+                        @if (n.Notas is not null) { <dt>Notas</dt><dd>@n.Notas</dd> }
+                    </dl>
+                    @if (subs.Count > 0)
+                    {
+                        <div class="org-subs">
+                            @foreach (var s in subs)
+                            {
+                                var ss = s;
+                                <button type="button" class="org-sub" style="--a:@ColorArea(ss.Area)" @onclick="() => SeleccionarYVer(ss.Clave)">
+                                    <i></i>@ss.Nombre<small>@(ServicioOrganigrama.Personas(ss.Ocupante).FirstOrDefault() ?? "")</small>
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (historial.Count > 0)
+                    {
+                        <div class="org-hist">
+                            <div class="org-et"><Ico Nombre="versiones" /> Historia del cargo</div>
+                            @for (var i = 0; i < historial.Count; i++)
+                            {
+                                var h = historial[i];
+                                var prev = i + 1 < historial.Count ? historial[i + 1] : null;
+                                <div class="org-hist-paso org-ver-@h.Estado.ToLowerInvariant()">
+                                    <b>v@(h.Numero)</b>
+                                    <div>
+                                        <span class="@(prev is not null && prev.Nombre != h.Nombre ? "org-cambio" : "")">@h.Nombre</span>
+                                        <small class="@(prev is not null && prev.Ocupante != h.Ocupante ? "org-cambio" : "")">@(h.Ocupante ?? "Sin asignar")</small>
+                                        <small class="@(prev is not null && prev.Jefe != h.Jefe ? "org-cambio" : "")">↑ @(h.Jefe ?? "—")</small>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </aside>
+    };
+
+    private RenderFragment TablaCambios(List<CambioOrg> cambios) => __builder =>
+    {
+        if (cambios.Count == 0)
+        {
+            <div class="org-sin-cambios" title="Sin cambios"><Ico Nombre="aceptar" /></div>
+        }
+        else
+        {
+        <div class="tabla-scroll org-tabla-cambios">
+            <table class="table table-sm table-bordered align-middle mb-0 tabla-compacta tabla-pin">
+                <thead><tr><th>Cargo</th><th>Cambio</th><th>Antes</th><th>Después</th></tr></thead>
+                <tbody>
+                    @foreach (var c in cambios)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@c.Cargo</td>
+                            <td><span class="org-chip-cambio org-c-@c.Tipo.ToString().ToLowerInvariant()">@ServicioOrganigrama.NombreTipo(c.Tipo)</span></td>
+                            <td class="org-antes">@c.Antes</td>
+                            <td class="org-despues">@c.Despues</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        }
+    };
+}

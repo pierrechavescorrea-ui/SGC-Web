@@ -1,0 +1,220 @@
+
+.ha-herramienta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-height: 100%;
+    overflow: hidden;
+    border: 1px solid var(--t-borde, #e3e7ee);
+    border-radius: 8px;
+    background: var(--t-superficie, #fff);
+    color: var(--t-texto, #232b39);
+    font-size: .875rem;
+}
+.ha-vacio {
+    display: grid;
+    flex: 1;
+    place-items: center;
+    padding: .5rem;
+    text-align: center;
+    color: var(--t-texto-2, #576375);
+}
+.ha-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+.ha-tabla {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+.ha-tabla th, .ha-tabla td {
+    padding: .35rem .55rem;
+    border-bottom: 1px solid var(--t-borde, #e3e7ee);
+    text-align: left;
+    white-space: nowrap;
+}
+.ha-tabla thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--t-superficie-2, #eef1f6);
+}
+.ha-tabla tbody th {
+    font-weight: 600;
+}
+.ha-herramienta a {
+    color: var(--t-acento, #a9272c);
+}
+.ha-acciones, .ha-modelo {
+    display: flex;
+    flex: 0 0 auto;
+    gap: .5rem;
+    align-items: center;
+    padding: .25rem .5rem;
+}
+.ha-acciones {
+    border-top: 1px solid var(--t-borde, #e3e7ee);
+}
+.ha-acciones > span, .ha-modelo > strong {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ha-acciones select {
+    flex: 1;
+    min-width: 0;
+    padding: .25rem;
+    border: 1px solid var(--t-borde, #e3e7ee);
+    border-radius: 5px;
+    background: var(--t-superficie, #fff);
+    color: var(--t-texto, #232b39);
+}
+.ha-accion {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 2rem;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid var(--t-borde, #e3e7ee);
+    border-radius: 5px;
+    background: var(--t-superficie, #fff);
+    color: var(--t-texto, #232b39);
+}
+.ha-accion:hover, .ha-accion:focus-visible {
+    background: var(--t-superficie-2, #eef1f6);
+}
+.ha-accion svg, .ha-carpetas svg {
+    width: 1rem;
+    height: 1rem;
+}
+.ha-kpi {
+    display: grid;
+    flex: 1;
+    align-content: center;
+    justify-items: center;
+    overflow: auto;
+    padding: .4rem;
+    text-align: center;
+}
+.ha-kpi strong {
+    font-size: clamp(1.25rem, 4vw, 2.75rem);
+    line-height: 1.12;
+    font-variant-numeric: tabular-nums;
+}
+.ha-kpi strong small {
+    font-size: .42em;
+}
+.ha-kpi span, .ha-estadistica dt, .ha-tiempo time, .ha-tiempo span, .ha-carpetas small {
+    color: var(--t-texto-2, #576375);
+}
+.ha-estadistica {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(6.4rem, 1fr));
+    align-content: start;
+    gap: .45rem;
+    margin: 0;
+    padding: .5rem;
+}
+.ha-estadistica > div {
+    padding: .25rem .45rem;
+    border-radius: 5px;
+    background: var(--t-superficie-2, #eef1f6);
+}
+.ha-estadistica dd {
+    margin: 0;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+}
+.ha-grafico {
+    padding: .4rem;
+}
+.ha-cartesiano, .ha-torta {
+    display: block;
+    width: 100%;
+    height: clamp(5rem, 65%, 15rem);
+}
+.ha-eje {
+    stroke: var(--t-borde, #e3e7ee);
+}
+.ha-linea {
+    fill: none;
+    stroke: var(--t-acento, #a9272c);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+.ha-punto, .ha-barra {
+    fill: var(--t-acento, #a9272c);
+}
+/* Respaldos de la paleta categórica de Costos de no calidad. */
+.ha-color-0 { stroke: var(--t-categorica-1, #2a78d6); }
+.ha-color-1 { stroke: var(--t-categorica-2, #eb6834); }
+.ha-color-2 { stroke: var(--t-categorica-3, #1baf7a); }
+.ha-color-3 { stroke: var(--t-categorica-4, #eda100); }
+.ha-color-4 { stroke: var(--t-categorica-5, #e87ba4); }
+.ha-color-5 { stroke: var(--t-categorica-6, #008300); }
+.ha-color-6 { stroke: var(--t-categorica-7, #6250d6); }
+.ha-leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: .3rem .9rem;
+    list-style: none;
+    margin: .4rem 0 0;
+    padding: 0;
+}
+.ha-leyenda li {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    overflow-wrap: anywhere;
+}
+.ha-leyenda svg {
+    width: .8rem;
+    height: .8rem;
+    flex: 0 0 .8rem;
+}
+.ha-mapa, .ha-pdf {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    border: 0;
+}
+.ha-mapa {
+    isolation: isolate;
+}
+.ha-modelo {
+    flex: 1;
+    justify-content: center;
+}
+.ha-modelo > strong {
+    flex: 0 1 auto;
+}
+.ha-carpetas, .ha-tiempo {
+    padding: .5rem;
+}
+.ha-carpetas section + section, .ha-tiempo li + li {
+    margin-top: .5rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--t-borde, #e3e7ee);
+}
+.ha-carpetas ul {
+    margin: .25rem 0 0;
+}
+.ha-carpetas small {
+    margin-inline-start: .35rem;
+}
+.ha-tiempo {
+    margin: 0;
+    list-style: none;
+}
+.ha-tiempo li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .25rem .55rem;
+}

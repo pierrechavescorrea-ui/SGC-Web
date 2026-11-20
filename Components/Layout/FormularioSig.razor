@@ -1,0 +1,50 @@
+@* Marco común de los formularios de creación/edición: tarjeta con franja de acento,
+   encabezado (ícono + título), cuerpo y pie de acciones. Estilos en css/formularios.css.
+   Formulario="clave" = se puede diseñar en Configuración › Catálogos › Formularios (ver DisenoFormulario). *@
+<div class="card panel-formulario frm @Clase">
+    @if (!string.IsNullOrWhiteSpace(Titulo))
+    {
+        <div class="frm-cab">
+            @if (!string.IsNullOrWhiteSpace(Icono))
+            {
+                <span class="frm-cab-ico"><Ico Nombre="@Icono" /></span>
+            }
+            <div class="frm-cab-tit">@Titulo</div>
+            @if (Subtitulo is not null)
+            {
+                <div class="frm-cab-sub">@Subtitulo</div>
+            }
+            @if (OnCerrar.HasDelegate)
+            {
+                <button type="button" class="frm-cerrar" title="Cancelar" aria-label="Cancelar" @onclick="OnCerrar"><Ico Nombre="cancelar" /></button>
+            }
+        </div>
+    }
+    <div class="card-body frm-cuerpo">
+        @if (Formulario is not null)
+        {
+            <DisenoFormulario Clave="@Formulario" Fila="Fila">@ChildContent</DisenoFormulario>
+        }
+        else
+        {
+            @ChildContent
+        }
+    </div>
+    @if (Acciones is not null)
+    {
+        <div class="frm-pie">@Acciones</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Titulo { get; set; }
+    [Parameter] public RenderFragment? Subtitulo { get; set; }
+    [Parameter] public string? Icono { get; set; }
+    [Parameter] public string? Clase { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Acciones { get; set; }
+    [Parameter] public EventCallback OnCerrar { get; set; }
+    // Formulario diseñable (clave de Data/Formularios/RegistroFormularios) e Id del registro que edita (0 = nuevo).
+    [Parameter] public string? Formulario { get; set; }
+    [Parameter] public int Fila { get; set; }
+}

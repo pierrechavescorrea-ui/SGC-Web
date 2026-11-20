@@ -1,0 +1,63 @@
+{
+  "family": "sigweb",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "runtimePlatform": { "operatingSystemFamily": "LINUX", "cpuArchitecture": "X86_64" },
+  "executionRoleArn": "arn:aws:iam::<CUENTA>:role/sigweb-ejecucion",
+  "taskRoleArn": "arn:aws:iam::<CUENTA>:role/sigweb-tarea",
+  "containerDefinitions": [
+    {
+      "name": "sigweb",
+      "image": "<CUENTA>.dkr.ecr.<REGION>.amazonaws.com/sigweb:<ETIQUETA>",
+      "essential": true,
+      "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
+      "environment": [
+        { "name": "ASPNETCORE_ENVIRONMENT", "value": "Production" },
+        { "name": "TZ", "value": "America/Bogota" },
+        { "name": "AllowedHosts", "value": "<DOMINIO>" },
+        { "name": "Aplicacion__UrlPublica", "value": "https://<DOMINIO>" },
+        { "name": "Correo__Smtp__Servidor", "value": "email-smtp.<REGION>.amazonaws.com" },
+        { "name": "Correo__Remitente", "value": "SGC Web <no-responder@<DOMINIO>>" },
+        { "name": "Seguridad__AdministradorInicial", "value": "<CORREO_ADMIN>" }
+      ],
+      "secrets": [
+        { "name": "ConnectionStrings__DefaultConnection", "valueFrom": "arn:aws:secretsmanager:<REGION>:<CUENTA>:secret:sigweb/db:DefaultConnection::" },
+        { "name": "Correo__Smtp__Usuario", "valueFrom": "arn:aws:secretsmanager:<REGION>:<CUENTA>:secret:sigweb/smtp:Usuario::" },
+        { "name": "Correo__Smtp__Clave", "valueFrom": "arn:aws:secretsmanager:<REGION>:<CUENTA>:secret:sigweb/smtp:Clave::" }
+      ],
+      "mountPoints": [
+        { "sourceVolume": "uploads", "containerPath": "/app/wwwroot/uploads", "readOnly": false },
+        { "sourceVolume": "appdata", "containerPath": "/app/App_Data", "readOnly": false }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/sigweb",
+          "awslogs-region": "<REGION>",
+          "awslogs-stream-prefix": "sigweb",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "uploads",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "<EFS_ID>",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": { "accessPointId": "<EFS_AP_UPLOADS>", "iam": "ENABLED" }
+      }
+    },
+    {
+      "name": "appdata",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "<EFS_ID>",
+        "transitEncryption": "ENABLED",
+        "authorizationConfig": { "accessPointId": "<EFS_AP_APPDATA>", "iam": "ENABLED" }
+      }
+    }
+  ]
+}
