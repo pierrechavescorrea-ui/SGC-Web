@@ -63,10 +63,12 @@ html[data-menu="contraido"] .nav-usuario-link { flex: none; justify-content: cen
 .sig-banda-vercomo { background: #1c1917; color: #fafaf9; }
 .sig-banda-vercomo b { color: #fca5a5; }
 .sig-banda-btn { border: 1px solid rgba(255, 255, 255, .35); background: transparent; color: inherit; border-radius: 8px; padding: .15rem .5rem; cursor: pointer; }
-.sig-banda-dev {
-    background: repeating-linear-gradient(135deg, #fef3c7 0 12px, #fde68a 12px 24px); color: #78350f; font-weight: 500;
-    justify-content: center; padding: .25rem 1rem; font-size: .76rem;
-}
+/* Aviso de entorno de desarrollo (js/avisoDesarrollo.js): ventana emergente centrada, una vez por sesión. */
+.sig-aviso-dev { align-items: center; z-index: 2000; }
+.sig-aviso-dev-caja { max-width: 380px; width: calc(100% - 32px); border-top: 4px solid #f59e0b; }
+.sig-aviso-dev-caja h5 { margin: 0 0 .4rem; }
+.sig-aviso-dev-caja p { margin: 0 0 .9rem; color: var(--bs-secondary-color, #6b7280); }
+.sig-aviso-dev-pie { display: flex; justify-content: flex-end; }
 
 /* ======================================================================
    Pantallas de Administración y Mi cuenta (ad-*)

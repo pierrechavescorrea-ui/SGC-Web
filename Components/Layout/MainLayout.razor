@@ -21,7 +21,8 @@
         }
         else if (Usuario.Desarrollo)
         {
-            <div class="sig-banda sig-banda-dev">Entorno de desarrollo · acceso sin contraseña como administrador · @Usuario.Proyecto?.Nombre</div>
+            @* Aviso de desarrollo: ventana emergente una vez por sesión (js/avisoDesarrollo.js), sin banda fija. *@
+            <div data-aviso-dev="@Usuario.Proyecto?.Nombre" hidden></div>
         }
         <article class="content px-4">
             @Body
