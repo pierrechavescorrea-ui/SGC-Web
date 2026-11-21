@@ -3,7 +3,7 @@ modulo: trazado
 titulo: Trazado
 menu: Operación › Trazado
 rutas: [/trazado, /trazado/tabla-torres, /trazado/datos-adicionales]
-palabras: [trazado, mapa, torre, torres, hoja de vida, ficha, pata, patas, elemento, elementos, KMZ, coordenadas, ubicación, este, norte, sistema de coordenadas, magna sirgas, DWG, DXF, capas, tabla de torres, cotas, vanos, alturas, revisión de la tabla, deshacer revisión, vincular planos, materiales de la torre, ensayos de la torre, actividades, parámetros, unificar torres, renombrar torre]
+palabras: [trazado, torre anterior, torre siguiente, siguiente torre, navegar entre torres, mapa, torre, torres, hoja de vida, ficha, pata, patas, elemento, elementos, KMZ, coordenadas, ubicación, este, norte, sistema de coordenadas, magna sirgas, DWG, DXF, capas, tabla de torres, cotas, vanos, alturas, revisión de la tabla, deshacer revisión, vincular planos, materiales de la torre, ensayos de la torre, actividades, parámetros, unificar torres, renombrar torre]
 opciones:
   - Trazado (KMZ): /trazado | Base de datos
   - Elementos (DWG/DXF): /trazado | Base de datos
@@ -19,6 +19,8 @@ opciones:
   - Tabla de torres: /trazado/tabla-torres
   - Tabla de torres (Excel): /trazado/datos-adicionales
   - Unificar torres duplicadas: /trazado | Unificar torres duplicadas
+  - Torre anterior: /trazado | Torre anterior
+  - Torre siguiente: /trazado | Torre siguiente
   - Base de datos: /trazado | Base de datos
   - Campos: /trazado?vista=tabla | Campos
   - Exportar: /trazado?vista=tabla | Exportar
@@ -27,7 +29,7 @@ opciones:
   - Ver sus cambios (contra la revisión anterior): /trazado/tabla-torres?revisiones=1 | Ver sus cambios (contra la revisión anterior)
   - Deshacer esta revisión: /trazado/tabla-torres?revisiones=1 | Deshacer esta revisión (devuelve los valores anteriores)
   - Descargar el archivo de esta revisión: /trazado/tabla-torres?revisiones=1 | Descargar el archivo de esta revisión
-actualizado: 2026-11-19
+actualizado: 2026-11-21
 ---
 
 # Trazado
@@ -88,6 +90,9 @@ En la ficha de un elemento solo se ve lo de ese elemento; en la hoja de vida, lo
 1. En la vista **Mapa**, busque la torre en la lista (**Buscar por nombre...**) o tóquela en el mapa.
 2. En su lista de elementos, toque **Hoja de vida** (**Abrir ficha**).
 3. Use las pestañas para ver archivos, información, riesgos, planes, cambios o actividades.
+4. Para pasar a otra torre sin cerrar la ficha, use las flechas **Torre anterior** y **Torre siguiente** del encabezado
+   (orden por número de torre). Se queda en la misma pestaña y en el mismo elemento (hoja de vida, Pata A…); si la otra
+   torre no tiene ese elemento, abre su hoja de vida.
 
 Atajo: escriba el número de la torre en el buscador (**Ctrl + K**).
 
@@ -234,6 +239,9 @@ En la ficha, Vincular planos: busque por palabras y elija el alcance (esta ficha
 
 ### ¿Dónde veo las inspecciones u otros registros de una torre?
 En la pestaña **Módulos** de la hoja de vida (aparece si un módulo creado enlaza torres); ＋ crea uno ya enlazado.
+
+### ¿Cómo paso a la torre siguiente sin cerrar la hoja de vida?
+Con las flechas **Torre anterior** y **Torre siguiente** del encabezado: conservan la pestaña y el elemento abiertos.
 
 ### ¿Cómo reordeno las pestañas de la hoja de vida?
 Arrástrelas; el orden queda igual para todas las torres.

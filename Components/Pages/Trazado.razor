@@ -1,4 +1,4 @@
-﻿@page "/trazado"
+@page "/trazado"
 @rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Forms
@@ -33,6 +33,15 @@
         <span class="pg-sep"></span>
         @if (elementoSeleccionado is not null)
         {
+            @if (mostrarModalComponente && componenteSeleccionado is not null)
+            {
+                <span class="pg-vistas" aria-label="Navegar entre torres">
+                    <button type="button" class="pg-btn" title="@TituloTorreVecina(-1)" aria-label="Torre anterior"
+                            disabled="@(TorreVecina(-1) is null)" @onclick="() => IrATorreVecina(-1)"><Ico Nombre="torre-anterior" /></button>
+                    <button type="button" class="pg-btn" title="@TituloTorreVecina(1)" aria-label="Torre siguiente"
+                            disabled="@(TorreVecina(1) is null)" @onclick="() => IrATorreVecina(1)"><Ico Nombre="torre-siguiente" /></button>
+                </span>
+            }
             <SaltoTorre ElementoId="elementoSeleccionado.Id" Actual="hdv" />
             <span class="pg-sep"></span>
         }
@@ -2171,13 +2180,59 @@ else
         if (vistaLista) await AnotarVista();
     }
 
+    // Pestaña abierta en la ficha (hoja de vida o elemento): misma clave que ?pestana= y RestaurarPestana.
+    private string? PestanaActual() =>
+        mostrarTabPlanos ? "planos" : mostrarTabInformacion ? "info" : mostrarTabHallazgos ? "riesgos" : mostrarTabPlanesAccion ? "planes" : mostrarTabCambios ? "cambios" : mostrarTabModulos ? "modulos"
+            : actividadTabSeleccionada is int a ? $"act-{a}" : null;
+
+    // ---------- Torre anterior / siguiente desde la ficha abierta ----------
+    // Orden natural del código (3, 5N, 10, 15A…; no alfabético) entre las torres visibles del trazado.
+    private static (long Num, string Resto) ClaveOrdenTorre(string codigo)
+    {
+        var t = (codigo ?? "").Trim();
+        var i = 0; while (i < t.Length && !char.IsDigit(t[i])) i++;
+        var j = i; while (j < t.Length && char.IsDigit(t[j])) j++;
+        var num = j > i && long.TryParse(t[i..j], out var n) ? n : long.MaxValue;
+        return (num, (t[..i] + "|" + t[j..]).ToUpperInvariant());
+    }
+
+    private ElementoTrazado? TorreVecina(int paso)
+    {
+        if (elementoSeleccionado is null || elementos.Count < 2) return null;
+        var orden = elementos.OrderBy(e => ClaveOrdenTorre(e.Codigo).Num).ThenBy(e => ClaveOrdenTorre(e.Codigo).Resto)
+            .ThenBy(e => e.Codigo, StringComparer.OrdinalIgnoreCase).ToList();
+        var i = orden.FindIndex(e => e.Id == elementoSeleccionado.Id);
+        var k = i + paso;
+        return i < 0 || k < 0 || k >= orden.Count ? null : orden[k];
+    }
+
+    private string TituloTorreVecina(int paso) => TorreVecina(paso) is { } t
+        ? $"{(paso < 0 ? "Torre anterior" : "Torre siguiente")}: {t.Codigo}"
+        : paso < 0 ? "Es la primera torre" : "Es la última torre";
+
+    // Cambia de torre sin cerrar la ficha: abre el mismo elemento (hoja de vida, o el de igual nombre, p. ej. «Pata A»)
+    // y la misma pestaña. Si la otra torre no tiene ese elemento, abre su hoja de vida.
+    private async Task IrATorreVecina(int paso)
+    {
+        if (TorreVecina(paso) is not { } destino || componenteSeleccionado is null) return;
+        var eraHojaVida = componenteSeleccionado.EsHojaDeVida;
+        var nombre = componenteSeleccionado.Nombre.Trim();
+        var pestana = PestanaActual();
+        SeleccionarElemento(destino.Id);
+        var comp = (eraHojaVida ? null : componentesDeLaTorre.FirstOrDefault(c => !c.EsHojaDeVida
+                        && string.Equals(c.Nombre.Trim(), nombre, StringComparison.OrdinalIgnoreCase)))
+                   ?? componentesDeLaTorre.FirstOrDefault(c => c.EsHojaDeVida);
+        if (comp is null) return;
+        AbrirFichaComponente(comp);
+        RestaurarPestana(pestana);
+        await AnotarVista();
+    }
+
     // Torre, vista y ficha abiertas → URL, sin navegar (Atrás desde otra pantalla vuelve aquí igual).
     private async Task AnotarVista()
     {
         var comp = mostrarModalComponente ? componenteSeleccionado?.Id : null;
-        var pestana = comp is null ? null
-            : mostrarTabPlanos ? "planos" : mostrarTabInformacion ? "info" : mostrarTabHallazgos ? "riesgos" : mostrarTabPlanesAccion ? "planes" : mostrarTabCambios ? "cambios" : mostrarTabModulos ? "modulos"
-            : actividadTabSeleccionada is int a ? $"act-{a}" : null;
+        var pestana = comp is null ? null : PestanaActual();
         var plan = pestana == "planes" ? planAbierto : null;
         var hallazgo = pestana == "riesgos" ? hallazgoAbierto : null;
         var clave = $"{elementoSeleccionado?.Id}|{vistaPrincipal}|{comp}|{pestana}|{plan}|{hallazgo}";
