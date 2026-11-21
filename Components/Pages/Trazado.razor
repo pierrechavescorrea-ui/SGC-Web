@@ -33,15 +33,6 @@
         <span class="pg-sep"></span>
         @if (elementoSeleccionado is not null)
         {
-            @if (mostrarModalComponente && componenteSeleccionado is not null)
-            {
-                <span class="pg-vistas" aria-label="Navegar entre torres">
-                    <button type="button" class="pg-btn" title="@TituloTorreVecina(-1)" aria-label="Torre anterior"
-                            disabled="@(TorreVecina(-1) is null)" @onclick="() => IrATorreVecina(-1)"><Ico Nombre="torre-anterior" /></button>
-                    <button type="button" class="pg-btn" title="@TituloTorreVecina(1)" aria-label="Torre siguiente"
-                            disabled="@(TorreVecina(1) is null)" @onclick="() => IrATorreVecina(1)"><Ico Nombre="torre-siguiente" /></button>
-                </span>
-            }
             <SaltoTorre ElementoId="elementoSeleccionado.Id" Actual="hdv" />
             <span class="pg-sep"></span>
         }
@@ -625,6 +616,12 @@ else
                     </div>
                 </div>
                 <div class="pg-acciones">
+                    <span class="pg-vistas" aria-label="Navegar entre torres">
+                        <button type="button" class="pg-btn" title="@TituloTorreVecina(-1)" aria-label="Torre anterior"
+                                disabled="@(TorreVecina(-1) is null)" @onclick="() => IrATorreVecina(-1)"><Ico Nombre="torre-anterior" /></button>
+                        <button type="button" class="pg-btn" title="@TituloTorreVecina(1)" aria-label="Torre siguiente"
+                                disabled="@(TorreVecina(1) is null)" @onclick="() => IrATorreVecina(1)"><Ico Nombre="torre-siguiente" /></button>
+                    </span>
                     @if (componenteSeleccionado.EsHojaDeVida)
                     {
                         <span class="pie-pct pie-pct-cab" title="@($"Cumplimiento PIE ({pctPie.Aplican} de {pctPie.Total} aplican)")">@SigWeb.Data.Pie.CumplimientoPie.Formato(pctPie.Pct)</span>
