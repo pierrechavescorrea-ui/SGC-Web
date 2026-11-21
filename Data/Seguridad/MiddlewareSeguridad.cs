@@ -49,7 +49,7 @@ public static class MiddlewareSeguridad
                 await ctx.SignOutAsync(IdentityConstants.ApplicationScheme);
                 ctx.User = new ClaimsPrincipal(new ClaimsIdentity());
             }
-            if (local && ctx.User.Identity?.IsAuthenticated != true && !ctx.Request.Cookies.ContainsKey(ArranqueSeguridad.CookieSinAccesoLibre)
+            if (local && ctx.User.Identity?.IsAuthenticated != true && ctx.Request.Cookies.ContainsKey(ArranqueSeguridad.CookieAccesoLibre)
                 && !ctx.Request.Path.StartsWithSegments("/cuenta") && !ctx.Request.Path.StartsWithSegments("/_blazor")
                 && !Path.HasExtension(ctx.Request.Path.Value))
             {

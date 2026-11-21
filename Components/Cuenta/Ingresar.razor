@@ -109,7 +109,7 @@
         {
             u.UltimoIngreso = DateTime.UtcNow;
             await Usuarios.UpdateAsync(u);
-            HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieSinAccesoLibre);
+            HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieAccesoLibre);
             Auditoria.Registrar(HttpContext, "Ingreso", true, null, u.Id, u.Email);
             Nav.NavigateTo(Destino(M.Volver), forceLoad: true);
             return;
@@ -131,7 +131,9 @@
 
     private void EntrarDesarrollo()
     {
-        HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieSinAccesoLibre);
+        // Solo en desarrollo con acceso libre habilitado; cookie de sesión: al cerrar el navegador vuelve el login.
+        if (Env.IsDevelopment() && Cfg.GetValue<bool>("Autenticacion:AccesoLibreDesarrollo"))
+            HttpContext.Response.Cookies.Append(ArranqueSeguridad.CookieAccesoLibre, "1", new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, IsEssential = true });
         Nav.NavigateTo(Destino(ReturnUrl), forceLoad: true);
     }
 

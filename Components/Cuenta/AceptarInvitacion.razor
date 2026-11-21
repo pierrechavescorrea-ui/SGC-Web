@@ -96,7 +96,7 @@ else
         if (u is null) { errores.AddRange(err); return; }
         u.UltimoIngreso = DateTime.UtcNow;
         await SignIn.SignInAsync(u, isPersistent: false);
-        HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieSinAccesoLibre);
+        HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieAccesoLibre);
         Nav.NavigateTo("/", forceLoad: true);
     }
 }

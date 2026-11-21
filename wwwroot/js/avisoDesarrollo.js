@@ -9,7 +9,6 @@
     function mostrar() {
         const marca = document.querySelector('[data-aviso-dev]');
         if (!marca || leido() || document.getElementById('sig-aviso-dev')) return;
-        marcar();
         const fondo = document.createElement('div');
         fondo.id = 'sig-aviso-dev';
         fondo.className = 'modal-backdrop-custom sig-aviso-dev';
@@ -31,7 +30,8 @@
         ok.setAttribute('data-modal-cancelar', '');
         ok.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" ' +
             'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
-        const cerrar = () => fondo.remove();
+        // Cuenta como visto solo al cerrarlo: si una redirección de Blazor lo quita antes, vuelve a salir.
+        const cerrar = () => { marcar(); fondo.remove(); };
         ok.addEventListener('click', cerrar);
         fondo.addEventListener('click', e => { if (e.target === fondo) cerrar(); });
         pie.appendChild(ok);
@@ -45,4 +45,6 @@
     // Navegación mejorada de Blazor: la marca puede llegar después (p. ej. tras iniciar sesión).
     const esperar = () => { if (window.Blazor?.addEventListener) Blazor.addEventListener('enhancedload', mostrar); else setTimeout(esperar, 300); };
     esperar();
+    // Una navegación interna de Blazor (p. ej. Inicio → Proyectos) puede borrar la ventana sin evento: se repone hasta que se cierre.
+    const reponer = setInterval(() => { if (leido()) clearInterval(reponer); else mostrar(); }, 1000);
 })();

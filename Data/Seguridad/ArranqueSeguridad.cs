@@ -17,7 +17,8 @@ namespace SigWeb.Data.Seguridad;
 public static class ArranqueSeguridad
 {
     public const string EmailDesarrollo = "desarrollador@sigweb.local";
-    public const string CookieSinAccesoLibre = "sig.dev.sinacceso";
+    // Desarrollo: la primera pantalla es el login; el acceso libre solo se activa con «entrar sin contraseña» (cookie de sesión).
+    public const string CookieAccesoLibre = "sig.dev.acceso";
     public const string PoliticaAdmin = "AdminSGC";
     public const string PoliticaAuditoria = "AuditoriaSGC";
 

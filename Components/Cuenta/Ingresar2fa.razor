@@ -101,7 +101,7 @@
         {
             u.UltimoIngreso = DateTime.UtcNow;
             await Usuarios.UpdateAsync(u);
-            HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieSinAccesoLibre);
+            HttpContext.Response.Cookies.Delete(ArranqueSeguridad.CookieAccesoLibre);
             Auditoria.Registrar(HttpContext, M.ConRecuperacion ? "Ingreso con código de recuperación" : "Ingreso (2 pasos)", true, null, u.Id, u.Email);
             Nav.NavigateTo(Ingresar.Destino(M.Volver), forceLoad: true);
             return;

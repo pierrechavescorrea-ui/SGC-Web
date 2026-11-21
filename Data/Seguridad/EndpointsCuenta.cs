@@ -19,8 +19,8 @@ public static class EndpointsCuenta
         {
             aud.Registrar(ctx, "Cierre de sesión", true, null, ctx.User.FindFirstValue(ClaimTypes.NameIdentifier), ctx.User.Identity?.Name);
             await sm.SignOutAsync();
-            // En desarrollo, salir apaga el acceso libre hasta volver a entrar (para poder probar el login).
-            if (env.IsDevelopment()) ctx.Response.Cookies.Append(ArranqueSeguridad.CookieSinAccesoLibre, "1", new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
+            // En desarrollo, salir apaga el acceso libre: vuelve al login hasta elegir otra vez «entrar sin contraseña».
+            if (env.IsDevelopment()) ctx.Response.Cookies.Delete(ArranqueSeguridad.CookieAccesoLibre);
             return Results.LocalRedirect("/cuenta/ingresar");
         });
 
