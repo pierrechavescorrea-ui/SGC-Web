@@ -19,6 +19,9 @@ public static class ArranqueSeguridad
     public const string EmailDesarrollo = "desarrollador@sigweb.local";
     // Desarrollo: la primera pantalla es el login; el acceso libre solo se activa con «entrar sin contraseña» (cookie de sesión).
     public const string CookieAccesoLibre = "sig.dev.acceso";
+    // Identificador de este arranque de la app: la cookie de acceso libre y la marca de desarrollo de la sesión lo llevan;
+    // al reiniciar la app dejan de valer y la primera pantalla vuelve a ser el login (aunque el navegador restaure cookies).
+    public static readonly string IdArranque = Guid.NewGuid().ToString("N");
     public const string PoliticaAdmin = "AdminSGC";
     public const string PoliticaAuditoria = "AuditoriaSGC";
 

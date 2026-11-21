@@ -44,12 +44,14 @@ public static class MiddlewareSeguridad
                 EsLoopback(ctx.Connection.RemoteIpAddress) &&
                 (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
                     System.Net.IPAddress.TryParse(host.Trim('[', ']'), out var ipHost) && EsLoopback(ipHost));
-            if (!local && ctx.User.HasClaim(c => c.Type == ClaimsSig.Desarrollo))
+            // Sesión de desarrollo de otro equipo/origen o de un arranque anterior de la app: se cierra (vuelve el login).
+            if (ctx.User.HasClaim(c => c.Type == ClaimsSig.Desarrollo) &&
+                (!local || !ctx.User.HasClaim(ClaimsSig.Desarrollo, ArranqueSeguridad.IdArranque)))
             {
                 await ctx.SignOutAsync(IdentityConstants.ApplicationScheme);
                 ctx.User = new ClaimsPrincipal(new ClaimsIdentity());
             }
-            if (local && ctx.User.Identity?.IsAuthenticated != true && ctx.Request.Cookies.ContainsKey(ArranqueSeguridad.CookieAccesoLibre)
+            if (local && ctx.User.Identity?.IsAuthenticated != true && ctx.Request.Cookies.TryGetValue(ArranqueSeguridad.CookieAccesoLibre, out var acceso) && acceso == ArranqueSeguridad.IdArranque
                 && !ctx.Request.Path.StartsWithSegments("/cuenta") && !ctx.Request.Path.StartsWithSegments("/_blazor")
                 && !Path.HasExtension(ctx.Request.Path.Value))
             {
@@ -58,9 +60,9 @@ public static class MiddlewareSeguridad
                 var dev = await um.FindByEmailAsync(ArranqueSeguridad.EmailDesarrollo);
                 if (dev is not null)
                 {
-                    await sm.SignInWithClaimsAsync(dev, isPersistent: false, new[] { new Claim(ClaimsSig.Desarrollo, "1") });
+                    await sm.SignInWithClaimsAsync(dev, isPersistent: false, new[] { new Claim(ClaimsSig.Desarrollo, ArranqueSeguridad.IdArranque) });
                     ctx.User = await sm.CreateUserPrincipalAsync(dev);
-                    ((ClaimsIdentity)ctx.User.Identity!).AddClaim(new Claim(ClaimsSig.Desarrollo, "1"));
+                    ((ClaimsIdentity)ctx.User.Identity!).AddClaim(new Claim(ClaimsSig.Desarrollo, ArranqueSeguridad.IdArranque));
                 }
             }
             await next();

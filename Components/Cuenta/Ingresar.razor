@@ -133,7 +133,7 @@
     {
         // Solo en desarrollo con acceso libre habilitado; cookie de sesión: al cerrar el navegador vuelve el login.
         if (Env.IsDevelopment() && Cfg.GetValue<bool>("Autenticacion:AccesoLibreDesarrollo"))
-            HttpContext.Response.Cookies.Append(ArranqueSeguridad.CookieAccesoLibre, "1", new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, IsEssential = true });
+            HttpContext.Response.Cookies.Append(ArranqueSeguridad.CookieAccesoLibre, ArranqueSeguridad.IdArranque, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, IsEssential = true });
         Nav.NavigateTo(Destino(ReturnUrl), forceLoad: true);
     }
 
