@@ -92,15 +92,10 @@ html, body { margin: 0; height: 100%; }
 }
 .cu-logo img { max-height: 38px; max-width: 170px; object-fit: contain; display: block; }
 .cu-logo-txt { font-size: 12px; letter-spacing: .08em; color: var(--cu-gris); }
-/* Firma «By πr»: sutil, delgada, a mano alzada; se dibuja una vez al abrir. */
-.cu-firma { margin-left: auto; display: inline-flex; align-items: flex-end; gap: 3px; color: #f5f5f4; opacity: .4; user-select: none; }
-.cu-firma-by { font: italic 300 11px/1 Georgia, "Times New Roman", serif; letter-spacing: .06em; margin-bottom: 9px; }
+/* Firma «πr»: pequeña y discreta, color del texto del tema; aparece suave al abrir. */
+.cu-firma { margin-left: auto; display: inline-flex; color: var(--cu-tinta); opacity: 0; user-select: none; animation: cu-firma 1.2s 1.4s ease-out forwards; }
 .cu-firma svg { display: block; }
-.cu-trazo { stroke-dasharray: 1 1; stroke-dashoffset: 1; animation: cu-firma 1.6s 1.4s cubic-bezier(.45, .1, .2, 1) forwards; }
-@keyframes cu-firma { to { stroke-dashoffset: 0; } }
-.cu-presion { stroke-dasharray: .4 .6; stroke-dashoffset: -.3; opacity: 0; animation: cu-presion .9s 3.3s ease-out forwards; }
-.cu-presion-m { stroke-dasharray: .7 .3; stroke-dashoffset: -.15; }
-@keyframes cu-presion { to { opacity: 1; } }
+@keyframes cu-firma { to { opacity: .5; } }
 .cu-rotulo {
     margin-left: auto; font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
     border: 1px solid var(--cu-linea); padding: 6px 10px; background: rgba(14, 15, 18, .6);
@@ -170,7 +165,7 @@ html, body { margin: 0; height: 100%; }
 
 @keyframes cu-aparece { from { opacity: 0; transform: translateY(8px); } }
 @keyframes cu-sube { from { opacity: 0; transform: translateY(10px); } }
-@media (prefers-reduced-motion: reduce) { .cu, .cu-escena, .cu-marca, .cu-caja { animation: none; } .cu-trazo { animation: none; stroke-dashoffset: 0; } .cu-presion { animation: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cu, .cu-escena, .cu-marca, .cu-caja { animation: none; } .cu-firma { animation: none; opacity: .5; } }
 
 /* Teléfono y tablet: la escena queda de fondo y el formulario encima. */
 @media (max-width: 900px) {

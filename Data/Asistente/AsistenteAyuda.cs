@@ -47,11 +47,16 @@ public sealed class AsistenteAyuda
         return new Mensaje
         {
             De = Quien.Asistente,
-            Texto = cap is null
-                ? "Hola. Soy el asistente de SGC Web: le explico cómo usar la app con lo que dice el manual. Escriba su pregunta, por ejemplo «¿cómo subo una nueva versión de un documento?»."
-                : $"Hola. Está en **{cap.Titulo}**. Pregúnteme cómo hacer algo aquí o en cualquier otro módulo. Esto es lo que más se consulta en esta pantalla:",
+            Texto = PersonaPir.Presentacion(cap?.Titulo),
             Sugerencias = sug,
         };
+    }
+
+    // «Nueva conversación»: mismo mensaje de bienvenida con otra frase.
+    public Mensaje Reinicio(string? ruta)
+    {
+        var b = Bienvenida(ruta);
+        return new Mensaje { De = Quien.Asistente, Texto = PersonaPir.Reinicio(_manual.CapituloDeRuta(ruta)?.Titulo), Sugerencias = b.Sugerencias };
     }
 
     public Mensaje Preguntar(string pregunta, string? ruta)
@@ -76,14 +81,18 @@ public sealed class AsistenteAyuda
 
     private Mensaje Responder(string pregunta, string? ruta)
     {
+        if (PersonaPir.PreguntaPorMi(pregunta)) return new Mensaje { De = Quien.Asistente, Texto = PersonaPir.QuienSoy() };
         var palabras = TextoAyuda.Palabras(pregunta).ToList();
         var utiles = palabras.Where(p => !TextoAyuda.EsVacia(p) && !Saludos.Contains(p) && !Agradece.Contains(p)).ToList();
 
         if (palabras.Count > 0 && utiles.Count == 0)
         {
             if (palabras.Any(Agradece.Contains))
-                return new Mensaje { De = Quien.Asistente, Texto = "Con gusto. Si necesita algo más, escríbame." };
-            return Bienvenida(ruta);
+                return new Mensaje { De = Quien.Asistente, Texto = PersonaPir.Gracias() };
+            // Saludo: la presentación solo la primera vez; luego, corto.
+            if (Historial.Count(m => m.De == Quien.Usuario) <= 1) return Bienvenida(ruta);
+            var b = Bienvenida(ruta);
+            return new Mensaje { De = Quien.Asistente, Texto = PersonaPir.Saludo(_manual.CapituloDeRuta(ruta)?.Titulo), Sugerencias = b.Sugerencias };
         }
         if (PreguntaPorEstaPantalla(palabras)) return ResumenPantalla(ruta);
 
@@ -97,14 +106,14 @@ public sealed class AsistenteAyuda
         {
             RegistrarSinRespuesta(pregunta, ruta);
             if (atajos.Count > 0)
-                return new Mensaje { De = Quien.Asistente, Texto = "El manual no lo explica con esas palabras, pero puede ir directo a:", Atajos = atajos };
+                return new Mensaje { De = Quien.Asistente, Texto = PersonaPir.SoloAtajos, Atajos = atajos };
             var cap = _manual.CapituloDeRuta(ruta);
             var sug = resultados.Select(x => ConEnlace(x.Seccion, Etiqueta(x.Seccion))).Take(3).ToList();
             if (sug.Count == 0) sug = SugerenciasDe(cap, 4);
             return new Mensaje
             {
                 De = Quien.Asistente,
-                Texto = "No encontré eso en el manual de la app. Pruebe con otras palabras (por ejemplo, el nombre del módulo o del botón)"
+                Texto = PersonaPir.SinRespuesta
                     + (sug.Count > 0 ? ", o revise si alguna de estas opciones le sirve:" : "."),
                 Sugerencias = sug,
             };

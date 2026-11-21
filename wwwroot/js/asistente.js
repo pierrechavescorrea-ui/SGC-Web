@@ -8,6 +8,7 @@ window.sigAsistente = {
             else caja.scrollTop = caja.scrollHeight;
         }
         const panel = entrada?.closest('.asis-panel');
+        if (panel) window.sigPir?.iniciar(panel);
         if (!panel || panel.contains(document.activeElement) && document.activeElement !== entrada) return;
         const foco = window.matchMedia('(min-width: 601px)').matches ? entrada : panel;
         foco.focus({ preventScroll: true });
@@ -120,4 +121,158 @@ document.addEventListener('click', e => {
         } catch { }
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', retomar); else retomar();
+})();
+
+// ---------- πr vivo ----------
+// Mira el cursor del texto mientras el usuario escribe; si no, el puntero del mouse. De vez en cuando mira al frente
+// (al usuario) y parpadea; balanceo leve (CSS). Al enviar asiente y «piensa»: la respuesta nueva se retiene un momento
+// (data-pir-espera) y luego la mira. prefers-reduced-motion = quieto, sin retener respuestas.
+window.sigPir = (() => {
+    const quieto = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const ahora = () => performance.now();
+    const azar = (a, b) => a + Math.random() * (b - a);
+    const lim = v => Math.max(-1, Math.min(1, v));
+    let st = null;
+    let raton = null, ratonT = 0;
+    document.addEventListener('mousemove', e => { raton = { x: e.clientX, y: e.clientY }; ratonT = ahora(); }, { passive: true });
+
+    let lienzo;
+    function caret(inp) {
+        const r = inp.getBoundingClientRect(), cs = getComputedStyle(inp);
+        lienzo ??= document.createElement('canvas').getContext('2d');
+        lienzo.font = cs.font;
+        const pos = inp.selectionStart ?? inp.value.length;
+        const w = lienzo.measureText(inp.value.slice(0, pos)).width;
+        const x = Math.min(r.right - 4, r.left + parseFloat(cs.paddingLeft) + w - inp.scrollLeft);
+        return { x, y: r.top + r.height / 2 };
+    }
+
+    function iniciar(panel) {
+        if (st?.panel === panel) return;
+        detener();
+        const svg = panel.querySelector('.pir-cab');
+        if (!svg) return;
+        const caja = panel.querySelector('.asis-mensajes');
+        const s = st = {
+            panel, svg, caja,
+            ojos: svg.querySelector('.pir-ojos'), cabeza: svg.querySelector('.pir-cabeza'), boca: svg.querySelector('.pir-boca'),
+            asiente: svg.querySelector('.pir-asiente'),
+            lx: 0, ly: 0, rot: 0, escrito: 0, alUsuario: ahora() + 1800, mirarA: null, mirarHasta: 0,
+            pensando: false, pensandoDesde: 0, timers: [],
+        };
+        const entrada = panel.querySelector('.asis-pie input');
+        s.alEscribir = () => { s.escrito = ahora(); };
+        entrada?.addEventListener('input', s.alEscribir);
+        entrada?.addEventListener('keyup', s.alEscribir);
+        entrada?.addEventListener('click', s.alEscribir);
+        s.entrada = entrada;
+        // Enter / Preguntar: asiente y piensa.
+        s.alEnviar = () => { if (s.entrada?.value.trim()) pensar(); };
+        panel.querySelector('.asis-pie')?.addEventListener('submit', s.alEnviar, true);
+        panel.addEventListener('click', s.alClic = e => { if (e.target.closest('button.asis-sug')) pensar(); }, true);
+        // Respuesta nueva (después de una pregunta): se retiene mientras «piensa».
+        s.obs = new MutationObserver(ms => {
+            for (const m of ms) for (const n of m.addedNodes) {
+                if (n.nodeType !== 1 || !n.classList.contains('asis-el') || !n.previousElementSibling?.classList.contains('asis-yo')) continue;
+                responder(n);
+            }
+        });
+        if (caja) s.obs.observe(caja, { childList: true });
+        if (quieto()) return;
+        asentir();                                   // saludo al aparecer
+        programarParpadeo();
+        programarMirada();
+        s.raf = requestAnimationFrame(cuadro);
+    }
+
+    function detener() {
+        if (!st) return;
+        cancelAnimationFrame(st.raf);
+        st.timers.forEach(clearTimeout);
+        st.obs?.disconnect();
+        st = null;
+    }
+
+    const tarde = (fn, ms) => { const s = st; const t = setTimeout(() => { if (st === s) fn(); }, ms); s.timers.push(t); };
+
+    function asentir() {
+        if (!st || quieto()) return;
+        st.asiente.classList.remove('si'); void st.asiente.getBoundingClientRect(); st.asiente.classList.add('si');
+        tarde(() => st.asiente.classList.remove('si'), 600);
+    }
+    function parpadear() {
+        st.svg.classList.add('parpadea');
+        tarde(() => st.svg.classList.remove('parpadea'), 130);
+    }
+    function programarParpadeo() {
+        tarde(() => { parpadear(); if (Math.random() < .18) tarde(parpadear, 260); programarParpadeo(); }, azar(2600, 6500));
+    }
+    function programarMirada() {
+        tarde(() => {
+            if (ahora() - st.escrito > 900 && !st.pensando) st.alUsuario = ahora() + azar(1100, 1900);
+            programarMirada();
+        }, azar(7000, 14000));
+    }
+
+    function pensar() {
+        if (!st) return;
+        asentir();
+        if (quieto()) return;
+        st.pensando = true; st.pensandoDesde = ahora();
+        st.panel.classList.add('pir-pensando');
+        tarde(() => terminar(null), 4000);           // por si la respuesta no llega
+    }
+    function responder(el) {
+        if (!st) return;
+        if (!st.pensando && !quieto()) pensar();
+        if (quieto()) return;
+        el.setAttribute('data-pir-espera', '');
+        const espera = Math.max(0, azar(650, 950) - (ahora() - st.pensandoDesde));
+        tarde(() => terminar(el), espera);
+    }
+    function terminar(el) {
+        if (!st) return;
+        st.pensando = false;
+        st.panel.classList.remove('pir-pensando');
+        st.panel.querySelectorAll('[data-pir-espera]').forEach(n => n.removeAttribute('data-pir-espera'));
+        if (el) { st.mirarA = el; st.mirarHasta = ahora() + 1700; }
+    }
+
+    // Punto al que mira (coordenadas de pantalla) o null = al frente.
+    function objetivo(s, t) {
+        if (s.pensando) return { dx: 0.6, dy: -0.8, fijo: true };            // arriba, a un lado
+        if (s.mirarA && t < s.mirarHasta && s.mirarA.isConnected) {
+            const r = s.mirarA.getBoundingClientRect();
+            return { x: r.left + Math.min(r.width, 160) / 2, y: Math.max(r.top + 12, Math.min(r.bottom, innerHeight) - 30) };
+        }
+        if (t < s.alUsuario) return null;
+        if (s.entrada && document.activeElement === s.entrada && t - s.escrito < 3500) return caret(s.entrada);
+        if (raton && t - ratonT < 9000) return raton;
+        if (s.entrada && document.activeElement === s.entrada) return caret(s.entrada);
+        return null;
+    }
+
+    function cuadro() {
+        const s = st;
+        if (!s) return;
+        if (!s.panel.isConnected) { detener(); return; }
+        const t = ahora();
+        const o = objetivo(s, t);
+        let tx = 0, ty = 0;
+        if (o?.fijo) { tx = o.dx; ty = o.dy; }
+        else if (o) {
+            const r = s.svg.getBoundingClientRect();
+            const cx = r.left + r.width * 60 / 120, cy = r.top + r.height * 37 / 86;
+            const dx = o.x - cx, dy = o.y - cy, d = Math.hypot(dx, dy) || 1;
+            const k = Math.min(1, d / 220);                                     // cerca = mira poco
+            tx = lim(dx / d * k); ty = lim(dy / d * k);
+        }
+        s.lx += (tx - s.lx) * .16; s.ly += (ty - s.ly) * .16;
+        s.ojos.style.transform = `translate(${(s.lx * 6).toFixed(2)}px, ${(s.ly * 4).toFixed(2)}px)`;
+        s.boca.style.transform = `translate(${(s.lx * 3).toFixed(2)}px, ${(s.ly * 1.5).toFixed(2)}px)`;
+        s.cabeza.style.transform = `rotate(${(s.lx * 5).toFixed(2)}deg) translate(${(s.lx * 1.5).toFixed(2)}px, 0)`;
+        s.raf = requestAnimationFrame(cuadro);
+    }
+
+    return { iniciar, pensar, detener };
 })();

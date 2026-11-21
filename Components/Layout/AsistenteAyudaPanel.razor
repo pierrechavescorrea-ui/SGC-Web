@@ -13,12 +13,28 @@
 
 @if (abierto)
 {
-    <div id="asis-panel" class="asis-panel" tabindex="-1" role="dialog" aria-label="Asistente de ayuda">
+    <div id="asis-panel" class="asis-panel" tabindex="-1" role="dialog" aria-label="πr, asistente de ayuda">
+        @* πr (avatar «Contorno», media sonrisa): la cabeza se asoma por detrás del borde superior y las manos se agarran a
+           él (dos SVG: cabeza detrás del encabezado, manos delante). Mirada, parpadeo, asentir y «pensando» en js/asistente.js
+           (sigPir); estilos pir-* en css/asistente.css. *@
+        <svg class="pir pir-cab" viewBox="0 0 120 86" aria-hidden="true" focusable="false">
+            <g class="pir-cuerpo"><g class="pir-asiente"><g class="pir-cabeza">
+                <rect class="pir-cara" x="30" y="14" width="60" height="52" rx="18" />
+                <g class="pir-ojos">
+                    <path class="pir-ojo" d="M40 32 H54 M44 32 V43 M50 32 V43" />
+                    <path class="pir-ojo" d="M66 32 H80 M70 32 V43 M76 32 V43" />
+                </g>
+                <path class="pir-boca" d="M52 54 Q62 57 69 51" />
+                <path class="pir-boca-hmm" d="M53 54 Q61 54.5 68 53" />
+            </g></g></g>
+            <g class="pir-puntos"><circle cx="97" cy="17" r="1.6" /><circle cx="103" cy="11" r="2.1" /><circle cx="110" cy="5" r="2.6" /></g>
+        </svg>
+        <svg class="pir pir-manos" viewBox="0 0 120 86" aria-hidden="true" focusable="false">
+            <path d="M22 80 q4-10 12-4 M86 76 q8-6 12 4" />
+        </svg>
         <div class="asis-cab">
-            <span class="asis-cab-ico"><Ico Nombre="ayuda" /></span>
             <div class="asis-cab-txt">
-                <strong>Asistente de ayuda</strong>
-                <small>Responde con el manual de SGC Web</small>
+                <strong class="asis-nombre" title="πr"><span class="asis-pi">π</span><span class="asis-r">r</span></strong>
             </div>
             <button type="button" class="asis-cab-btn" title="Nueva conversación" aria-label="Nueva conversación" @onclick="Reiniciar"><Ico Nombre="restaurar" /></button>
             <button type="button" class="asis-cab-btn" title="Cerrar" aria-label="Cerrar" @onclick="() => abierto = false"><Ico Nombre="cancelar" /></button>
@@ -111,7 +127,7 @@
     private void Reiniciar()
     {
         Asistente.Historial.Clear();
-        Asistente.Historial.Add(Asistente.Bienvenida(Ruta));
+        Asistente.Historial.Add(Asistente.Reinicio(Ruta));
         desplazar = true;
     }
 
