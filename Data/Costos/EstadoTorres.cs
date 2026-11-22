@@ -8,11 +8,11 @@ namespace SigWeb.Data.Costos;
 // Estado de las torres (hoja "C. CONTROL" del libro: CONTROL DE AVANCE). El estado de cada torre es un
 // EstadoTorreManual con fecha (historial); los estados posibles son el catálogo "Estado de torre" (nombre +
 // colores, editables en Catálogos). Aquí: los estados de fábrica con sus colores, en qué etapa cuenta cada
-// uno (resumen "Ejecución de torres") y la carga inicial del 01/11/2026.
+// uno (resumen "Ejecución de torres") y una carga inicial opcional.
 public static class EstadoTorres
 {
     public const string Catalogo = "Estado de torre";
-    public const string NotaCarga = "Carga inicial: C. CONTROL 01/11/2026";
+    public const string NotaCarga = "Carga inicial";
 
     public enum Etapa { Restriccion, Pendiente, Disponible, CivilProceso, CivilTerminado, CambioCimentacion, MontajeProceso, MontajeTerminado, MontajeEntregado, TendidoProceso, TendidoTerminado }
 
@@ -113,20 +113,11 @@ public static class EstadoTorres
     // ---------- Carga inicial (01/11/2026) ----------
     // Códigos: R restricción · D disponible · I27 inicio 2027 · CP/CT civil en proceso/terminado · CC cambio de cimentación ·
     // MP/MT/ME montaje en proceso/terminado/entregado. "!" = texto rojo en la hoja (sin leyenda: se guarda como marca).
-    // SUPUESTO: las celdas naranja con texto rojo en negrita se cargan como CIVIL EN PROCESO (falta confirmar su significado).
     private static readonly (int Tiro, decimal Km, string Torres)[] Imagen =
     {
-        (1, 6.5m, "3:CT 5N:CT 6NNN:D 7:D 8:MT 9NN:MT 10:D 11:MT 12:MT 13N:MT 15:MT 15A:MT"),
-        (2, 9m, "16N:MT 17:D 18N:MT 19N:CP 20:MT 21:MT 22:MT 23N:MT 24N:CP 25:CT 26:MT 27:CP 28:CT 29:CT 30:MT 31:MT 32N:I27 33:MT 34N:I27 35N:MT 36:MT 37:MT"),
-        (3, 6.2m, "38:MT 39NN:I27 40N:CT 41:MT 42N:D 43N:MT 44:MT 45:MT 46N:D 47:MT 48:D 49NN:MT 50:MT"),
-        (4, 6.3m, "51N:MT 52:MT 53N:MT 54:MT 55N:MT 57N:CT 57AN:CP 58:D 59N:R 60N:R 62:MT"),
-        (5, 8m, "63:ME 64:ME 64AN:ME 65:ME 67N:ME 68:ME 69N:MT 70N:CP 71:ME 72N:ME 73N:ME 74NNN:I27 76:ME 77:ME 78N:ME 79:MT 80:ME"),
-        (6, 1.1m, "81:ME 82:ME 83:ME"),
-        (7, 7.8m, "84N:ME 85N:ME 86:ME 87N:ME 89N:ME 90:MT 91:MT 92NN:ME 93:ME 94N:ME 95N:ME 96N:ME 97:MT 98:MT 99:MT 100N:MT"),
-        (8, 7.9m, "101NN:CP! 102NN:MT 103N:D 104N:D 105N:CP! 106:D 107N:D! 108:MT 109N:MT 110:MT 111:MT 112:CT 113:MT 114:CP! 115:R 116:CP! 117:CP! 118N:MP 119:MT"),
-        (9, 7.8m, "120NNN:MT 121N:CC 122N:MT 123N:I27 124:MT 125:CT 126:D 127:CT 128:D 129NN:I27 130:CT 131N:CT 132N:CT 133:CT 134:CT 135:ME 136:ME 137N:ME"),
-        (10, 5.4m, "138NN:ME 139:I27 141NN:I27 142N:I27 143N:MT 144:R 145N:MT 146N:CT 147:CT 148:MT 149N:MT"),
-        (11, 6.01m, "150:MT 152:CT 153N:MT 154:MP 155:CP! 156:MT 157:MT 158:CT"),
+        // Longitudes de ejemplo; los estados de las torres de demostración los siembra el módulo de demo.
+        (1, 2.4m, ""),
+        (2, 2.1m, ""),
     };
 
     private static readonly Dictionary<string, string> Codigos = new()

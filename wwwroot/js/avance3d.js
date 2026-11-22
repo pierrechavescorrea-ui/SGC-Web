@@ -4,7 +4,7 @@ import { navegacion3d } from './navegacion3d.js';
 // acero, zapata y pedestal (o parrilla), relleno y la torre montada según el % de montaje, por peso de
 // las piezas del modelo de Modelos 3D (o una silueta aproximada si la torre no tiene modelo).
 // Trabajadores, equipos, pluma y aparejo son una SIMULACIÓN ilustrativa (sin escala ni procedimiento).
-// Los ancladeros de los vientos siguen el plano DW-001 y su memoria de cálculo (ver ANCLA).
+// Los ancladeros de los vientos usan valores de ejemplo de un plano de ancladeros (ver ANCLA).
 import * as THREE from '../lib/three/three.module.min.js';
 import { OrbitControls } from '../lib/three/OrbitControls.js';
 import { miembrosParametricos } from './linea3d.js';
@@ -16,17 +16,17 @@ const KG_M_SIN_PESO = 6;   // SUPUESTO: pieza sin peso en la lista de materiales
 const CLAVES_PATA = ['exc', 'sol', 'niv', 'ace', 'con', 'rel'];
 const CLAVES_TORRE = ['pre', 'mon', 'ver', 'ves'];
 
-// Ancladeros de los vientos de la pluma. Fuentes: plano DW-001 "Plano de sistemas de ancladeros" rev. 0 (2026-09-10) y su memoria "Ancladero con tubo enterrado", escenario T5A.
+// Ancladeros de los vientos de la pluma (valores de ejemplo de un ancladero con tubo enterrado).
 const ANCLA = {
-    ang: 60,          // DW-001 "Ángulo máximo de inclinación" y memoria (θ = 60° con la horizontal). El dibujo del plano
-                      // no está a escala (se ve ~30°); manda la cota y la memoria (H = T·cos θ, V = T·sin θ).
-    angMin: 10,       // DW-001 "Ángulo mínimo de inclinación"
-    prof: 1.8,        // DW-001 notas: profundidad de fondo de excavación 1,8 m
-    tuboL: 2.0,       // DW-001 notas: longitud efectiva del tubo 2 m
-    tuboD: .1524,     // memoria, entradas: D = 152,4 mm (6" OD)
-    guayaD: .013,     // memoria, entradas: d_g = 13 mm
-    vueltas: 3,       // memoria, entradas: n = 3 vueltas efectivas
-    cargaKg: 2200,    // DW-001 notas: carga máxima 2,2 t (se usa como peso máximo de cada izaje)
+    ang: 60,          // plano: "Ángulo máximo de inclinación"; (θ = 60° con la horizontal). El dibujo del plano
+                      // no está a escala (se ve ~30°); manda la cota (H = T·cos θ, V = T·sin θ).
+    angMin: 10,       // plano: "Ángulo mínimo de inclinación"
+    prof: 1.8,        // plano: notas: profundidad de fondo de excavación 1,8 m
+    tuboL: 2.0,       // plano: notas: longitud efectiva del tubo 2 m
+    tuboD: .1524,     // cálculo: D = 152,4 mm (6" OD)
+    guayaD: .013,     // cálculo: d_g = 13 mm
+    vueltas: 3,       // cálculo: n = 3 vueltas efectivas
+    cargaKg: 2200,    // plano: notas: carga máxima 2,2 t (se usa como peso máximo de cada izaje)
     // SUPUESTOS (el plano no los acota): planta de la excavación 2,6 × 1,0 m, zanja de salida 0,3 m, ancladeros en las
     // diagonales de la torre (como la planta general del plano) y terreno plano.
     excL: 2.6, excA: 1.0, zanja: .3,
@@ -480,7 +480,7 @@ class VisorAvance {
             d.position.set(p.x * .97, p.y - .3 - k * .2, p.z); d.castShadow = true; this.aisl.add(d);
         }
 
-        // Ancladeros de los vientos (DW-001): en las diagonales, a la distancia Lh en que el viento queda a 60° con la
+        // Ancladeros de los vientos: en las diagonales, a la distancia Lh en que el viento queda a 60° con la
         // horizontal cuando la pluma está en lo más alto del montaje; más abajo el ángulo es menor (el plano admite
         // de 10° a 60°). Si así cayeran sobre el diorama, se retiran hasta quedar fuera (el ángulo baja).
         const tipMax = this.puntaPluma(this.alto).tip;
@@ -513,7 +513,7 @@ class VisorAvance {
         return { pos, rot, tip: new THREE.Vector3(0, h, 0).applyEuler(rot).add(pos) };
     }
 
-    // Ancladero con tubo enterrado (DW-001, vistas 1 a 4): bloque de terreno en corte con la excavación rellena, el tubo
+    // Ancladero con tubo enterrado : bloque de terreno en corte con la excavación rellena, el tubo
     // Schedule "tipo muerto" horizontal y perpendicular al viento, la guaya con sus vueltas al centro del tubo, la zanja
     // de salida hacia el viento y el ojo de la guaya en superficie. +z local = hacia la torre. Devuelve el ojo en local.
     armarAncladero(B, PROF) {
@@ -528,7 +528,7 @@ class VisorAvance {
             const l = planoTierra(w, DP, M.lado, w / (2 * B), DP / PROF); l.position.set(x, -DP / 2, z); l.rotation.y = ry; gr.add(l);
         }
         const zo = caja(W + .3, .3, D + .3, M.base); zo.position.set(0, -DP - .15, zc); gr.add(zo);
-        // Excavación rellena y compactada (DW-001, nota), con su huella y la de la zanja en superficie.
+        // Excavación rellena y compactada , con su huella y la de la zanja en superficie.
         const rel = caja(A.excL, A.prof, A.excA, M.relleno); rel.position.y = -A.prof / 2; rel.castShadow = false; gr.add(rel);
         const hue = caja(A.excL, .025, A.excA, M.relTope); hue.position.y = .012; gr.add(hue);
         const zj = caja(A.zanja, .02, zOjo + .15 - A.excA / 2, M.relTope); zj.position.set(0, .01, (A.excA / 2 + zOjo + .15) / 2); gr.add(zj);
@@ -881,7 +881,7 @@ class VisorAvance {
     }
 
     // Izajes del día: las piezas entre el montaje anterior y el del registro, en el orden de montaje, en lotes de hasta
-    // 2,2 t (carga máxima por izar del plano DW-001). SUPUESTO: cada izaje sale con la carga máxima.
+    // 2,2 t (carga máxima por izar del plano). SUPUESTO: cada izaje sale con la carga máxima.
     lotesIzado(desde, meta) {
         const clave = desde.toFixed(1) + '|' + meta.toFixed(1);
         if (this._lotes?.clave === clave) return this._lotes.v;

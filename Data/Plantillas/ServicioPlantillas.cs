@@ -264,20 +264,30 @@ public class ServicioPlantillas
         switch (col.Tipo)
         {
             case TipoColumna.Entero:
-                if (v.IsNumber) return Math.Abs(v.GetNumber() % 1) < 1e-9 ? (((long)v.GetNumber()).ToString(CultureInfo.InvariantCulture), null) : (null, "Debe ser un número entero.");
-                return long.TryParse(Texto(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? (n.ToString(CultureInfo.InvariantCulture), null)
+                if (v.IsNumber)
+                {
+                    var numero = v.GetNumber();
+                    return numero is >= int.MinValue and <= int.MaxValue && numero % 1 == 0
+                        ? (((int)numero).ToString(CultureInfo.InvariantCulture), null)
+                        : (null, "Debe ser un número entero.");
+                }
+                return int.TryParse(Texto(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? (n.ToString(CultureInfo.InvariantCulture), null)
                     : Texto().Length == 0 ? (null, null) : (null, "Debe ser un número entero.");
             case TipoColumna.Decimal:
                 if (v.IsNumber) return (v.GetNumber().ToString("R", CultureInfo.InvariantCulture), null);
                 var t = Texto().Replace(" ", "");
                 if (t.Length == 0) return (null, null);
                 // Sin separador de miles: la coma o el punto es el decimal.
-                if (t.Count(ch => ch is ',' or '.') <= 1 && double.TryParse(t.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+                if (t.Count(ch => ch is ',' or '.') <= 1 && double.TryParse(t.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var d) && double.IsFinite(d))
                     return (d.ToString("R", CultureInfo.InvariantCulture), null);
                 return (null, "Debe ser un número (sin separador de miles).");
             case TipoColumna.Fecha:
                 if (v.IsDateTime) return (v.GetDateTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), null);
-                if (v.IsNumber) return (DateTime.FromOADate(v.GetNumber()).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), null);
+                if (v.IsNumber)
+                {
+                    try { return (DateTime.FromOADate(v.GetNumber()).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), null); }
+                    catch (ArgumentException) { return (null, "Fecha fuera del intervalo permitido."); }
+                }
                 var tf = Texto();
                 if (tf.Length == 0) return (null, null);
                 return DateTime.TryParseExact(tf, new[] { "dd/MM/yyyy", "d/M/yyyy", "yyyy-MM-dd" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var f)

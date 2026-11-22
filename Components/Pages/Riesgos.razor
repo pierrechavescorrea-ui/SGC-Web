@@ -2159,20 +2159,21 @@ else if (vista == "importar")
         if (formSeguimiento is null || riesgo is null) return;
         if (formSegResp.Count == 0) { mensaje = "Indica quién hace el seguimiento."; error = true; return; }
         formSeguimiento.Responsable = SelectorMultiple.Unir(formSegResp);
-        // Los planes se validan antes de guardar nada: si uno no pasa, el seguimiento no queda guardado a medias.
-        var descSeg = string.Join("\n", formHallazgos.Select(h => h.Descripcion).Prepend(formSeguimiento.Observacion).Where(x => !string.IsNullOrWhiteSpace(x)));
-        var codigosEnvio = new List<string>();
-        foreach (var pb in planesBorrador)
-        {
-            if (string.IsNullOrWhiteSpace(pb.Plan.DescripcionHallazgo)) pb.Plan.DescripcionHallazgo = descSeg;
-            if (await ServicioPlanes.ValidarAsync(pb, codigosEnvio) is string problema)
-            { mensaje = problema + " El seguimiento no se guardó."; error = true; return; }
-            codigosEnvio.Add(pb.Plan.Codigo);
-        }
-
         await _dbLock.WaitAsync();
         try
         {
+            if (formSeguimiento is null || riesgo is null) return;
+            var descSeg = string.Join("\n", formHallazgos.Select(h => h.Descripcion).Prepend(formSeguimiento.Observacion).Where(x => !string.IsNullOrWhiteSpace(x)));
+            var codigosEnvio = new List<string>();
+            foreach (var pb in planesBorrador)
+            {
+                if (string.IsNullOrWhiteSpace(pb.Plan.DescripcionHallazgo)) pb.Plan.DescripcionHallazgo = descSeg;
+                if (await ServicioPlanes.ValidarAsync(pb, codigosEnvio) is string problema)
+                { mensaje = problema + " El seguimiento no se guardó."; error = true; return; }
+                codigosEnvio.Add(pb.Plan.Codigo);
+            }
+
+            await using var transaccion = await Db.Database.BeginTransactionAsync();
             SeguimientoRiesgo ent;
             if (formSeguimientoEsNuevo)
             {
@@ -2242,6 +2243,7 @@ else if (vista == "importar")
                 creados.Add(pb.Plan.Codigo);
             }
 
+            await transaccion.CommitAsync();
             seguimientoConHallazgo = destinosH.Count > 0 && creados.Count == 0 ? ent.Id : null;
             formSeguimiento = null; formHallazgos = new(); formSoportes = new(); soportesQuitados = new();
             lugaresForm = new(); planesBorrador = new();

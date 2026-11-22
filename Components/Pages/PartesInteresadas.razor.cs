@@ -661,34 +661,38 @@ public partial class PartesInteresadas : IAsyncDisposable
 
     private async Task GuardarSeguimiento()
     {
-        if (formSeg is null) return;
-        var tienePlan = formSeg.Id > 0 && planesPorSeguimiento.ContainsKey(formSeg.Id);
-        if (!string.IsNullOrWhiteSpace(formSeg.DescripcionHallazgo) && planSeg is null && !tienePlan)
+        if (formSeg is not { } guardado || guardando) return;
+        var plan = planSeg;
+        var parte = formSegParte;
+        var tienePlan = guardado.Id > 0 && planesPorSeguimiento.ContainsKey(guardado.Id);
+        if (!string.IsNullOrWhiteSpace(guardado.DescripcionHallazgo) && plan is null && !tienePlan)
         { Aviso("El hallazgo requiere un plan de acción: ábrelo con el ícono de plan junto al hallazgo.", true); return; }
-        if (planSeg is not null && string.IsNullOrWhiteSpace(formSeg.DescripcionHallazgo)) formSeg.DescripcionHallazgo = planSeg.Plan.DescripcionHallazgo;
-        if (planSeg is not null)
-        {
-            CompletarPlan(planSeg, formSegParte, formSeg.DescripcionHallazgo);
-            if (await ServicioPlanes.ValidarAsync(planSeg) is string problema) { Aviso(problema + " El seguimiento no se guardó.", true); return; }
-        }
+        if (plan is not null && string.IsNullOrWhiteSpace(guardado.DescripcionHallazgo)) guardado.DescripcionHallazgo = plan.Plan.DescripcionHallazgo;
+        var idOriginal = guardado.Id;
         var ok = false;
         string? creado = null;
         await Intentar(async () =>
         {
-            await ServicioPartesInteresadas.GuardarSeguimientoAsync(Db, formSeg);
-            if (planSeg is not null)
+            if (plan is not null)
             {
-                CompletarPlan(planSeg, formSegParte, formSeg.DescripcionHallazgo);
-                planSeg.Plan.SeguimientoParteInteresadaId = formSeg.Id;
-                await ServicioPlanes.GuardarAsync(planSeg);
-                creado = planSeg.Plan.Codigo;
+                CompletarPlan(plan, parte, guardado.DescripcionHallazgo);
+                if (await ServicioPlanes.ValidarAsync(plan) is string problema)
+                    throw new InvalidOperationException(problema + " El seguimiento no se guardó.");
             }
+            await using var transaccion = await Db.Database.BeginTransactionAsync();
+            await ServicioPartesInteresadas.GuardarSeguimientoAsync(Db, guardado);
+            if (plan is not null)
+            {
+                plan.Plan.SeguimientoParteInteresadaId = guardado.Id;
+                await ServicioPlanes.GuardarAsync(plan);
+                creado = plan.Plan.Codigo;
+            }
+            await transaccion.CommitAsync();
             ok = true;
         });
-        if (!ok) return;
+        if (!ok) { guardado.Id = idOriginal; return; }
         Aviso("Seguimiento guardado." + (creado is null ? "" : $" Plan de acción {creado} creado."));
         planSeg = null;
-        var guardado = formSeg;
         formSeg = null;
         await Cargar();
         MostrarSeguimientosGuardados(new() { guardado });
@@ -738,22 +742,13 @@ public partial class PartesInteresadas : IAsyncDisposable
 
     private async Task GuardarRonda()
     {
-        if (ronda is null) return;
+        if (ronda is not { } rondaEnviada || guardando) return;
         var filas = ronda.Filas.Where(f => f.Incluir).ToList();
         if (filas.Count == 0) { Aviso("Marque al menos una parte.", true); return; }
         var sinPlan = filas.Where(f => !string.IsNullOrWhiteSpace(f.DescripcionHallazgo) && f.Plan is null).ToList();
         if (sinPlan.Count > 0)
         { Aviso($"Cada hallazgo requiere un plan de acción (ícono en la columna Hallazgo): {string.Join(", ", sinPlan.Select(f => f.Parte.Nombre))}.", true); return; }
         foreach (var f in filas.Where(f => f.Plan is not null && string.IsNullOrWhiteSpace(f.DescripcionHallazgo))) f.DescripcionHallazgo = f.Plan!.Plan.DescripcionHallazgo;
-        // Planes validados antes de guardar la ronda: si uno no pasa, no se guarda nada.
-        var codigosEnvio = new List<string>();
-        foreach (var f in filas.Where(f => f.Plan is not null))
-        {
-            CompletarPlan(f.Plan!, f.Parte.Nombre, f.DescripcionHallazgo);
-            if (await ServicioPlanes.ValidarAsync(f.Plan!, codigosEnvio) is string problema)
-            { Aviso($"{f.Parte.Nombre}: {problema} La ronda no se guardó.", true); return; }
-            codigosEnvio.Add(f.Plan!.Plan.Codigo);
-        }
         var segs = filas.Select(f => new SeguimientoParteInteresada
         {
             ParteClave = f.Parte.Clave, ParteInteresadaId = f.Parte.Id, Fecha = ronda.Fecha, Responsable = ServicioPartesInteresadas.Limpio(ronda.Responsable),
@@ -764,7 +759,16 @@ public partial class PartesInteresadas : IAsyncDisposable
         var creados = new List<string>();
         await Intentar(async () =>
         {
-            n = await ServicioPartesInteresadas.GuardarRondaAsync(Db, segs);
+            var codigosEnvio = new List<string>();
+            foreach (var f in filas.Where(f => f.Plan is not null))
+            {
+                CompletarPlan(f.Plan!, f.Parte.Nombre, f.DescripcionHallazgo);
+                if (await ServicioPlanes.ValidarAsync(f.Plan!, codigosEnvio) is string problema)
+                    throw new InvalidOperationException($"{f.Parte.Nombre}: {problema} La ronda no se guardó.");
+                codigosEnvio.Add(f.Plan!.Plan.Codigo);
+            }
+            await using var transaccion = await Db.Database.BeginTransactionAsync();
+            var guardados = await ServicioPartesInteresadas.GuardarRondaAsync(Db, segs);
             // segs conserva el orden de filas: cada plan queda ligado al seguimiento de su fila.
             for (var i = 0; i < filas.Count; i++)
             {
@@ -774,9 +778,11 @@ public partial class PartesInteresadas : IAsyncDisposable
                 await ServicioPlanes.GuardarAsync(pb);
                 creados.Add(pb.Plan.Codigo);
             }
+            await transaccion.CommitAsync();
+            n = guardados;
         });
         if (n == 0) return;
-        Aviso($"Ronda del {ronda.Fecha:dd/MM/yyyy}: {n} seguimiento(s) registrados." + (creados.Count > 0 ? $" Planes de acción creados: {string.Join(", ", creados)}." : ""));
+        Aviso($"Ronda del {rondaEnviada.Fecha:dd/MM/yyyy}: {n} seguimiento(s) registrados." + (creados.Count > 0 ? $" Planes de acción creados: {string.Join(", ", creados)}." : ""));
         ronda = null;
         await Cargar();
         MostrarSeguimientosGuardados(segs);

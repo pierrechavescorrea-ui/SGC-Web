@@ -1,7 +1,17 @@
 # No van a la imagen: compilados, secretos, documentos de clientes, herramientas y datos locales.
 **/bin/
 **/obj/
-.git/
+.git
+planos/
+**/*.pfx
+**/*.pem
+**/appsettings.*.local.json
+**/appsettings.Local.json
+**/opencode.json
+**/.opencode/
+tests/
+docs/*
+!docs/manual/
 .vs/
 .vscode/
 .idea/
@@ -10,6 +20,7 @@ wwwroot/uploads/
 **/*.user
 **/secrets.json
 .env
+.env.*
 *.env
 Dockerfile
 .dockerignore

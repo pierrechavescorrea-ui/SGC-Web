@@ -162,7 +162,7 @@ public static class CotasAvanceObra
         r.CimentacionSinDetalle = !r.Parrilla && !r.Pila && n.Contains("mixt");
         if (r.Pila)
         {
-            // SUPUESTO (pedido de obra): sin cotas en la tabla, pila de 6 m de profundidad y 1,5 m de diámetro.
+            // Valor por defecto: sin cotas en la tabla, pila de 6 m de profundidad y 1,5 m de diámetro.
             if (r.Genericas.Contains("Excavación: profundidad")) r.ExcProf = 6.0;
             if (r.Genericas.Contains("Excavación: largo")) r.ExcLargo = 1.5;
             if (r.Genericas.Contains("Excavación: ancho")) r.ExcAncho = r.ExcLargo;

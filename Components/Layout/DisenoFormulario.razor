@@ -35,12 +35,14 @@ else
     private ValoresFormulario.Sesion? sesion;
     private bool cargado;
     private int recolectados = -1;
+    private string? claveProyecto;
 
     protected override void OnInitialized()
     {
         var info = RegistroFormularios.De(Clave);
         if (info is null) return;
         ctx = new ContextoFormulario { Info = info };
+        claveProyecto = SigWeb.Data.Seguridad.AmbienteSig.Clave(Clave);
         Servicio.Cambio += AlCambiarDiseno;
     }
 
@@ -88,7 +90,7 @@ else
     // Otro usuario/pestaña guardó un diseño nuevo de este formulario: se repinta con él.
     private void AlCambiarDiseno(string clave)
     {
-        if (!string.Equals(clave, Clave, StringComparison.OrdinalIgnoreCase)) return;
+        if (!string.Equals(clave, claveProyecto, StringComparison.OrdinalIgnoreCase)) return;
         _ = InvokeAsync(async () =>
         {
             await CargarDisenoAsync();

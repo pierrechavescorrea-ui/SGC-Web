@@ -36,7 +36,7 @@ public class PlantillaTorres : IPlantillaModulo
         if (!string.Equals(hoja, Hoja, StringComparison.OrdinalIgnoreCase))
             return Array.Empty<Dictionary<string, object?>>();
 
-        var tiros = (await db.Tiros.AsNoTracking().ToListAsync(ct))
+        var tiros = (await db.Tiros.AsNoTracking().Where(t => !t.Eliminado).ToListAsync(ct))
             .GroupBy(t => t.Id).ToDictionary(g => g.Key, g => g.First().Nombre);
         return (await db.ElementosTrazado.AsNoTracking().Where(t => !t.Eliminado).OrderBy(t => t.Codigo).ToListAsync(ct))
             .Select(t => new Dictionary<string, object?>
@@ -112,8 +112,7 @@ public class PlantillaTorres : IPlantillaModulo
                     cambios.Add($"Longitud: {t.Longitud} → {nlo}");
                 if (tiro is not null)
                 {
-                    var idTiro = tirosPorNombre[tiro].Id;
-                    if (t.TiroId != idTiro)
+                    if (!tirosPorNombre.TryGetValue(tiro, out var destino) || t.TiroId != destino.Id)
                     {
                         var tiroActual = t.TiroId is int actual && tirosPorId.TryGetValue(actual, out var tn) ? tn : null;
                         cambios.Add($"Tiro: {tiroActual ?? "—"} → {tiro}");

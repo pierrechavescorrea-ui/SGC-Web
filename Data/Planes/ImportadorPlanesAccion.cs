@@ -21,15 +21,16 @@ public static class ImportadorPlanesAccion
         string T(string[] f, string d) => imp.ColumnaDe(d) is int c ? ImportacionExcel.Celda(f, c).Trim() : "";
         var avisos = new List<string>();
 
+        await using var transaccion = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var torres = await db.ElementosTrazado.AsNoTracking().ToListAsync();
-        var comps = await db.Componentes.AsNoTracking().ToListAsync();
+        var comps = await db.Componentes.AsNoTracking().Where(c => !c.Eliminado).ToListAsync();
         var locs = await db.Catalogos.AsNoTracking().Where(c => c.Tipo == "Localización" && c.Activo).ToListAsync();
-        var tiros = await db.Tiros.AsNoTracking().ToListAsync();
+        var tiros = await db.Tiros.AsNoTracking().Where(t => !t.Eliminado).ToListAsync();
 
         var todos = await db.PlanesAccion.IgnoreQueryFilters().AsNoTracking().Select(p => new { p.Id, p.Codigo, p.Eliminado }).ToListAsync();
         var vigentes = todos.Where(p => !p.Eliminado).GroupBy(p => p.Codigo.Trim(), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
         var enPapelera = todos.Where(p => p.Eliminado).Select(p => p.Codigo.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        int siguiente = todos.Select(p => Regex.Match(p.Codigo ?? "", @"^PA-(\d+)$")).Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value)).DefaultIfEmpty(0).Max();
+        var siguiente = PlanesAccionServicio.MayorConsecutivo(todos.Select(p => p.Codigo).Concat(imp.Filas.Select(f => T(f, "nat:Codigo"))));
 
         var carga = new CargaPlanesAccion { NombreArchivo = imp.NombreArchivo, Hoja = imp.Hoja, FilaEncabezados = imp.FilaEncabezados, Fecha = DateTime.Now };
         db.CargasPlanesAccion.Add(carga);
@@ -140,6 +141,7 @@ public static class ImportadorPlanesAccion
             if (c is not null) { db.CargasPlanesAccion.Remove(c); await db.SaveChangesAsync(); }
         }
         if (sinLugar.Count > 0) avisos.Add("Lugares no encontrados (torre, elemento «torre · elemento», localización o tiro): " + string.Join(", ", sinLugar.Take(15)) + (sinLugar.Count > 15 ? "…" : ""));
+        await transaccion.CommitAsync();
         return new Resultado(creados, actualizados, acciones, avisos);
     }
 

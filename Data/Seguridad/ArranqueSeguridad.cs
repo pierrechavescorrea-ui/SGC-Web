@@ -58,6 +58,10 @@ public static class ArranqueSeguridad
         var cfg = builder.Configuration;
         var dev = builder.Environment.IsDevelopment();
 
+        // El ALB comprueba la IP de la tarea antes de enviarle usuarios.
+        if (!dev)
+            s.Insert(0, ServiceDescriptor.Singleton<IStartupFilter, SondaBalanceador>());
+
         builder.WebHost.ConfigureKestrel(k => k.AddServerHeader = false);
 
         s.AddDbContext<SeguridadDbContext>(o => o.UseNpgsql(CadenaCentral(cfg)));
@@ -343,16 +347,27 @@ public static class ArranqueSeguridad
 public sealed class SaludProyectos : Microsoft.Extensions.Diagnostics.HealthChecks.IHealthCheck
 {
     private readonly ServicioProyectos _p;
-    public SaludProyectos(ServicioProyectos p) { _p = p; }
+    private readonly IWebHostEnvironment _entorno;
+
+    public SaludProyectos(ServicioProyectos p, IWebHostEnvironment entorno)
+    {
+        _p = p;
+        _entorno = entorno;
+    }
 
     public async Task<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult> CheckHealthAsync(
         Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckContext context, CancellationToken ct = default)
     {
         var fallas = new List<string>();
-        foreach (var p in _p.Todos().Where(p => p.Estado == EstadoProyecto.Activo && _p.Preparado(p.Id)))
-            if (_p.Activo(p.Id) is { } a && !(await _p.EstadoBaseAsync(a, ct)).Conecta) fallas.Add(p.Codigo);
+        foreach (var p in _p.Todos().Where(p => p.Estado == EstadoProyecto.Activo))
+        {
+            // En desarrollo los proyectos secundarios se preparan al entrar por primera vez.
+            if (_entorno.IsDevelopment() && !p.EsPiloto && !_p.Preparado(p.Id)) continue;
+            if (_p.Activo(p.Id) is not { } a || !_p.Preparado(p.Id) || !(await _p.EstadoBaseAsync(a, ct)).Conecta)
+                fallas.Add(p.Codigo);
+        }
         return fallas.Count == 0
             ? Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy()
-            : Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy("Sin conexión: " + string.Join(", ", fallas));
+            : Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy("Proyectos no disponibles: " + string.Join(", ", fallas));
     }
 }

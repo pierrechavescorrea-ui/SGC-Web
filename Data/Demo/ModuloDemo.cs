@@ -46,7 +46,10 @@ public sealed class ContextoDemo
         var origen = Path.Combine(CarpetaRecursos, recurso);
         if (!File.Exists(origen)) throw new FileNotFoundException("Falta el recurso de demostración " + recurso, origen);
         var sub = subcarpeta.Trim('/').Replace('\\', '/');
-        var dir = Path.Combine(WebRoot, "uploads", sub.Replace('/', Path.DirectorySeparatorChar));
+        var uploads = Path.GetFullPath(Path.Combine(WebRoot, "uploads"));
+        var dir = Path.GetFullPath(Path.Combine(uploads, sub.Replace('/', Path.DirectorySeparatorChar)));
+        if (!dir.StartsWith(uploads + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Subcarpeta de demostración fuera de uploads: " + subcarpeta);
         Directory.CreateDirectory(dir);
         var nombre = Guid.NewGuid().ToString("N") + (extension ?? Path.GetExtension(recurso));
         File.Copy(origen, Path.Combine(dir, nombre), overwrite: false);

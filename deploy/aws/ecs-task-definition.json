@@ -15,6 +15,7 @@
       "portMappings": [{ "containerPort": 8080, "protocol": "tcp" }],
       "environment": [
         { "name": "ASPNETCORE_ENVIRONMENT", "value": "Production" },
+        { "name": "Proxy__Redes", "value": "<CIDR_SUBREDES_ALB>" },
         { "name": "TZ", "value": "America/Bogota" },
         { "name": "AllowedHosts", "value": "<DOMINIO>" },
         { "name": "Aplicacion__UrlPublica", "value": "https://<DOMINIO>" },
@@ -23,9 +24,9 @@
         { "name": "Seguridad__AdministradorInicial", "value": "<CORREO_ADMIN>" }
       ],
       "secrets": [
-        { "name": "ConnectionStrings__DefaultConnection", "valueFrom": "arn:aws:secretsmanager:<REGION>:<CUENTA>:secret:sigweb/db:DefaultConnection::" },
-        { "name": "Correo__Smtp__Usuario", "valueFrom": "arn:aws:secretsmanager:<REGION>:<CUENTA>:secret:sigweb/smtp:Usuario::" },
-        { "name": "Correo__Smtp__Clave", "valueFrom": "arn:aws:secretsmanager:<REGION>:<CUENTA>:secret:sigweb/smtp:Clave::" }
+        { "name": "ConnectionStrings__DefaultConnection", "valueFrom": "<ARN_DB>:DefaultConnection::" },
+        { "name": "Correo__Smtp__Usuario", "valueFrom": "<ARN_SMTP>:Usuario::" },
+        { "name": "Correo__Smtp__Clave", "valueFrom": "<ARN_SMTP>:Clave::" }
       ],
       "mountPoints": [
         { "sourceVolume": "uploads", "containerPath": "/app/wwwroot/uploads", "readOnly": false },

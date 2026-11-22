@@ -271,18 +271,17 @@ public static class MiddlewareSeguridad
                 h["X-Frame-Options"] = "SAMEORIGIN";
                 h["Cross-Origin-Opener-Policy"] = "same-origin";
                 h["Permissions-Policy"] = "camera=(), microphone=(), payment=(), usb=(), geolocation=(self)";
-                if (!h.ContainsKey("Content-Security-Policy"))
+                if (cspSoloReporte)
                 {
-                    // Siempre exigidas (no rompen nada): sin incrustar en otros sitios, sin <base> ajeno ni plugins.
-                    h["Content-Security-Policy"] = "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'";
-                    // Política completa, exigida (Seguridad:CspSoloReporte = true la deja solo en reporte si algo se rompe).
-                    if (cspSoloReporte)
-                        h["Content-Security-Policy-Report-Only"] = cspPagina + (ttReporte ? "; require-trusted-types-for 'script'" : "") + "; report-uri /csp-reporte";
-                    else
-                    {
-                        h["Content-Security-Policy"] = cspPagina + "; report-uri /csp-reporte";
-                        if (ttReporte) h["Content-Security-Policy-Report-Only"] = "require-trusted-types-for 'script'; report-uri /csp-reporte";
-                    }
+                    h.Append("Content-Security-Policy", "frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'");
+                    h.Append("Content-Security-Policy-Report-Only",
+                        cspPagina + (ttReporte ? "; require-trusted-types-for 'script'" : "") + "; report-uri /csp-reporte");
+                }
+                else
+                {
+                    // Blazor agrega frame-ancestors y algunos archivos usan sandbox. El navegador aplica todas las políticas.
+                    h.Append("Content-Security-Policy", cspPagina + "; report-uri /csp-reporte");
+                    if (ttReporte) h.Append("Content-Security-Policy-Report-Only", "require-trusted-types-for 'script'; report-uri /csp-reporte");
                 }
                 // Páginas con datos: que el navegador no las guarde en caché compartida.
                 if (!h.ContainsKey("Cache-Control") && (ctx.Request.Path.StartsWithSegments("/cuenta") ||

@@ -105,7 +105,7 @@ public class ServicioFormularios
         });
         await db.SaveChangesAsync();
         _disenos[K(clave)] = d.Original ? null : d;
-        Cambio?.Invoke(clave);
+        Cambio?.Invoke(K(clave));
         return version;
     }
 

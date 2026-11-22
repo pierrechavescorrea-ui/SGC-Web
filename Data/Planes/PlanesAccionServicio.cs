@@ -137,9 +137,14 @@ public class PlanesAccionServicio
     {
         var usados = _db.PlanesAccion.IgnoreQueryFilters().AsNoTracking().Select(p => p.Codigo).ToList();
         if (reservados is not null) usados.AddRange(reservados);
-        var max = usados.Select(c => System.Text.RegularExpressions.Regex.Match(c ?? "", @"^PA-(\d+)$"))
-                        .Where(m => m.Success).Select(m => int.Parse(m.Groups[1].Value)).DefaultIfEmpty(0).Max();
-        return "PA-" + (max + 1).ToString("000");
+        return "PA-" + (MayorConsecutivo(usados) + 1).ToString("000");
+    }
+
+    internal static System.Numerics.BigInteger MayorConsecutivo(IEnumerable<string> codigos)
+    {
+        return codigos.Select(c => System.Text.RegularExpressions.Regex.Match(c?.Trim() ?? "", @"^[Pp][Aa]-([0-9]+)$"))
+            .Where(m => m.Success).Select(m => System.Numerics.BigInteger.Parse(m.Groups[1].Value))
+            .DefaultIfEmpty().Max();
     }
 
     // Validación sin escribir nada: los formularios que guardan un plan junto con otro registro (seguimiento de
@@ -162,6 +167,10 @@ public class PlanesAccionServicio
     // con un mensaje para el usuario si falta algo. Devuelve el Id del plan.
     public async Task<int> GuardarAsync(PlanEditable e)
     {
+        // Los seguimientos pueden englobar el plan en su propia transacción.
+        await using var transaccion = _db.Database.CurrentTransaction is null
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
         var f = e.Plan;
         var codigo = (f.Codigo ?? "").Trim();
         if (await ValidarAsync(e) is string problema) throw new InvalidOperationException(problema);
@@ -284,6 +293,7 @@ public class PlanesAccionServicio
         foreach (var x in await _db.ArchivosEficaciaPlan.Where(x => x.PlanAccionId == ent.Id && idsQuitarEf.Contains(x.Id)).ToListAsync())
         { x.Eliminado = true; x.FechaEliminacion = ahora; }
         await _db.SaveChangesAsync();
+        if (transaccion is not null) await transaccion.CommitAsync();
         _db.ChangeTracker.Clear();
         return ent.Id;
     }

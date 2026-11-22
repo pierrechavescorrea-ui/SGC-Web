@@ -491,7 +491,7 @@ secrets.json
 wwwroot/uploads/
 
 # Planos fuente (DWG/PDF/XLS) y su lectura: locales, no se versionan
-planos/
+/planos/
 
 # Correos de prueba (modo archivo) y datos locales de la app
 App_Data/

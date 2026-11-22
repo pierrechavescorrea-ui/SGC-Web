@@ -1938,7 +1938,9 @@ if (form is not null)
         try
         {
             var nombres = (motor?.Campos ?? new()).ToDictionary(c => c.Id, c => c.Nombre);
-            var r = await SigWeb.Data.Planes.ImportadorPlanesAccion.ImportarAsync(Db, imp, nombres);
+            using var scope = Scopes.CreateScope();
+            var dbImportacion = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var r = await SigWeb.Data.Planes.ImportadorPlanesAccion.ImportarAsync(dbImportacion, imp, nombres);
             mensaje = $"{r.Planes} plan(es) nuevo(s), {r.PlanesActualizados} existente(s) con acciones nuevas, {r.Acciones} acción(es)."
                 + (r.Avisos.Count > 0 ? " " + string.Join(" ", r.Avisos) : "");
             error = r.Avisos.Count > 0;
@@ -1946,7 +1948,7 @@ if (form is not null)
             Cargar();
             await CargarMotorAsync();
         }
-        catch (Exception ex) { Db.ChangeTracker.Clear(); mensaje = "No se pudo importar: " + ex.Message; error = true; }
+        catch (Exception ex) { mensaje = "No se pudo importar: " + ex.Message; error = true; }
         finally { importando = false; _dbLock.Release(); }
     }
 

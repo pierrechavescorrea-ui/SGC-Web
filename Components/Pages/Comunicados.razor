@@ -1476,19 +1476,22 @@ else
 
     private async Task ImportarExcel(ImportacionExcel imp)
     {
+        if (importando) return;
         mensaje = "";
         if (imp.Filas.Count == 0) { mensaje = "No hay filas con datos para importar."; error = true; return; }
         importando = true;
         try
         {
             var nombres = (motor?.Campos ?? new()).ToDictionary(c => c.Id, c => c.Nombre);
-            var r = await ImportadorComunicados.ImportarAsync(Db, imp, nombres);
+            using var scope = Scopes.CreateScope();
+            var dbImportacion = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var r = await ImportadorComunicados.ImportarAsync(dbImportacion, imp, nombres);
             mensaje = $"{r.Creados} comunicado(s) nuevo(s), {r.Actualizados} actualizado(s)." + (r.Avisos.Count > 0 ? " " + string.Join(" ", r.Avisos) : "");
             error = r.Avisos.Count > 0;
             mostrarImportar = false;
             Cargar();
         }
-        catch (Exception ex) { Db.ChangeTracker.Clear(); mensaje = "No se pudo importar: " + ex.Message; error = true; }
+        catch (Exception ex) { mensaje = "No se pudo importar: " + ex.Message; error = true; }
         finally { importando = false; }
     }
 }

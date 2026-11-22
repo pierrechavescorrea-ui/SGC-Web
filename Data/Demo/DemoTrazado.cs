@@ -122,7 +122,8 @@ public sealed class DemoModeloIfc : IModuloDemo
         var png = Path.Combine(c.WebRoot, "modelos-ifc", "torre-bp6.png");
 
         var version = ModelosCargados.SiguienteVersion(db, "BP6");
-        var raiz = ModelosCargados.Raiz("BP6", version);
+        // Un archivo por proyecto: borrar el modelo en un proyecto no afecta al otro.
+        var raiz = c.Proyecto.Codigo.ToLowerInvariant() + "-" + ModelosCargados.Raiz("BP6", version);
         var dirIfc = Path.Combine(c.WebRoot, "uploads", "modelos-ifc");
         var dirJson = Path.Combine(c.WebRoot, "uploads", "modelos3d");
         Directory.CreateDirectory(dirIfc); Directory.CreateDirectory(dirJson);

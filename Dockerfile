@@ -7,7 +7,8 @@ WORKDIR /src
 COPY SigWeb.csproj ./
 RUN dotnet restore SigWeb.csproj
 COPY . .
-RUN dotnet publish SigWeb.csproj -c Release -o /app --no-restore /p:UseAppHost=false
+RUN dotnet publish SigWeb.csproj -c Release -o /app --no-restore /p:UseAppHost=false \
+    && test -s /app/asistente-interfaz.json && test -n "$(ls /app/docs/manual/*.md)"
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app

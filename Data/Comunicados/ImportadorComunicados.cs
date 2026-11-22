@@ -39,6 +39,7 @@ public static class ImportadorComunicados
         var avisos = new List<string>();
         if (Col("nat:Consecutivo") is null) throw new InvalidOperationException("Elige qué columna del Excel es el Consecutivo.");
 
+        await using var transaccion = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var carga = new CargaComunicados { NombreArchivo = imp.NombreArchivo, Hoja = imp.Hoja, FilaEncabezados = imp.FilaEncabezados, Fecha = DateTime.Now };
         db.CargasComunicados.Add(carga);
         await db.SaveChangesAsync();
@@ -113,6 +114,7 @@ public static class ImportadorComunicados
         }
         avisos.Add($"{unidas} fila(s) se unieron por repetidas.");
         if (omitidas > 0) avisos.Add($"{omitidas} fila(s) sin consecutivo no se importaron.");
+        await transaccion.CommitAsync();
         return new Resultado(creados, actualizados, omitidas, avisos);
     }
 }

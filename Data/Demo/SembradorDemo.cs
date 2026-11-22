@@ -35,7 +35,9 @@ public static class SembradorDemo
         // WebRootPath puede venir vacío si la app arranca sin carpeta wwwroot resuelta; se usa la de la raíz de contenido.
         var webRoot = string.IsNullOrEmpty(app.Environment.WebRootPath)
             ? Path.Combine(app.Environment.ContentRootPath, "wwwroot") : app.Environment.WebRootPath;
-        foreach (var p in servicio.Todos().Where(p => p.Estado == EstadoProyecto.Activo))
+        // Solo los proyectos de demostración (piloto, LTS500 y Empresa); un proyecto creado después por el usuario no se toca.
+        foreach (var p in servicio.Todos().Where(p => p.Estado == EstadoProyecto.Activo
+                     && (p.EsPiloto || p.EsEmpresa || p.Codigo == Segundo.Codigo)))
         {
             var activo = servicio.Activo(p.Id);
             if (activo is null) continue;
@@ -43,6 +45,7 @@ public static class SembradorDemo
             if (error is not null) { log.LogError("Demo: {Codigo}: {Error}", p.Codigo, error); continue; }
             var indice = p.EsEmpresa ? -1 : p.Codigo == Segundo.Codigo ? 1 : 0;
             var aplican = modulos.Where(m => p.EsEmpresa ? m.EnEmpresa : m.EnProyecto).ToList();
+            var fallidos = new List<string>();
             // Los módulos son síncronos o asíncronos; se corren fuera de cualquier contexto de sincronización.
             await Task.Run(async () =>
             {
@@ -62,12 +65,15 @@ public static class SembradorDemo
                         }
                         catch (Exception ex)
                         {
+                            fallidos.Add(m.Clave);
                             log.LogError(ex, "Demo: {Codigo} › módulo {Modulo} falló (los demás siguen).", p.Codigo, m.Clave);
                         }
                     }
                 }
             }, ct);
-            log.LogInformation("Demo: {Codigo} listo ({N} módulos revisados).", p.Codigo, aplican.Count);
+            if (fallidos.Count == 0) log.LogInformation("Demo: {Codigo} listo ({N} módulos revisados).", p.Codigo, aplican.Count);
+            else log.LogWarning("Demo: {Codigo}: {Ok} de {N} módulos bien; fallaron: {Fallidos}.",
+                p.Codigo, aplican.Count - fallidos.Count, aplican.Count, string.Join(", ", fallidos));
         }
     }
 

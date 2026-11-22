@@ -18,7 +18,7 @@ Usuarios ──HTTPS──► Route 53 ─► ALB (certificado ACM, WebSockets, 
 ```
 
 - **Región [decidir]:** `us-east-1` o `sa-east-1` (São Paulo, menor latencia desde Colombia). La política de datos debe nombrarla.
-- **Blazor Server necesita WebSockets y sesiones pegajosas** en el ALB (stickiness por cookie de aplicación, 1 día).
+- **Blazor Server necesita WebSockets y sesiones pegajosas** en el ALB (stickiness por cookie del balanceador, 1 día).
   Con varias tareas, las claves de cifrado se comparten solas: están en la base central (Data Protection).
 - Alternativa más simple para el piloto: **Elastic Beanstalk** con plataforma Docker, una instancia `t3.medium`, mismo RDS y EFS.
 
@@ -60,8 +60,8 @@ Variables normales: `ASPNETCORE_ENVIRONMENT=Production`, `TZ=America/Bogota`.
 
 1. Restaurar la base actual en RDS como `sigweb` (pg_dump/pg_restore).
 2. Copiar `wwwroot/uploads` del equipo actual al EFS (`aws s3 cp` a un bucket temporal + `rsync` desde una instancia con el EFS montado).
-3. Desplegar con `Seguridad__AdministradorInicial=correo@empresa.com`. La app crea la base central, los roles, el proyecto
-   PILOTO (la base existente) y la EMPRESA, y envía la invitación al administrador. Si la entrega falla, corrija la configuración SMTP y reinicie la tarea para emitir una invitación nueva.
+3. En una base nueva, arrancar primero una sola tarea hasta que termine la inicialización de roles y proyectos. Desplegar con `Seguridad__AdministradorInicial=correo@empresa.com`. La app crea la base central, los roles, el proyecto
+   PILOTO (la base existente) y la EMPRESA, y envía la invitación al administrador. Verificar SES antes del alta. Si la entrega falla, corrija la configuración SMTP y reinicie la tarea para emitir una invitación nueva.
 4. El administrador crea su contraseña, activa la verificación en dos pasos (obligatoria para administradores) e invita al resto.
 5. Quitar `Seguridad__AdministradorInicial` de la tarea.
 
@@ -79,27 +79,26 @@ Variables normales: `ASPNETCORE_ENVIRONMENT=Production`, `TZ=America/Bogota`.
 - Grupo de destino HTTP 8080, **stickiness** activada, comprobación de salud `GET /salud` (200), intervalo 30 s.
 - `/salud/listo` comprueba también las bases (útil para alarmas, no para el ALB).
 - Tiempo de inactividad del ALB: 3600 s (circuitos de Blazor y cargas largas).
-- `Proxy:ConfiarEnCualquierOrigen = true` (appsettings.Production.json) SOLO porque el contenedor no es alcanzable sin
-  pasar por el ALB (grupo de seguridad). `Proxy:Saltos = 1` (si se pone CloudFront delante: 2).
+- Configurar `Proxy__Redes` con los CIDR de las subredes del ALB, separados por comas. El grupo de seguridad de las tareas solo admite el puerto 8080 desde el grupo del ALB. `Proxy:Saltos = 1` (si se pone CloudFront delante: 2).
 - AWS WAF en el ALB **[recomendado]**: reglas administradas *Core rule set*, *Known bad inputs*, *IP reputation* y una regla de
   tasa (p. ej. 300 peticiones / 5 min por IP en `/cuenta/*`). La app ya limita 10 intentos/min por IP en el login.
 
 ## 7. Bot de Telegram
 
 Telegram entrega los mensajes a UNA sola conexión por token (long polling). Con 2+ tareas: correr el bot solo en una
-(variable `Telegram__Token` solo en un servicio ECS aparte de 1 tarea, o dejar 1 tarea en total para el piloto).
+(variable `Telegram__Token` solo en un servicio ECS aparte de 1 tarea, o dejar 1 tarea en total para el piloto). Para el servicio con token configurar el despliegue con mínimo saludable 0 % y máximo 100 % para detener la tarea anterior antes de iniciar otra. Las tareas web pueden escalar con el token vacío.
 
 ## 8. Seguridad de la cuenta AWS (mínimo)
 
 - RDS y EFS cifrados con KMS; RDS sin acceso público; copias automáticas 14 días + snapshot antes de cada despliegue.
-- Rol de tarea de ECS con permisos mínimos (leer sus secretos, escribir en CloudWatch Logs). Nada de claves IAM en variables.
+- El rol de ejecución necesita acceso a ECR, Secrets Manager y CloudWatch Logs (incluido CreateLogGroup si se usa creación automática). El rol de tarea necesita ClientMount y ClientWrite sobre los puntos de acceso EFS. Configurar ambos puntos de acceso con identidad POSIX y directorio escribible por el usuario del contenedor. Nada de claves IAM en variables.
 - CloudTrail y GuardDuty activados; alarma de CloudWatch por errores 5xx y por eventos «Cuenta bloqueada» en los logs.
 - MFA para todos los usuarios de la consola de AWS.
 
 ## 9. Desplegar una versión nueva
 
 ```bash
-docker build -t sigweb:$(git rev-parse --short HEAD) .
+docker build --platform linux/amd64 -t sigweb:$(git rev-parse --short HEAD) .
 aws ecr get-login-password | docker login --username AWS --password-stdin <cuenta>.dkr.ecr.<región>.amazonaws.com
 docker tag sigweb:<tag> <cuenta>.dkr.ecr.<región>.amazonaws.com/sigweb:<tag>
 docker push <cuenta>.dkr.ecr.<región>.amazonaws.com/sigweb:<tag>
@@ -118,10 +117,10 @@ docker push <cuenta>.dkr.ecr.<región>.amazonaws.com/sigweb:<tag>
 
 - `ecs-task-definition.json`: plantilla de la tarea Fargate (1 vCPU, 2 GB, puerto 8080, secretos desde Secrets Manager,
   EFS en `/app/wwwroot/uploads` y `/app/App_Data` con cifrado en tránsito, logs en CloudWatch `/ecs/sigweb`). Copiarla, reemplazar
-  `<DOMINIO>`, `<EFS_ID>`, `<EFS_AP_*>`, `<CORREO_ADMIN>` y los roles; `<CUENTA>`, `<REGION>` y `<ETIQUETA>` los pone el script.
-- Secretos esperados: `sigweb/db` con la clave `DefaultConnection` y `sigweb/smtp` con `Usuario` y `Clave`.
+  `<DOMINIO>`, `<CIDR_SUBREDES_ALB>`, `<ARN_DB>` y `<ARN_SMTP>` (ARN completos, incluido el sufijo generado), `<EFS_ID>`, `<EFS_AP_*>`, `<CORREO_ADMIN>` y los roles; `<CUENTA>`, `<REGION>` y `<ETIQUETA>` los pone el script.
+- Secretos esperados: `sigweb/db` con la clave `DefaultConnection` y `sigweb/smtp` con `Usuario` y `Clave`. Usar Fargate Linux 1.4.0 o posterior para inyectar claves JSON y montar EFS. [Secretos en ECS](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/secrets-envvar-secrets-manager.html)
 - `desplegar.sh`: construye la imagen, la sube a ECR (crea el repositorio la primera vez), pide el snapshot de RDS
-  (`RDS_INSTANCIA=…`), registra la definición y fuerza el despliegue esperando a que el servicio quede estable.
+  (`RDS_INSTANCIA=…`), espera a que esté disponible y registra la definición. Informa éxito cuando el servicio se estabiliza con la nueva revisión primaria.
   `CUENTA=… REGION=sa-east-1 TAREA=mi-tarea.json RDS_INSTANCIA=sigweb-db ./deploy/aws/desplegar.sh`
 - El contenedor no trae `curl`/`wget`: la salud la comprueba el ALB (`GET /salud`), no la tarea.
 - Tras el primer ingreso del administrador, quitar `Seguridad__AdministradorInicial` de la tarea y volver a desplegar.
