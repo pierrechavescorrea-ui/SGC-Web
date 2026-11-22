@@ -2,15 +2,12 @@
 modulo: modelos-3d
 titulo: Modelos 3D
 menu: Operación › Modelos 3D
-rutas: [/ifc, /modelos3d, /modelos3d/detalle]
-palabras: [IFC, visor, torre, piezas, perfiles, versiones, JSON, Línea 3D, BOM, despiece, torre explotada, tornillería, perforaciones, modelo analítico]
+rutas: [/ifc, /modelos3d]
+palabras: [IFC, visor, torre, piezas, perfiles, versiones, JSON, Línea 3D, BOM, despiece, perforaciones, modelo analítico]
 opciones:
   - BP6: /ifc?modelo=torre-bp6.ifc
   - Datos de la torre, validación y supuestos: /ifc?modelo=torre-bp6.ifc | Datos de la torre, validación y supuestos
   - Descargar .ifc: /ifc?modelo=torre-bp6.ifc | Descargar .ifc
-  - 'Detalle por pieza: torre completa (piloto)': /modelos3d/detalle
-  - BP6 · torre completa (piloto): /modelos3d/detalle
-  - Detalle por pieza: /modelos3d/detalle
   - Modelos en Línea 3D: /ifc | Modelos en Línea 3D
   - Lista de materiales: /ifc?modelo=torre-bp6.ifc | Lista de materiales
   - Versiones: /ifc?modelo=torre-bp6.ifc | Versiones
@@ -32,20 +29,6 @@ opciones:
   - Adjuntar plano a esta pieza: /ifc | Adjuntar plano a esta pieza
   - Quitar el plano: /ifc | Quitar el plano
   - Quitar el perfil asignado: /ifc | Quitar el perfil asignado
-  - Vista isométrica: /modelos3d/detalle | Vista isométrica
-  - Encuadrar todo (F): /modelos3d/detalle | Encuadrar todo (F)
-  - Acercar a la pieza seleccionada: /modelos3d/detalle | Acercar a la pieza seleccionada
-  - 'Mover pieza: arrastrar la pieza seleccionada (M): /modelos3d/detalle | Mover pieza: arrastrar la pieza seleccionada (M)'
-  - Devolver la pieza a su sitio (Mayús = todas): /modelos3d/detalle | Devolver la pieza a su sitio (Mayús = todas)
-  - Aislar la selección (I): /modelos3d/detalle | Aislar la selección (I)
-  - Ocultar la selección (H): /modelos3d/detalle | Ocultar la selección (H)
-  - Mostrar todo (Alt+H): /modelos3d/detalle | Mostrar todo (Alt+H)
-  - Mostrar u ocultar la tornillería (T): /modelos3d/detalle | Mostrar u ocultar la tornillería (T)
-  - Vista explotada: /modelos3d/detalle | Vista explotada
-  - Explotar por: /modelos3d/detalle | Explotar por
-  - Conjuntos: /modelos3d/detalle | Conjuntos
-  - Ficha: /modelos3d/detalle | Ficha
-  - Pantalla completa: /modelos3d/detalle | Pantalla completa
 actualizado: 2026-11-21
 ---
 
@@ -61,7 +44,7 @@ ISO 9001, numeral 8.5.
 
 Menú › Operación › Modelos 3D.
 
-Seleccione una familia y después el modelo. Desde el modelo **BP6** puede abrir **Detalle por pieza: torre completa (piloto)**.
+Seleccione una familia y después el modelo.
 
 ## Qué hay en la pantalla
 
@@ -71,7 +54,6 @@ Seleccione una familia y después el modelo. Desde el modelo **BP6** puede abrir
 - El botón de documento (Informe de validación) aparece cuando hay un informe asociado.
 - La tabla **Versiones** incluye **Versión**, **Fecha**, **Archivo**, **Validación**, **Supuestos**, **JSON**, **Informe** y **Cambios**.
 - **Modelos en Línea 3D** abre la tabla de vínculos. En ella puede usar **Buscar modelo...**.
-- El visor de detalle por pieza identifica el piloto como **BP6 · torre completa (piloto)**.
 
 ## Cómo hacer…
 
@@ -125,22 +107,6 @@ Con **Automático**, la app busca encabezados como **Tipo de Estructura** y **Ca
 3. Revise el nombre que se usa para el vínculo.
 4. Marque **Mostrar este modelo en Línea 3D**.
 5. Si aparece un aviso de nombre repetido, revise cuál de los modelos debe quedar vinculado.
-
-### Cómo abrir el piloto de detalle por pieza
-
-1. Abra el modelo **BP6**.
-2. Toque el botón de piezas (Detalle por pieza: torre completa (piloto)).
-3. Compruebe que el encabezado indique **Detalle por pieza**.
-4. Revise el subtítulo **BP6 · torre completa (piloto)**.
-5. Use la flecha de regreso del encabezado para volver a la galería.
-
-### Cómo inspeccionar y mover una pieza en el piloto BP6
-
-1. Abra **Detalle por pieza: torre completa (piloto)**. Toque una pieza para verla en **Ficha**.
-2. Use **Acercar a la pieza seleccionada** o **Aislar la selección (I)**. Puede usar **Conjuntos** para mostrar, ocultar o aislar un conjunto.
-3. Use **Mover pieza: arrastrar la pieza seleccionada (M)** y arrástrela. Use **Devolver la pieza a su sitio (Mayús = todas)** para devolverla.
-4. Ajuste **Vista explotada** y elija **Explotar por** conjunto o pieza. Use **Mostrar u ocultar la tornillería (T)** cuando necesite despejar la vista.
-5. Toque **Mostrar todo (Alt+H)**, **Vista isométrica** o **Encuadrar todo (F)** para recuperar una vista general.
 
 ### Cómo asignar un plano o perfil a una pieza en IFC
 
@@ -199,9 +165,6 @@ Botón **versiones**: puede ver una versión anterior o eliminar la actual (va a
 ### ¿Qué atajos de teclado tiene el visor?
 F (encuadrar), H / Alt+H (ocultar / mostrar), 1 3 7 0 (vistas; Ctrl = la opuesta), M (medir), Esc. El botón de atajos los
 lista todos.
-
-### ¿Cómo separo las piezas de la BP6 para ver los tornillos?
-En **Detalle por pieza**, ajuste **Vista explotada** y **Explotar por** conjunto o pieza. Puede alternar la tornillería con el botón correspondiente o con T.
 
 ### ¿Dónde le pongo el plano correcto a una pieza?
 Seleccione la pieza en IFC, abra **Lista de materiales** y toque **Adjuntar plano a esta pieza**.
