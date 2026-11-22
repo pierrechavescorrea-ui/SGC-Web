@@ -14,7 +14,7 @@ ETIQUETA="$(git -C "$RAIZ" rev-parse --short HEAD)"
 REGISTRO="$CUENTA.dkr.ecr.$REGION.amazonaws.com"
 
 echo "1/5 Imagen $REPO:$ETIQUETA"
-docker build -t "$REPO:$ETIQUETA" "$RAIZ"
+docker build --pull -t "$REPO:$ETIQUETA" "$RAIZ"
 
 echo "2/5 ECR"
 aws ecr describe-repositories --region "$REGION" --repository-names "$REPO" >/dev/null 2>&1 \

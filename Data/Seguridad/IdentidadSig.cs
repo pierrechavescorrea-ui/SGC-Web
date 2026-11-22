@@ -1,8 +1,26 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
 namespace SigWeb.Data.Seguridad;
+
+public sealed class InicioSesionSig(UserManager<UsuarioSig> usuarios, IHttpContextAccessor contexto,
+    IUserClaimsPrincipalFactory<UsuarioSig> claims, IOptions<IdentityOptions> opciones,
+    ILogger<SignInManager<UsuarioSig>> log, IAuthenticationSchemeProvider esquemas,
+    IUserConfirmation<UsuarioSig> confirmacion, IConfiguration cfg)
+    : SignInManager<UsuarioSig>(usuarios, contexto, claims, opciones, log, esquemas, confirmacion)
+{
+    public override async Task<bool> IsTwoFactorClientRememberedAsync(UsuarioSig usuario) =>
+        !(cfg.GetValue<bool>("Seguridad:MfaObligatoriaAdministradores") &&
+          await UserManager.IsInRoleAsync(usuario, RolesFabrica.AdministradorGlobal)) &&
+        await base.IsTwoFactorClientRememberedAsync(usuario);
+
+    // Los caracteres de control pueden cambiar cómo el navegador interpreta el destino.
+    public static string DestinoLocal(string? ruta) =>
+        ruta is { Length: > 0 } && ruta[0] == '/' &&
+        (ruta.Length == 1 || ruta[1] is not ('/' or '\\')) && !ruta.Any(char.IsControl) ? ruta : "/";
+}
 
 // Claims de la cookie: nombre visible y proyecto activo (además de id, correo, roles y sello de seguridad).
 public sealed class FabricaClaimsSig : UserClaimsPrincipalFactory<UsuarioSig, IdentityRole>

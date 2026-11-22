@@ -140,23 +140,12 @@ public sealed class PlanDossier
     public static bool EnlaceValido(string ruta) =>
         Uri.TryCreate(ruta, UriKind.Absolute, out var u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps);
 
-    // Ruta física de un archivo guardado ("/uploads/…") dentro de wwwroot; null si es enlace o sale de wwwroot.
+    // Ruta física de un adjunto guardado en uploads. Las rutas históricas también pueden venir codificadas.
     public static string? RutaFisica(string webRoot, string ruta)
     {
-        if (string.IsNullOrWhiteSpace(ruta) || ruta.Contains("://")) return null;
-        try
-        {
-            var raiz = Path.GetFullPath(webRoot);
-            var rel = ruta.Split('?', '#')[0].TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
-            var full = Path.GetFullPath(Path.Combine(raiz, rel));
-            if (!full.StartsWith(raiz.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return null;
-            if (!File.Exists(full))
-            {
-                var dec = Path.GetFullPath(Path.Combine(raiz, Uri.UnescapeDataString(rel)));
-                if (dec.StartsWith(raiz.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) && File.Exists(dec)) return dec;
-            }
-            return full;
-        }
-        catch { return null; }
+        var fisica = SigWeb.Data.Seguridad.ArchivosSeguros.RutaFisica(webRoot, ruta);
+        if (fisica is null || File.Exists(fisica)) return fisica;
+        var decodificada = SigWeb.Data.Seguridad.ArchivosSeguros.RutaFisica(webRoot, ruta, decodificar: true);
+        return File.Exists(decodificada) ? decodificada : fisica;
     }
 }

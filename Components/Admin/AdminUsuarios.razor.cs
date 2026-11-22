@@ -348,7 +348,9 @@ public partial class AdminUsuarios
         var token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(await um.GeneratePasswordResetTokenAsync(u)));
         using var scope = Scopes.CreateScope();
         var inv = scope.ServiceProvider.GetRequiredService<ServicioInvitaciones>();
-        var enlace = $"{inv.UrlBase(Nav.BaseUri)}/cuenta/restablecer?u={Uri.EscapeDataString(u.Id)}&t={token}";
+        var urlBase = inv.UrlBase(Nav.BaseUri);
+        if (urlBase.Length == 0) throw new OperacionAdminException("Defina Aplicacion:UrlPublica con la URL HTTPS de SGC Web.");
+        var enlace = $"{urlBase}/cuenta/restablecer?u={Uri.EscapeDataString(u.Id)}&t={token}";
         var ok = await Correo.EnviarAsync(u.Email!, "Restablecer contraseña de SGC Web", EnviadorCorreo.Plantilla("Restablecer contraseña",
             "<p>El administrador de SGC Web le envió un enlace para crear una contraseña nueva. Sirve una vez y vence en 2 horas.</p>",
             "Crear contraseña nueva", enlace));

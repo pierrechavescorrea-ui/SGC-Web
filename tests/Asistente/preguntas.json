@@ -1943,5 +1943,19 @@
     "Anterior": "¿Dónde está el botón exportar?",
     "Pregunta": "¿y cómo lo elimino?",
     "Opcion": "Riesgos › Eliminar riesgo (va a la Papelera)"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "Guíame para importar revisiones de una matriz",
+    "Rol": "admin-proyecto",
+    "Contiene": "Cómo importar revisiones de una matriz"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Enséñame paso a paso cómo registrar un mantenimiento",
+    "Rol": "admin-proyecto",
+    "Contiene": "Cómo registrar un mantenimiento"
   }
 ]

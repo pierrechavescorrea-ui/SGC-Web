@@ -42,7 +42,13 @@ public static class ImportadorProject
     public static PlanPrograma Analizar(AppDbContext db, InstantaneaCostos s, Stream xml, string nombreArchivo)
     {
         var plan = new PlanPrograma { NombreArchivo = nombreArchivo };
-        var doc = XDocument.Load(xml);
+        using var lector = System.Xml.XmlReader.Create(xml, new System.Xml.XmlReaderSettings
+        {
+            DtdProcessing = System.Xml.DtdProcessing.Prohibit,
+            XmlResolver = null,
+            MaxCharactersInDocument = 80L * 1024 * 1024
+        });
+        var doc = XDocument.Load(lector);
         var ns = doc.Root?.Name.Namespace ?? XNamespace.None;
         if (doc.Root?.Name.LocalName != "Project") throw new InvalidOperationException("El archivo no es un XML de MS Project (falta el elemento Project).");
         plan.Titulo = doc.Root.Element(ns + "Title")?.Value ?? doc.Root.Element(ns + "Name")?.Value;

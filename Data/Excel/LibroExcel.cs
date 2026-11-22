@@ -44,6 +44,33 @@ public static class LibroExcel
         // Se trabaja sobre una copia en memoria: si ClosedXML falla, se repara la copia y se reintenta (el archivo original no se toca).
         byte[] bytes;
         using (var ms = new MemoryStream()) { s.CopyTo(ms); bytes = ms.ToArray(); }
+        // Verificar el contenido expandido antes de abrir o reparar el mismo arreglo de bytes.
+        try
+        {
+            using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(bytes));
+            const long maximo = 128L * 1024 * 1024;
+            if (zip.Entries.Count > 8192)
+                throw new FormatoArchivoException("El libro supera el límite de 8192 partes.");
+            long restante = maximo;
+            var buffer = new byte[81920];
+            foreach (var entrada in zip.Entries)
+            {
+                if (entrada.Length > restante)
+                    throw new FormatoArchivoException("El libro supera los 128 MiB descomprimidos.");
+                using var parte = entrada.Open();
+                int leidos;
+                while ((leidos = parte.Read(buffer)) > 0)
+                {
+                    restante -= leidos;
+                    if (restante < 0)
+                        throw new FormatoArchivoException("El libro supera los 128 MiB descomprimidos.");
+                }
+            }
+        }
+        catch (InvalidDataException)
+        {
+            throw new FormatoArchivoException("No se pudo abrir el libro: el paquete .xlsx está dañado. Ábralo en Excel y guárdelo de nuevo como .xlsx.");
+        }
         Exception primero;
         try { return new XLWorkbook(new MemoryStream(bytes)); }
         catch (Exception ex) when (ex is not FormatoArchivoException) { primero = ex; }

@@ -3,9 +3,11 @@
 @using Microsoft.EntityFrameworkCore
 @using SigWeb.Data
 @using SigWeb.Data.Iconos
+@using SigWeb.Data.Seguridad
 @using SigWeb.Models
 @inject AppDbContext Db
 @inject IconosApp IconosApp
+@inject UsuarioActual Usuario
 
 <div class="pc-capa ui-capa">
     <div class="pc-cab">
@@ -33,7 +35,7 @@
             <button type="button" class="ui-menu-item @(modulo is null ? "activo" : "")" title="General" @onclick="() => Elegir(null)">
                 <span class="ui-menu-ico"><Ico Nombre="iconos" /></span> General
             </button>
-            @foreach (var m in PuntosIcono.Modulos)
+            @foreach (var m in PuntosIcono.Modulos.Where(m => Usuario.Puede(CatalogoModulos.ClaveDeRuta(m.Ruta), Accion.Ver)))
             {
                 <button type="button" class="ui-menu-item @(modulo == m ? "activo" : "") @(UsaEste(m.MenuPunto) ? "ui-usa" : "")" title="@m.Nombre" @onclick="() => Elegir(m)">
                     <span class="ui-menu-ico"><IconoPunto Punto="@m.MenuPunto" Clase="ui-svg">@Svg(m)</IconoPunto></span> @m.Nombre
@@ -229,10 +231,11 @@
 
     private void Cargar()
     {
-        gruposEnsayo = Db.GruposEnsayo.AsNoTracking().Where(g => !g.Eliminado && g.Activo).OrderBy(g => g.Orden).ThenBy(g => g.Nombre).ToList();
-        tiposEnsayo = Db.TiposEnsayo.AsNoTracking().Where(t => !t.Eliminado && t.Activo).OrderBy(t => t.Orden).ThenBy(t => t.Nombre).ToList();
-        actividades = Db.Actividades.AsNoTracking().Where(a => !a.Eliminado).OrderBy(a => a.Orden).ThenBy(a => a.Nombre).ToList();
-        gruposPlano = Db.GruposPlano.AsNoTracking().Where(g => !g.Eliminado && g.Activo).OrderBy(g => g.Orden).ThenBy(g => g.Nombre).ToList();
+        var verEnsayos = Usuario.Puede("ensayos", Accion.Ver);
+        gruposEnsayo = verEnsayos ? Db.GruposEnsayo.AsNoTracking().Where(g => !g.Eliminado && g.Activo).OrderBy(g => g.Orden).ThenBy(g => g.Nombre).ToList() : [];
+        tiposEnsayo = verEnsayos ? Db.TiposEnsayo.AsNoTracking().Where(t => !t.Eliminado && t.Activo).OrderBy(t => t.Orden).ThenBy(t => t.Nombre).ToList() : [];
+        actividades = Usuario.Puede("actividades", Accion.Ver) ? Db.Actividades.AsNoTracking().Where(a => !a.Eliminado).OrderBy(a => a.Orden).ThenBy(a => a.Nombre).ToList() : [];
+        gruposPlano = Usuario.Puede("planos", Accion.Ver) ? Db.GruposPlano.AsNoTracking().Where(g => !g.Eliminado && g.Activo).OrderBy(g => g.Orden).ThenBy(g => g.Nombre).ToList() : [];
         definiciones = Db.DefinicionesCatalogo.AsNoTracking().Where(d => !d.Eliminado && d.Activo).OrderBy(d => d.Orden).ThenBy(d => d.Nombre).ToList();
         rutaCatalogoDefecto = Db.IconosCatalogo.AsNoTracking().Where(i => i.Clave == "catalogo").Select(i => i.RutaArchivo).FirstOrDefault();
     }
@@ -294,7 +297,11 @@
 
     private bool Asignado(string p) => EsElemento(p) ? IdAsignado(p) is not null : IconosApp.Asignado(p);
 
-    private void Elegir(ModuloIconos? m) { modulo = m; sub = null; punto = null; }
+    private void Elegir(ModuloIconos? m)
+    {
+        if (m is not null && !Usuario.Puede(CatalogoModulos.ClaveDeRuta(m.Ruta), Accion.Ver)) return;
+        modulo = m; sub = null; punto = null;
+    }
 
     private void Entrar(string s) { sub = s; punto = null; }
 
@@ -340,17 +347,20 @@
 
     private async Task Asignar()
     {
-        if (punto is null) return;
+        if (punto is null || !PuedeCambiar()) return;
         if (EsElemento(punto)) await GuardarElementoAsync(punto, Icono.Id);
         else await IconosApp.AsignarAsync(Db, punto, Icono.Id);
     }
 
     private async Task Restablecer()
     {
-        if (punto is null) return;
+        if (punto is null || !PuedeCambiar()) return;
         if (EsElemento(punto)) await GuardarElementoAsync(punto, null);
         else await IconosApp.RestablecerAsync(Db, punto);
     }
+
+    private bool PuedeCambiar() => !Usuario.VeComoOtro && Usuario.Puede("catalogos", Accion.Ver | Accion.Editar) &&
+        (modulo is null || Usuario.Puede(CatalogoModulos.ClaveDeRuta(modulo.Ruta), Accion.Ver | Accion.Editar));
 
     // Guarda el ícono propio del elemento (IconoCatalogoId) sin tocar el resto de sus datos.
     private async Task GuardarElementoAsync(string p, int? iconoId)

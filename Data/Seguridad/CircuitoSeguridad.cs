@@ -46,7 +46,8 @@ public sealed class CircuitoSeguridad : CircuitHandler
     private async Task<SesionSig?> SesionAsync()
     {
         var estado = await _auth.GetAuthenticationStateAsync();
-        if (MiddlewareSeguridad.RequiereAltaMfa(estado.User, _permisos, _cfg)) return null;
+        if (MiddlewareSeguridad.RequiereAltaMfa(estado.User, _permisos, _cfg) ||
+            MiddlewareSeguridad.RequiereReautenticarMfa(estado.User, _permisos, _cfg)) return null;
         return ConstruirSesion(estado.User, _proyectos, _permisos, Modulo());
     }
 

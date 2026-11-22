@@ -20,7 +20,7 @@
 {
     <div class="cu-aviso @(error ? "error" : "ok")" role="alert">@mensaje</div>
 }
-@if (Env.IsDevelopment() && Cfg.GetValue<bool>("Autenticacion:AccesoLibreDesarrollo"))
+@if (AccesoLibreLocal)
 {
     <form method="post" @formname="dev" @onsubmit="EntrarDesarrollo" class="cu-aviso cu-dev">
         <AntiforgeryToken />
@@ -63,6 +63,8 @@
 
     private string? mensaje;
     private bool error;
+    private bool AccesoLibreLocal => Env.IsDevelopment() && Cfg.GetValue<bool>("Autenticacion:AccesoLibreDesarrollo") &&
+        MiddlewareSeguridad.EsOrigenLocalDesarrollo(HttpContext);
 
     public sealed class Modelo
     {
@@ -83,12 +85,13 @@
             "restablecida" => "Contraseña cambiada. Ya puede entrar.",
             "salio" => "Sesión cerrada.",
             "expirada" => "La sesión venció. Entre de nuevo.",
+            "mfa" => "Inicie sesión de nuevo para verificar el segundo factor.",
             _ => null,
         };
     }
 
     public static string Destino(string? volver) =>
-        !string.IsNullOrEmpty(volver) && volver.StartsWith('/') && !volver.StartsWith("//") && !volver.StartsWith("/\\") && !volver.StartsWith("/cuenta") ? volver : "/";
+        volver?.StartsWith("/cuenta", StringComparison.OrdinalIgnoreCase) == true ? "/" : InicioSesionSig.DestinoLocal(volver);
 
     private async Task EntrarAsync()
     {
@@ -132,7 +135,7 @@
     private void EntrarDesarrollo()
     {
         // Solo en desarrollo con acceso libre habilitado; cookie de sesión: al cerrar el navegador vuelve el login.
-        if (Env.IsDevelopment() && Cfg.GetValue<bool>("Autenticacion:AccesoLibreDesarrollo"))
+        if (AccesoLibreLocal)
             HttpContext.Response.Cookies.Append(ArranqueSeguridad.CookieAccesoLibre, ArranqueSeguridad.IdArranque, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax, IsEssential = true });
         Nav.NavigateTo(Destino(ReturnUrl), forceLoad: true);
     }

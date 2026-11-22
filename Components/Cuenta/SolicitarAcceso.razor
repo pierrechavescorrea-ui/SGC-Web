@@ -96,7 +96,8 @@ else
 
         var admins = (await Usuarios.GetUsersInRoleAsync(RolesFabrica.AdministradorGlobal))
             .Where(a => a.Activo && !a.Anonimizado && a.Email is not null && a.Email != ArranqueSeguridad.EmailDesarrollo).Select(a => a.Email!).ToList();
-        var url = Invitaciones.UrlBase(Nav.BaseUri) + "/admin/invitaciones?vista=solicitudes";
+        var urlBase = Invitaciones.UrlBase(Nav.BaseUri);
+        var url = urlBase.Length == 0 ? null : urlBase + "/admin/invitaciones?vista=solicitudes";
         Func<string?, string> e = s => System.Net.WebUtility.HtmlEncode(s ?? "");
         var cuerpo = $"<p><b>{e(nombre)}</b> ({e(email)}){(string.IsNullOrWhiteSpace(M.Empresa) ? "" : ", " + e(M.Empresa.Trim()))} pidió acceso.</p>" +
                      (string.IsNullOrWhiteSpace(M.Motivo) ? "" : $"<p style=\"color:#4b5563\">{e(M.Motivo.Trim())}</p>");

@@ -61,8 +61,7 @@ Variables normales: `ASPNETCORE_ENVIRONMENT=Production`, `TZ=America/Bogota`.
 1. Restaurar la base actual en RDS como `sigweb` (pg_dump/pg_restore).
 2. Copiar `wwwroot/uploads` del equipo actual al EFS (`aws s3 cp` a un bucket temporal + `rsync` desde una instancia con el EFS montado).
 3. Desplegar con `Seguridad__AdministradorInicial=correo@empresa.com`. La app crea la base central, los roles, el proyecto
-   PILOTO (la base existente) y la EMPRESA, y envía la invitación al administrador. Si el correo aún no funciona, el enlace
-   queda en el registro de la app (CloudWatch Logs), una sola vez.
+   PILOTO (la base existente) y la EMPRESA, y envía la invitación al administrador. Si la entrega falla, corrija la configuración SMTP y reinicie la tarea para emitir una invitación nueva.
 4. El administrador crea su contraseña, activa la verificación en dos pasos (obligatoria para administradores) e invita al resto.
 5. Quitar `Seguridad__AdministradorInicial` de la tarea.
 

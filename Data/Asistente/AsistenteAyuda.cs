@@ -16,6 +16,7 @@ public sealed class AsistenteAyuda
         public required Quien De { get; init; }
         public string Texto { get; init; } = "";                 // lo que escribió el usuario, o una frase corta del asistente
         public ManualAyuda.Seccion? Seccion { get; init; }       // sección del manual que responde
+        public GuiaAyuda? Guia { get; init; }
         public string? Aviso { get; init; }                      // p. ej. "Su rol no tiene acceso a este módulo"
         public string? RutaIr { get; init; }
         public string? NombreIr { get; init; }
@@ -93,6 +94,14 @@ public sealed class AsistenteAyuda
 
     private Mensaje Responder(string pregunta, string? ruta)
     {
+        if (GuiaAyuda.Tarea(pregunta) is { } tarea)
+        {
+            if (TextoAyuda.Terminos(tarea).Count == 0)
+                tarea = Historial.LastOrDefault(m => m.Seccion != null)?.Seccion?.Titulo ?? "";
+            var guia = GuiaAyuda.Buscar(_manual, _usuario, tarea, ruta);
+            return new Mensaje { De = Quien.Asistente, Guia = guia,
+                Texto = guia?.Titulo ?? "¿Qué tarea desea realizar paso a paso?" };
+        }
         if (PersonaPir.PreguntaPorMi(pregunta)) return new Mensaje { De = Quien.Asistente, Texto = PersonaPir.QuienSoy() };
         var palabras = TextoAyuda.Palabras(pregunta).ToList();
         var utiles = palabras.Where(p => !TextoAyuda.EsVacia(p) && !Saludos.Contains(p) && !Agradece.Contains(p)).ToList();
@@ -209,6 +218,9 @@ public sealed class AsistenteAyuda
         r.Atajos.AddRange(atajos.Where(a => !(a.Ruta == r.RutaIr && a.Resaltar == r.ResaltarIr)));
         return r;
     }
+
+    public GuiaAyuda? RetomarGuia(string id) =>
+        _manual.PorId(id) is { } seccion ? GuiaAyuda.Preparar(_manual, seccion, _usuario) : null;
 
     private bool PuedeVerOpcion(ManualAyuda.Opcion o) =>
         AccesoAyuda.Permite(_usuario,o.Ruta,o.Requiere);

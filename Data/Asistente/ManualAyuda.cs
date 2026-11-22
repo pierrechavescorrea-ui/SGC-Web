@@ -21,6 +21,7 @@ public sealed class ManualAyuda
     public sealed record Capitulo(string Archivo, string Modulo, string Titulo, string Menu, IReadOnlyList<string> Rutas, IReadOnlyList<string> Palabras)
     {
         public List<Opcion> Opciones { get; } = new();
+        public List<LectorInterfaz.Control> Campos { get; } = new();
 
         // Primera ruta sin parámetros = a dónde lleva el botón «Ir a…».
         public string? RutaIr => Rutas.FirstOrDefault(r => !r.Contains('{'));
@@ -229,7 +230,8 @@ public sealed class ManualAyuda
                 cap = new Capitulo(ruta.Trim('/'),Seguridad.CatalogoModulos.ClaveDeRuta(ruta),nombre,"",new[] { ruta }, Array.Empty<string>());
                 capitulos.Add(cap);
             }
-            foreach (var control in grupo)
+            cap.Campos.AddRange(grupo.Where(c => c.Campo));
+            foreach (var control in grupo.Where(c => !c.Campo))
                 if (!cap.Opciones.Any(o => o.Ruta.Split('?')[0] == ruta && (o.Nombre == control.Nombre || o.Resaltar?.TrimStart('!') == control.Nombre)))
                     cap.Opciones.Add(new(control.Nombre,DestinoControl(ruta,control.Nombre),control.Nombre,cap));
         }

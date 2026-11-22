@@ -219,7 +219,7 @@ app.MapStaticAssets().AllowAnonymous();
 app.MapEndpointsCuenta();
 app.MapEndpointsPreferencias();
 SigWeb.Data.Seguridad.FiltroAuditoria.MapExportar(app);
-app.MapHealthChecks("/salud").AllowAnonymous().DisableRateLimiting();   // vivo (balanceador)
+app.MapHealthChecks("/salud", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions { Predicate = _ => false }).AllowAnonymous().DisableRateLimiting();   // vivo (balanceador)
 app.MapHealthChecks("/salud/listo", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 { Predicate = c => c.Tags.Contains("listo") }).AllowAnonymous();
 // Plantilla de proyecto: el libro se descarga por HTTP (no por el circuito). ?modulos=tiros,torres&datos=1

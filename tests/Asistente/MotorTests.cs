@@ -36,6 +36,55 @@ public class MotorTests
     }
 
     [Theory]
+    [InlineData("Enséñame paso a paso cómo registrar un mantenimiento", true)]
+    [InlineData("¿Puede mostrarme cómo abrir el listado?", true)]
+    [InlineData("Lléveme al formulario de la matriz", true)]
+    [InlineData("¿Cómo registro un mantenimiento?", false)]
+    public void DistingueLasPeticionesDeGuia(string pregunta, bool esperada)
+    {
+        Assert.Equal(esperada, GuiaAyuda.Tarea(pregunta) != null);
+    }
+
+    [Theory]
+    [InlineData("Guíame para importar revisiones de una matriz","admin-proyecto",false)]
+    [InlineData("Muéstreme cómo importar revisiones de una matriz","consulta-restringida",true)]
+    public void GuiaImportacionRespetaElPermiso(string pregunta,string rol,bool bloqueado)
+    {
+        var matriz = CatalogoModulos.Fijos.ToDictionary(m => m.Clave,m => RolesFabrica.Permiso(rol,m));
+        using var sesion = AmbienteSig.Usar(new SesionSig { Proyecto = new(5,"P","Proyecto de prueba","","",false,true,null),
+            UsuarioId = "prueba", Permisos = new(matriz,false,false,rol,true) });
+        var motor = new AsistenteAyuda(Manual,new UsuarioActual(),Entorno,NullLogger<AsistenteAyuda>.Instance);
+        var guia = Assert.IsType<GuiaAyuda>(motor.Preguntar(pregunta,"/riesgos").Guia);
+        var paso = guia.Pasos.First();
+        Assert.Equal(bloqueado,paso.Bloqueado);
+        if (bloqueado) { Assert.Null(paso.Control); Assert.Null(paso.Ruta); Assert.Contains("administrador",paso.Texto); }
+        else
+        {
+            Assert.Equal("Importar el libro Excel de la matriz", paso.Control);
+            Assert.Equal("/riesgos", paso.Ruta);
+            Assert.Equal(6, guia.Pasos.Count);
+            Assert.Equal("Libro Excel de la matriz de riesgos", guia.Pasos[1].Control);
+            Assert.Null(guia.Pasos[3].Control);
+            Assert.Equal(guia.Pasos, motor.RetomarGuia(guia.SeccionId)?.Pasos);
+        }
+    }
+
+    [Fact]
+    public void GuiaDeMantenimientoIdentificaLaRutaDeLaHojaDeVida()
+    {
+        var matriz = CatalogoModulos.Fijos.ToDictionary(m => m.Clave, _ => Accion.Todas);
+        using var sesion = AmbienteSig.Usar(new SesionSig { Proyecto = new(5,"P","Proyecto de prueba","","",false,true,null),
+            UsuarioId = "prueba", Permisos = new(matriz,false,false,"admin-proyecto",true) });
+        var motor = new AsistenteAyuda(Manual, new UsuarioActual(), Entorno, NullLogger<AsistenteAyuda>.Instance);
+        var guia = Assert.IsType<GuiaAyuda>(motor.Preguntar("Enséñeme cómo registrar un mantenimiento", "/equipos").Guia);
+        Assert.Equal("Abrir hoja de vida", guia.Pasos[0].Control);
+        Assert.Equal("Registrar mantenimiento", guia.Pasos[1].Control);
+        Assert.Equal("/equipos/{EquipoId:int}/hoja-de-vida", guia.Pasos[1].RutaPlantilla);
+        Assert.Equal("Fecha", guia.Pasos[2].Control);
+        Assert.Equal(guia.Pasos[1].RutaPlantilla, guia.Pasos[2].RutaPlantilla);
+    }
+
+    [Theory]
     [InlineData("consulta-restringida",false,false,false)]
     [InlineData("colaborador",false,true,false)]
     [InlineData("admin-proyecto",true,true,false)]

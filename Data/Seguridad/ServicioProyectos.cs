@@ -172,7 +172,7 @@ public sealed partial class ServicioProyectos
         catch (Exception ex)
         {
             _log.LogError(ex, "No se pudo preparar la base del proyecto {Codigo}", p.Codigo);
-            return "No se pudo preparar la base del proyecto: " + ex.GetBaseException().Message;
+            return "No se pudo preparar la base del proyecto. Consulte al administrador.";
         }
         finally { candado.Release(); }
     }

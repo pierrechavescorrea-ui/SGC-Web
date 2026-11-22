@@ -234,6 +234,12 @@ le pide confirmar para no perder lo escrito.
 ### ¿Cómo exporto una tabla a Excel?
 Cuando la lista ofrece **Exportar**, abra el botón del encabezado y elija el formato disponible.
 
+### ¿Cómo pido una guía paso a paso?
+
+Escriba **Guíame para importar revisiones de una matriz** o **Muéstreme cómo registrar un mantenimiento**. π busca la tarea en el manual y abre la pantalla correspondiente. El globo indica el número de paso y la acción. Cuando encuentra el control, π lo señala con las manos.
+
+Use **Anterior** y **Siguiente** para recorrer la guía. Al pulsar un botón señalado o confirmar un cambio en un campo señalado, la guía avanza. Si el menú o formulario está cerrado, ábralo para que π encuentre el control. Si falta un permiso, el globo indica a quién solicitarlo. Pulse **Terminar** o **Esc** para volver al panel.
+
 ### ¿El asistente de ayuda usa internet o inteligencia artificial externa?
 No. El asistente busca solo en el manual de la app, dentro del servidor. Nada de lo que escriba sale de la app.
 

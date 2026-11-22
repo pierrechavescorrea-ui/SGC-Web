@@ -1,5 +1,7 @@
 @page "/mi-cuenta"
 @using System.Text
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
 @using SigWeb.Data.Bot
 @using SigWeb.Data.Seguridad
@@ -355,7 +357,7 @@
 
     private async Task ActivarMfaAsync()
     {
-        if (u is null || Actual.VeComoOtro) return;
+        if (u is null || Actual.VeComoOtro || u.TwoFactorEnabled) return;
         var codigo = (Mfa.Codigo ?? "").Replace(" ", "").Replace("-", "");
         if (!await Usuarios.VerifyTwoFactorTokenAsync(u, Usuarios.Options.Tokens.AuthenticatorTokenProvider, codigo))
         {
@@ -364,10 +366,15 @@
             await RefrescarAsync();
             return;
         }
-        await Usuarios.SetTwoFactorEnabledAsync(u, true);
+        var activado = await Usuarios.SetTwoFactorEnabledAsync(u, true);
+        if (!activado.Succeeded) { Mal("No se pudo activar la verificación en dos pasos. Vuelva a intentar."); return; }
         Permisos.Invalidar();
         codigosNuevos = await Usuarios.GenerateNewTwoFactorRecoveryCodesAsync(u, 10);
-        await SignIn.RefreshSignInAsync(u);
+        var sesion = await HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+        if (!Actual.Desarrollo && sesion.Succeeded)
+            await SignIn.SignInWithClaimsAsync(u, sesion.Properties, new[] { new Claim("amr", "mfa") });
+        else
+            await SignIn.RefreshSignInAsync(u);
         Auditoria.Registrar(HttpContext, "Activar verificación en 2 pasos", true, null, u.Id, u.Email);
         Ok("Verificación en dos pasos activada.");
         exigirMfa = false;

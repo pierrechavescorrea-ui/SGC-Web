@@ -70,7 +70,7 @@ public sealed class ServicioBotTelegram : BackgroundService
         nombre = nombre.Trim();
         var entrada = new CodigoVinculo(nombre[..Math.Min(nombre.Length, 150)], proyectoId ?? AmbienteSig.ProyectoId, usuarioId);
         string codigo;
-        do codigo = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+        do codigo = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         while (!_codigos.TryAdd(codigo, (entrada, vence)));
         return (codigo, vence);
     }

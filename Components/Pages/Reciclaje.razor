@@ -3,9 +3,11 @@
 @using SigWeb.Data.Papelera
 @using SigWeb.Data
 @using SigWeb.Data.Tablas
+@using SigWeb.Data.Seguridad
 @using SigWeb.Models
 @inject AppDbContext Db
 @inject IEnumerable<IProveedorPapelera> Proveedores
+@inject UsuarioActual Usuario
 
 <EncabezadoPagina Titulo="Papelera de reciclaje" Icono="papelera" Subtitulo="@(cargando ? "Cargando…" : $"{registrosTotales.Count:N0} registro{(registrosTotales.Count == 1 ? "" : "s")}")">
     <Acciones>
@@ -203,6 +205,7 @@ else
     private string? progreso;
     private int limite = 200;
     private bool Ocupado => cargando || progreso is not null;
+    private bool PuedeAdministrar => !Usuario.VeComoOtro && Usuario.Puede("papelera", Accion.Ver | Accion.Administrar);
     private Dictionary<string, IProveedorPapelera> proveedorPorModulo = new();
     private CancellationTokenSource? ctsFiltro;
 
@@ -300,11 +303,12 @@ else
         if (!firstRender) return;
         // Cada módulo con papelera purga sus propios vencidos: la página no necesita saber cómo se borra cada tipo de dato.
         var fallosPurga = new List<string>();
-        await Task.Run(() =>
-        {
-            foreach (var proveedor in proveedorPorModulo.Values)
-                if (Intentar(proveedor.PurgarVencidos) is string f) fallosPurga.Add($"{proveedor.Modulo}: {f}");
-        });
+        if (PuedeAdministrar)
+            await Task.Run(() =>
+            {
+                foreach (var proveedor in proveedorPorModulo.Values)
+                    if (Intentar(proveedor.PurgarVencidos) is string f) fallosPurga.Add($"{proveedor.Modulo}: {f}");
+            });
         if (fallosPurga.Count > 0) { mensaje = "No se pudieron purgar algunos vencidos:\n" + string.Join("\n", fallosPurga); errorMsg = true; }
         await RecargarAsync();
     }
@@ -453,6 +457,7 @@ else
 
     private async Task RestaurarYa(RegistroPapelera r)
     {
+        if (Ocupado || !PuedeAdministrar) return;
         string? fallo = null;
         if (proveedorPorModulo.TryGetValue(r.Modulo, out var proveedor))
         {
@@ -498,7 +503,7 @@ else
 
     private async Task EjecutarConfirmacion()
     {
-        if (Ocupado) return;
+        if (Ocupado || !PuedeAdministrar) return;
         var modo = modoConfirmacion;
         List<(string Modulo, int Id, string Titulo)> lista = modo switch
         {

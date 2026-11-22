@@ -33,17 +33,22 @@ public static class MiddlewareSeguridad
     private static bool EsLoopback(System.Net.IPAddress? ip) =>
         ip is not null && System.Net.IPAddress.IsLoopback(ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip);
 
+    public static bool EsOrigenLocalDesarrollo(HttpContext ctx)
+    {
+        var host = ctx.Request.Host.Host;
+        return ctx.Items.TryGetValue(OrigenLocal, out var origen) && origen is true &&
+            EsLoopback(ctx.Connection.RemoteIpAddress) &&
+            (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+                System.Net.IPAddress.TryParse(host.Trim('[', ']'), out var ipHost) && EsLoopback(ipHost));
+    }
+
     public static IApplicationBuilder UseAccesoLibreDesarrollo(this WebApplication app)
     {
         var habilitado = app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Autenticacion:AccesoLibreDesarrollo");
         if (habilitado) app.Logger.LogWarning("Acceso libre de desarrollo activo para peticiones locales.");
         return app.Use(async (ctx, next) =>
         {
-            var host = ctx.Request.Host.Host;
-            var local = habilitado && ctx.Items.TryGetValue(OrigenLocal, out var origen) && origen is true &&
-                EsLoopback(ctx.Connection.RemoteIpAddress) &&
-                (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-                    System.Net.IPAddress.TryParse(host.Trim('[', ']'), out var ipHost) && EsLoopback(ipHost));
+            var local = habilitado && EsOrigenLocalDesarrollo(ctx);
             // Sesión de desarrollo de otro equipo/origen o de un arranque anterior de la app: se cierra (vuelve el login).
             if (ctx.User.HasClaim(c => c.Type == ClaimsSig.Desarrollo) &&
                 (!local || !ctx.User.HasClaim(ClaimsSig.Desarrollo, ArranqueSeguridad.IdArranque)))
@@ -72,31 +77,40 @@ public static class MiddlewareSeguridad
     public static IApplicationBuilder UseAltaMfaAdministradores(this WebApplication app) => app.Use(async (ctx, next) =>
     {
         var path = ctx.Request.Path;
-        var cuenta = path.Equals("/mi-cuenta") || path.Equals("/cuenta/salir") || path.Equals("/cuenta/dejar-ver-como");
+        var cuenta = path.Equals("/cuenta/ingresar") || path.Equals("/cuenta/ingresar-2fa") ||
+            path.Equals("/cuenta/salir") || path.Equals("/cuenta/dejar-ver-como");
         var recursoPublico = path.StartsWithSegments("/_framework") || path.StartsWithSegments("/_content") ||
             path.StartsWithSegments("/css") || path.StartsWithSegments("/js") || path.StartsWithSegments("/lib") ||
             path.StartsWithSegments("/img") || path.StartsWithSegments("/images") || path.StartsWithSegments("/fonts") ||
             path.StartsWithSegments("/salud") || path.Equals("/favicon.ico") || path.Equals("/csp-reporte") || EsRutaLogo(path);
-        if (!cuenta && !recursoPublico && ctx.User.Identity?.IsAuthenticated == true &&
-            RequiereAltaMfa(ctx.User, ctx.RequestServices.GetRequiredService<ServicioPermisos>(), app.Configuration))
+        if (!cuenta && !recursoPublico && ctx.User.Identity?.IsAuthenticated == true)
         {
-            if (HttpMethods.IsGet(ctx.Request.Method) && !path.StartsWithSegments("/api") &&
-                !path.StartsWithSegments("/_blazor") && !path.StartsWithSegments("/uploads") && !EsRutaModelo(path))
-                ctx.Response.Redirect("/mi-cuenta?mfa=1#mfa");
-            else
-                Rechazar(ctx, StatusCodes.Status403Forbidden);
-            return;
+            var permisos = ctx.RequestServices.GetRequiredService<ServicioPermisos>();
+            var alta = RequiereAltaMfa(ctx.User, permisos, app.Configuration);
+            if (alta && path.Equals("/mi-cuenta")) { await next(); return; }
+            if (alta || RequiereReautenticarMfa(ctx.User, permisos, app.Configuration))
+            {
+                if (HttpMethods.IsGet(ctx.Request.Method) && !path.StartsWithSegments("/api") &&
+                    !path.StartsWithSegments("/_blazor") && !path.StartsWithSegments("/uploads") && !EsRutaModelo(path))
+                    ctx.Response.Redirect(alta ? "/mi-cuenta?mfa=1#mfa" : "/cuenta/ingresar?m=mfa");
+                else
+                    Rechazar(ctx, StatusCodes.Status403Forbidden);
+                return;
+            }
         }
         await next();
     });
 
-    internal static bool RequiereAltaMfa(ClaimsPrincipal usuario, ServicioPermisos permisos, IConfiguration cfg)
-    {
-        if (!cfg.GetValue("Seguridad:MfaObligatoriaAdministradores", false) ||
-            usuario.HasClaim(c => c.Type is ClaimsSig.Desarrollo or ClaimsSig.Impersonador)) return false;
-        var id = usuario.FindFirstValue(ClaimTypes.NameIdentifier);
-        return permisos.EsAdministradorGlobal(id) && !permisos.TieneMfa(id);
-    }
+    internal static bool RequiereAltaMfa(ClaimsPrincipal usuario, ServicioPermisos permisos, IConfiguration cfg) =>
+        ExigeMfa(usuario, permisos, cfg) && !permisos.TieneMfa(usuario.FindFirstValue(ClaimTypes.NameIdentifier));
+
+    internal static bool RequiereReautenticarMfa(ClaimsPrincipal usuario, ServicioPermisos permisos, IConfiguration cfg) =>
+        !usuario.HasClaim("amr", "mfa") && ExigeMfa(usuario, permisos, cfg);
+
+    private static bool ExigeMfa(ClaimsPrincipal usuario, ServicioPermisos permisos, IConfiguration cfg) =>
+        cfg.GetValue<bool>("Seguridad:MfaObligatoriaAdministradores") &&
+        !usuario.HasClaim(c => c.Type == ClaimsSig.Desarrollo) &&
+        permisos.EsAdministradorGlobal(usuario.FindFirstValue(ClaimTypes.NameIdentifier));
 
     private static void Rechazar(HttpContext ctx, int codigo)
     {
@@ -143,11 +157,11 @@ public static class MiddlewareSeguridad
                         await um.UpdateAsync(u);
                         var sm = ctx.RequestServices.GetRequiredService<SignInManager<UsuarioSig>>();
                         // En la misma petición del acceso libre de desarrollo aún no hay cookie que refrescar: se emite de nuevo.
-                        var extra = user.Claims.Where(c => c.Type == ClaimsSig.Desarrollo).ToList();
-                        if (extra.Count > 0) await sm.SignInWithClaimsAsync(u, isPersistent: false, extra);
+                        var extra = user.Claims.Where(c => c.Type is ClaimsSig.Desarrollo or "amr").ToList();
+                        if (user.HasClaim(c => c.Type == ClaimsSig.Desarrollo)) await sm.SignInWithClaimsAsync(u, isPersistent: false, extra);
                         else await sm.RefreshSignInAsync(u);
                         ctx.User = await sm.CreateUserPrincipalAsync(u);
-                        if (extra.Count > 0) ((ClaimsIdentity)ctx.User.Identity!).AddClaims(extra.Select(c => new Claim(c.Type, c.Value)));
+                        ((ClaimsIdentity)ctx.User.Identity!).AddClaims(extra);
                         sesion = CircuitoSeguridad.ConstruirSesion(ctx.User, proyectos, permisos, modulo, AuditoriaAccesos.Ip(ctx));
                     }
                 }
@@ -180,6 +194,12 @@ public static class MiddlewareSeguridad
             // No es un documento de cliente; lo sube solo el administrador (LogoApp, Administración › Sistema).
             var logo = EsRutaLogo(ctx.Request.Path);
             if (AmbienteSig.Actual is null && !logo) { Rechazar(ctx, StatusCodes.Status401Unauthorized); return; }
+            // La hoja de vida entrega archivos por id desde la base activa y verifica el permiso de Trazado.
+            if (ctx.Request.Path.StartsWithSegments("/uploads/hojavida"))
+            {
+                Rechazar(ctx, StatusCodes.Status404NotFound);
+                return;
+            }
             // Los JSON/IFC de torres también los dibujan Avance de obra, Línea 3D y la hoja de vida (Trazado).
             if (modelo && AmbienteSig.Actual is { } ses && !ses.Sistema &&
                 !new[] { "ifc", "avance-obra", "trazado" }.Any(m => ses.Permisos.Puede(m, Accion.Ver)))
@@ -265,7 +285,9 @@ public static class MiddlewareSeguridad
                     }
                 }
                 // Páginas con datos: que el navegador no las guarde en caché compartida.
-                if (ctx.User.Identity?.IsAuthenticated == true && !h.ContainsKey("Cache-Control") && !Path.HasExtension(ctx.Request.Path.Value))
+                if (!h.ContainsKey("Cache-Control") && (ctx.Request.Path.StartsWithSegments("/cuenta") ||
+                    ctx.User.Identity?.IsAuthenticated == true &&
+                    (ctx.Request.Path.StartsWithSegments("/api") || !Path.HasExtension(ctx.Request.Path.Value))))
                     h.CacheControl = "no-store";
                 return Task.CompletedTask;
             });

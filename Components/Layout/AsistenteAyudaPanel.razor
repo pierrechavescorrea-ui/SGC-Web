@@ -35,6 +35,7 @@
             <g class="pir-puntos"><circle cx="97" cy="17" r="1.6" /><circle cx="103" cy="11" r="2.1" /><circle cx="110" cy="5" r="2.6" /></g>
         </svg>
         <svg class="pir pir-manos" viewBox="0 0 120 86" aria-hidden="true" focusable="false">
+            <g class="pir-presenta"><path d="M48 67 Q39 80 29 74 L16 65 Q14 62 17 62 L28 66 L22 60 Q21 57 24 58 L35 65 Q40 65 44 59" /><path transform="translate(120 0) scale(-1 1)" d="M48 67 Q39 80 29 74 L16 65 Q14 62 17 62 L28 66 L22 60 Q21 57 24 58 L35 65 Q40 65 44 59" /></g>
             <path class="pir-cruzadas pir-gesto" d="M36 82 q10-8 29 0 M84 82 q-10-8-29 0" />
             <path class="pir-apoyo" d="M22 80 q4-10 12-4 M86 76 q8-6 12 4" />
         </svg>
@@ -119,6 +120,9 @@
     private string texto = "";
     private ElementReference caja, entrada;
     private bool desplazar;
+    private GuiaAyuda? guiaPendiente;
+    private int pasoPendiente;
+    private sealed record Reanudacion(string Id, int Paso);
 
     private string Ruta => "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0];
     [Inject] private ManualAyuda Manual { get; set; } = default!;
@@ -141,7 +145,8 @@
     private void Enviar()
     {
         if (string.IsNullOrWhiteSpace(texto)) return;
-        Asistente.Preguntar(texto, Ruta);
+        guiaPendiente = Asistente.Preguntar(texto, Ruta).Guia;
+        pasoPendiente = 0;
         texto = "";
         desplazar = true;
     }
@@ -155,8 +160,32 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!desplazar || !abierto) return;
-        desplazar = false;
-        try { await JS.InvokeVoidAsync("sigAsistente.alFinal", caja, entrada); } catch (JSException) { } catch (InvalidOperationException) { }
+        try
+        {
+            if (firstRender)
+            {
+                var retomar = await JS.InvokeAsync<Reanudacion?>("sigGuia.recuperar");
+                if (retomar != null && Asistente.RetomarGuia(retomar.Id) is { } guiaRetomada)
+                {
+                    guiaPendiente = guiaRetomada;
+                    pasoPendiente = retomar.Paso;
+                    abierto = desplazar = true;
+                    StateHasChanged();
+                    return;
+                }
+            }
+            if (!desplazar || !abierto) return;
+            desplazar = false;
+            await JS.InvokeVoidAsync("sigAsistente.alFinal", caja, entrada);
+            if (guiaPendiente != null)
+            {
+                var guia = guiaPendiente;
+                guiaPendiente = null;
+                await JS.InvokeVoidAsync("sigGuia.iniciar", guia, pasoPendiente);
+            }
+        }
+        catch (JSException) { }
+        catch (JSDisconnectedException) { }
+        catch (InvalidOperationException) { }
     }
 }

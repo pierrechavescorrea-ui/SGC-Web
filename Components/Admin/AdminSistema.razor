@@ -54,7 +54,7 @@
             <dt>Remitente</dt><dd>@Correo.Remitente</dd>
             <dt>Servidor</dt><dd>@(Cfg["Correo:Smtp:Servidor"] ?? "—") @(Cfg["Correo:Smtp:Servidor"] is null ? "" : ":" + Cfg.GetValue("Correo:Smtp:Puerto", 587))</dd>
             <dt>Credenciales</dt><dd>@(string.IsNullOrEmpty(Cfg["Correo:Smtp:Usuario"]) ? "Sin usuario" : "Configuradas (fuera del código)")</dd>
-            <dt>URL de los enlaces</dt><dd>@(Cfg["Aplicacion:UrlPublica"] ?? "No definida: se usa la dirección de la petición (defínala en producción)")</dd>
+            <dt>URL de los enlaces</dt><dd>@(Cfg["Aplicacion:UrlPublica"] is { Length: > 0 } url ? url : "Defina la URL pública HTTPS para enviar enlaces de cuenta")</dd>
         </dl>
         <button type="button" class="btn btn-sm btn-outline-secondary mt-2" title="Enviarme un correo de prueba" @onclick="PruebaAsync" disabled="@Ocupado"><Ico Nombre="aceptar" /></button>
         @if (Correo.Recientes.Count > 0)

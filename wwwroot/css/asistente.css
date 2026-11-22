@@ -1,4 +1,25 @@
 /* Asistente de ayuda interno (Components/Layout/AsistenteAyudaPanel.razor). Colores del tema con respaldo Bootstrap. */
+.asis-panel.asis-guiando { width:auto; top:auto; right:8px; bottom:6px; }
+.asis-guiando > :not(.asis-cab):not(.pir) { display:none; }
+.asis-panel.asis-pir-ausente > .pir { visibility:hidden; }
+.asis-guiando .asis-cab-txt { display:none; }
+.pir-presenta { display:none; }
+.asis-guia-figura,.asis-guia-globo { position:fixed; left:0; top:0; z-index:1095; }
+.asis-guia-figura { width:70px; height:52px; pointer-events:none; }
+.asis-guia-figura svg.pir { position:absolute; inset:0; width:100%; height:100%; transform:none; pointer-events:none; }
+.asis-guia-figura .pir-cab,.asis-guia-figura .pir-cuerpo { animation:none; }
+.asis-guia-figura .pir-manos .pir-apoyo { display:none; }
+.asis-guia-presenta .pir-presenta { display:inline; fill:var(--t-solido,var(--bs-body-bg)); stroke:currentColor; stroke-width:2.5; stroke-linejoin:round; animation:pir-ofrece .35s ease-out; transform-origin:center 75%; rotate:var(--pir-giro,0deg); }
+.asis-guia-figura[data-lado="derecha"] { --pir-giro:14deg; }
+.asis-guia-figura[data-lado="izquierda"] { --pir-giro:-14deg; }
+@keyframes pir-ofrece { from { transform:translateY(4px) scaleX(.75); } }
+.asis-guia-objetivo { outline:3px solid var(--bs-primary,#2571ad)!important; outline-offset:3px; }
+.asis-guia-globo { box-sizing:border-box; width:min(310px,calc(100vw - 12px)); max-height:48dvh; overflow:auto; padding:12px 15px; border:1px solid var(--t-borde,var(--bs-border-color)); border-radius:12px; color:var(--t-texto,var(--bs-body-color)); background:var(--t-solido,var(--bs-body-bg)); box-shadow:0 6px 24px #0003; }
+.asis-guia-globo p { margin:4px 0; }
+.asis-guia-globo small { display:block; }
+.asis-guia-globo div { display:flex; gap:6px; justify-content:flex-end; margin-top:6px; }
+.asis-guia-globo button { width:36px; height:32px; color:inherit; background:var(--t-superficie-2,var(--bs-tertiary-bg)); border:1px solid var(--t-borde,var(--bs-border-color)); border-radius:6px; }
+@media (prefers-reduced-motion:reduce) { .asis-guia-figura .pir-presenta { animation:none; } }
 .asis-panel {
     position: fixed; top: 66px; right: 12px; bottom: 12px; z-index: 1080;   /* 66 px: espacio para la cabeza de π */
     width: min(420px, calc(100vw - 24px));

@@ -55,6 +55,8 @@ else
         var u = await Usuarios.FindByEmailAsync(email);
         // Respuesta idéntica exista o no la cuenta (no se revela quién está registrado).
         enviado = true;
+        var urlBase = Invitaciones.UrlBase(Nav.BaseUri);
+        if (urlBase.Length == 0) return;
         if (u is null || !u.Activo || u.Anonimizado)
         {
             Auditoria.Registrar(HttpContext, "Recuperar contraseña", false, u is null ? "Correo no registrado" : "Cuenta inactiva", u?.Id, email);
@@ -69,7 +71,7 @@ else
         if (Envios.Count > 5000) foreach (var k in Envios.Where(k => ahora - k.Value.Desde > TimeSpan.FromHours(1)).Select(k => k.Key).ToList()) Envios.TryRemove(k, out _);
 
         var token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(await Usuarios.GeneratePasswordResetTokenAsync(u)));
-        var enlace = $"{Invitaciones.UrlBase(Nav.BaseUri)}/cuenta/restablecer?u={Uri.EscapeDataString(u.Id)}&t={token}";
+        var enlace = $"{urlBase}/cuenta/restablecer?u={Uri.EscapeDataString(u.Id)}&t={token}";
         var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
         // El correo sale en segundo plano: el tiempo de respuesta no delata si la cuenta existe.
         _ = Task.Run(() => Correo.EnviarAsync(u.Email!, "Restablecer contraseña de SGC Web", EnviadorCorreo.Plantilla("Restablecer contraseña",

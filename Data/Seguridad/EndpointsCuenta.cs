@@ -43,8 +43,7 @@ public static class EndpointsCuenta
             await sm.RefreshSignInAsync(u);
             aud.Registrar(ctx, "Cambio de proyecto", true, proyectos.Proyecto(id)?.Codigo, u.Id, u.Email);
             // «volver» solo a una ruta local de la app (nunca //otro-sitio ni una URL absoluta).
-            var destino = !string.IsNullOrEmpty(volver) && volver.StartsWith('/') && !volver.StartsWith("//") && !volver.StartsWith("/\\") ? volver : "/";
-            return Results.LocalRedirect(destino);
+            return Results.LocalRedirect(InicioSesionSig.DestinoLocal(volver));
         });
 
         // Ver como otro usuario (solo administrador global; queda en la auditoría y con franja visible).
@@ -55,13 +54,13 @@ public static class EndpointsCuenta
             var par = tokens.Canjear(t);
             if (par is null || par.Value.Admin != admin || !permisos.EsAdministradorGlobal(admin)) return Results.LocalRedirect("/acceso-denegado");
             var objetivo = await um.FindByIdAsync(par.Value.Objetivo);
-            if (objetivo is null || !objetivo.Activo) return Results.LocalRedirect("/admin/usuarios");
+            if (objetivo is null || !objetivo.Activo || permisos.EsAdministradorGlobal(objetivo.Id)) return Results.LocalRedirect("/admin/usuarios");
             aud.Registrar(ctx, "Ver como usuario", true, objetivo.Email, admin, ctx.User.Identity?.Name);
             await sm.SignInWithClaimsAsync(objetivo, false, new[] { new Claim(ClaimsSig.Impersonador, admin!) });
             return Results.LocalRedirect("/");
         });
 
-        g.MapPost("/dejar-ver-como", async (HttpContext ctx, UserManager<UsuarioSig> um, SignInManager<UsuarioSig> sm, ServicioPermisos permisos, AuditoriaAccesos aud) =>
+        g.MapPost("/dejar-ver-como", async (HttpContext ctx, UserManager<UsuarioSig> um, SignInManager<UsuarioSig> sm, ServicioPermisos permisos, AuditoriaAccesos aud, IConfiguration cfg) =>
         {
             var adminId = ctx.User.FindFirstValue(ClaimsSig.Impersonador);
             var admin = adminId is null ? null : await um.FindByIdAsync(adminId);
@@ -72,6 +71,11 @@ public static class EndpointsCuenta
                 return Results.LocalRedirect("/cuenta/ingresar");
             }
             aud.Registrar(ctx, "Fin de ver como usuario", true, ctx.User.Identity?.Name, adminId, admin.Email);
+            if (cfg.GetValue<bool>("Seguridad:MfaObligatoriaAdministradores"))
+            {
+                await sm.SignOutAsync();
+                return Results.LocalRedirect("/cuenta/ingresar?ReturnUrl=%2Fadmin%2Fusuarios");
+            }
             await sm.SignInAsync(admin, false);
             return Results.LocalRedirect("/admin/usuarios");
         });
@@ -143,16 +147,31 @@ public static class EndpointsCuenta
             return Results.LocalRedirect("/mi-cuenta?foto=ok");
         });
 
-        // Avisos de la política de contenido (CSP): lo que el navegador bloqueó (o reportaría). Solo se registran (tamaño limitado).
+        // Las URLs de los reportes pueden contener tokens de alta o recuperación. Registrar solo la directiva.
         app.MapPost("/csp-reporte", async (HttpContext ctx, ILoggerFactory lf) =>
         {
             using var lector = new StreamReader(ctx.Request.Body);
             var buffer = new char[4096];
-            var n = await lector.ReadBlockAsync(buffer, 0, buffer.Length);
-            lf.CreateLogger("SigWeb.Csp").LogInformation("CSP: {Reporte}", new string(buffer, 0, n));
+            var n = await lector.ReadBlockAsync(buffer.AsMemory(), ctx.RequestAborted);
+            try
+            {
+                using var json = JsonDocument.Parse(new string(buffer, 0, n));
+                if (json.RootElement.ValueKind == JsonValueKind.Object && json.RootElement.TryGetProperty("csp-report", out var reporte) &&
+                    reporte.ValueKind == JsonValueKind.Object && reporte.TryGetProperty("effective-directive", out var valor) &&
+                    valor.ValueKind == JsonValueKind.String && valor.GetString() is { } directiva && DirectivasCsp.Contains(directiva))
+                    lf.CreateLogger("SigWeb.Csp").LogInformation("Incidente de CSP en {Directiva}", directiva);
+            }
+            catch (JsonException) { /* reporte incompleto o mal formado */ }
             return Results.NoContent();
         }).AllowAnonymous().DisableAntiforgery();
     }
+
+    private static readonly HashSet<string> DirectivasCsp = new(StringComparer.Ordinal)
+    {
+        "script-src", "script-src-elem", "script-src-attr", "style-src", "style-src-elem", "style-src-attr",
+        "default-src", "img-src", "connect-src", "font-src", "frame-src", "frame-ancestors", "object-src",
+        "base-uri", "form-action", "worker-src", "media-src", "manifest-src", "require-trusted-types-for", "trusted-types"
+    };
 
     // La cookie lleva la versión de la foto (avatar del menú). Con el acceso libre de desarrollo no hay cookie que refrescar.
     private static async Task Refrescar(HttpContext ctx, SignInManager<UsuarioSig> sm, UsuarioSig u)

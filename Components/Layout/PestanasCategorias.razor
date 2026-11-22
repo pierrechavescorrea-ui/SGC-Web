@@ -5,8 +5,10 @@
 @using SigWeb.Data
 @using SigWeb.Data.Documentos
 @using SigWeb.Data.Impacto
+@using SigWeb.Data.Seguridad
 @inject IServiceScopeFactory Scopes
 @inject AppDbContext Db
+@inject UsuarioActual Usuario
 
 <div class="pl-barra">
     <div class="pl-pestanas" role="tablist" aria-label="Categorías">
@@ -81,7 +83,7 @@
     private async Task SoltarPestana(TGrupo destino)
     {
         var origen = arrastrando; arrastrando = null; sobre = null;
-        if (origen is null || origen.Id == destino.Id) return;
+        if (origen is null || origen.Id == destino.Id || !PuedeCambiar(Accion.Editar)) return;
         var lista = grupos.ToList();
         lista.RemoveAll(g => g.Id == origen.Id);
         lista.Insert(Math.Max(0, lista.FindIndex(g => g.Id == destino.Id) + (grupos.IndexOf(origen) < grupos.IndexOf(destino) ? 1 : 0)), origen);
@@ -96,6 +98,7 @@
         Db.ChangeTracker.Clear(); Cargar();
     }
     private bool desdeSin;
+    private bool PuedeCambiar(Accion accion) => !Usuario.VeComoOtro && Usuario.PuedeAqui(Accion.Ver | accion);
     private List<TGrupo> grupos = new();
     private List<IconoCatalogo> iconos = new();
     private TGrupo? formulario, eliminar;
@@ -116,6 +119,9 @@
     private async Task Guardar()
     {
         if (formulario is null) return;
+        var requiere = formulario.Id == 0 ? Accion.Crear : Accion.Editar;
+        if (desdeSin) requiere |= Accion.Editar;
+        if (!PuedeCambiar(requiere)) { aviso = "No tiene permiso para guardar este cambio de categoría."; return; }
         try
         {
             var nombre = formulario.Nombre.Trim();
@@ -176,7 +182,7 @@
     }
     private async Task Eliminar()
     {
-        if (eliminar is null || impacto is null || (impacto.RequiereEntender && !impactoOk)) return;
+        if (eliminar is null || impacto is null || (impacto.RequiereEntender && !impactoOk) || !PuedeCambiar(Accion.Eliminar)) return;
         try
         {
             var entidad = await Db.Set<TGrupo>().FirstAsync(g => g.Id == eliminar.Id);

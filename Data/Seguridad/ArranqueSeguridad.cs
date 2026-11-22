@@ -109,7 +109,7 @@ public static class ArranqueSeguridad
             })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<SeguridadDbContext>()
-            .AddSignInManager()
+            .AddSignInManager<InicioSesionSig>()
             .AddDefaultTokenProviders()
             .AddClaimsPrincipalFactory<FabricaClaimsSig>()
             .AddErrorDescriber<ErroresIdentidadEs>()
@@ -199,6 +199,9 @@ public static class ArranqueSeguridad
                 if (HttpMethods.IsPost(http.Request.Method) && (path.StartsWithSegments("/cuenta") || path.Equals("/mi-cuenta")))
                     return RateLimitPartition.GetFixedWindowLimiter("cuenta|" + ip, _ => new FixedWindowRateLimiterOptions
                     { PermitLimit = cfg.GetValue("Seguridad:PostsCuentaPorMinuto", 10), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+                if (path.StartsWithSegments("/salud/listo"))
+                    return RateLimitPartition.GetFixedWindowLimiter("listo|" + ip, _ => new FixedWindowRateLimiterOptions
+                    { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
                 if (path.StartsWithSegments("/api") || path.StartsWithSegments("/csp-reporte"))
                     return RateLimitPartition.GetSlidingWindowLimiter("api|" + (http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? ip),
                         _ => new SlidingWindowRateLimiterOptions { PermitLimit = 240, Window = TimeSpan.FromMinutes(1), SegmentsPerWindow = 6, QueueLimit = 0 });
@@ -308,7 +311,7 @@ public static class ArranqueSeguridad
     }
 
     // Primer administrador fuera de desarrollo: Seguridad:AdministradorInicial = correo. Si aún no hay ningún
-    // administrador, se crea una invitación (correo + enlace en el registro de la app, una sola vez).
+    // administrador, se crea una invitación (entrega al buzón configurado).
     private static async Task AdministradorInicialAsync(IServiceProvider sp, IConfiguration cfg, ILogger log)
     {
         var email = cfg["Seguridad:AdministradorInicial"];
@@ -321,7 +324,18 @@ public static class ArranqueSeguridad
         if (await db.Invitaciones.AnyAsync(i => i.Email == norm && i.Estado == EstadoInvitacion.Pendiente && i.Vence > DateTime.UtcNow)) return;
         var inv = sp.GetRequiredService<ServicioInvitaciones>();
         var r = await inv.InvitarAsync(norm, null, null, null, true, null, "Primer administrador de SGC Web.", "sistema", inv.UrlBase("http://localhost:5265"));
-        log.LogWarning("Invitación del administrador inicial creada para {Email}. Enlace (un solo uso): {Enlace}", norm, r.Enlace);
+        if (r.Ok && r.Enviado)
+            log.LogInformation("Se envió el correo de alta del administrador inicial.");
+        else if (r.Enlace is { } enlace)
+        {
+            // Sin entrega, permitir que el siguiente arranque reintente tras corregir el correo.
+            var hash = ServicioInvitaciones.Hash(enlace[(enlace.LastIndexOf('=') + 1)..]);
+            await db.Invitaciones.Where(i => i.TokenHash == hash && i.Estado == EstadoInvitacion.Pendiente)
+                .ExecuteUpdateAsync(c => c.SetProperty(i => i.Estado, EstadoInvitacion.Revocada));
+            log.LogError("Falló la entrega de la invitación inicial. Revise el correo y reinicie la aplicación.");
+        }
+        else if (!r.Ok)
+            log.LogError("No se creó la invitación inicial. {Motivo}", r.Mensaje);
     }
 }
 

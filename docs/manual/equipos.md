@@ -103,7 +103,7 @@ Para abrir el certificado vigente desde el listado, toque el enlace de la column
 
 ### Cómo registrar un mantenimiento
 
-1. Abra la hoja de vida desde el nombre del equipo.
+1. Toque el nombre del equipo (**Abrir hoja de vida**).
 2. Toque el botón de mantenimiento (Registrar mantenimiento).
 3. Indique la **Fecha** y diligencie **Realizado por**.
 4. Escriba la **Descripción** del trabajo realizado.

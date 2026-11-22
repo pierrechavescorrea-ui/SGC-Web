@@ -19,11 +19,12 @@ public sealed class ServicioInvitaciones
     private readonly ServicioPermisos _permisos;
     private readonly ServicioProyectos _proyectos;
     private readonly IConfiguration _cfg;
+    private readonly IHostEnvironment _entorno;
 
     public ServicioInvitaciones(SeguridadDbContext db, UserManager<UsuarioSig> usuarios, EnviadorCorreo correo, AuditoriaAccesos auditoria,
-        ServicioPermisos permisos, ServicioProyectos proyectos, IConfiguration cfg)
+        ServicioPermisos permisos, ServicioProyectos proyectos, IConfiguration cfg, IHostEnvironment entorno)
     {
-        _db = db; _usuarios = usuarios; _correo = correo; _auditoria = auditoria; _permisos = permisos; _proyectos = proyectos; _cfg = cfg;
+        _db = db; _usuarios = usuarios; _correo = correo; _auditoria = auditoria; _permisos = permisos; _proyectos = proyectos; _cfg = cfg; _entorno = entorno;
     }
 
     public sealed record Resultado(bool Ok, string Mensaje, string? Enlace = null, bool Enviado = false);
@@ -37,7 +38,13 @@ public sealed class ServicioInvitaciones
     public string UrlBase(string? respaldo)
     {
         var u = _cfg["Aplicacion:UrlPublica"];
-        return (string.IsNullOrWhiteSpace(u) ? respaldo ?? "" : u).TrimEnd('/');
+        if (Uri.TryCreate(u, UriKind.Absolute, out var publica) && publica.Scheme == Uri.UriSchemeHttps &&
+            publica.Host.Length > 0 && publica.UserInfo.Length == 0 && publica.Query.Length == 0 && publica.Fragment.Length == 0)
+            return publica.AbsoluteUri.TrimEnd('/');
+        if (_entorno.IsDevelopment() && Uri.TryCreate(respaldo, UriKind.Absolute, out var local) && local.IsLoopback &&
+            local.Scheme is "http" or "https")
+            return local.AbsoluteUri.TrimEnd('/');
+        return "";
     }
 
     public static string NormalizarEmail(string email) => email.Trim().ToLowerInvariant();
@@ -46,6 +53,7 @@ public sealed class ServicioInvitaciones
         DateTime? accesoVence, string? mensaje, string creadaPor, string urlBase)
     {
         email = NormalizarEmail(email);
+        if (urlBase.Length == 0) return new(false, "Defina Aplicacion:UrlPublica con la URL HTTPS de SGC Web.");
         if (!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email)) return new(false, "Correo no válido.");
         if (!adminGlobal && (proyectoId is null || rolId is null)) return new(false, "Elija proyecto y rol.");
 
@@ -89,6 +97,7 @@ public sealed class ServicioInvitaciones
 
     public async Task<Resultado> ReenviarAsync(int id, string porUsuario, string urlBase)
     {
+        if (urlBase.Length == 0) return new(false, "Defina Aplicacion:UrlPublica con la URL HTTPS de SGC Web.");
         var inv = await _db.Invitaciones.FindAsync(id);
         if (inv is null || inv.Estado != EstadoInvitacion.Pendiente) return new(false, "La invitación ya no está pendiente.");
         if (inv.ProyectoId is int destino && !await ProyectoDisponibleAsync(destino))

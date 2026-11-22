@@ -8,6 +8,7 @@
 @inject UserManager<UsuarioSig> Usuarios
 @inject AuditoriaAccesos Auditoria
 @inject NavigationManager Nav
+@inject IConfiguration Cfg
 
 <PageTitle>Verificación · SGC Web</PageTitle>
 
@@ -36,7 +37,7 @@
             <label for="codigo">Código</label>
         }
     </div>
-    @if (!M.ConRecuperacion)
+    @if (!M.ConRecuperacion && !exigirMfaAdmin)
     {
         <div class="cu-fila">
             <label class="cu-check"><input type="checkbox" name="M.RecordarEquipo" value="true" /> No pedir en este equipo por 30 días</label>
@@ -64,6 +65,7 @@
     [SupplyParameterFromQuery(Name = "recuperacion")] private bool? RecuperacionQ { get; set; }
 
     private string? mensaje;
+    private bool exigirMfaAdmin;
 
     public sealed class Modelo
     {
@@ -83,8 +85,12 @@
             M.ConRecuperacion = RecuperacionQ ?? false;
         }
         // Sin el paso previo (correo + contraseña correctos) no hay nada que verificar.
-        if (await SignIn.GetTwoFactorAuthenticationUserAsync() is null)
+        var u = await SignIn.GetTwoFactorAuthenticationUserAsync();
+        if (u is null)
             Nav.NavigateTo("/cuenta/ingresar?m=expirada", forceLoad: true);
+        else
+            exigirMfaAdmin = Cfg.GetValue<bool>("Seguridad:MfaObligatoriaAdministradores") &&
+                await Usuarios.IsInRoleAsync(u, RolesFabrica.AdministradorGlobal);
     }
 
     private async Task VerificarAsync()
@@ -96,7 +102,7 @@
 
         var r = M.ConRecuperacion
             ? await SignIn.TwoFactorRecoveryCodeSignInAsync(codigo)
-            : await SignIn.TwoFactorAuthenticatorSignInAsync(codigo, M.Recordar, M.RecordarEquipo);
+            : await SignIn.TwoFactorAuthenticatorSignInAsync(codigo, M.Recordar, M.RecordarEquipo && !exigirMfaAdmin);
         if (r.Succeeded)
         {
             u.UltimoIngreso = DateTime.UtcNow;

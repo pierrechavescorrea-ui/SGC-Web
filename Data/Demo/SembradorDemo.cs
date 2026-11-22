@@ -32,7 +32,9 @@ public static class SembradorDemo
             .Select(t => (IModuloDemo)Activator.CreateInstance(t)!)
             .OrderBy(m => m.Orden).ThenBy(m => m.Clave).ToList();
 
-        var webRoot = app.Environment.WebRootPath;
+        // WebRootPath puede venir vacío si la app arranca sin carpeta wwwroot resuelta; se usa la de la raíz de contenido.
+        var webRoot = string.IsNullOrEmpty(app.Environment.WebRootPath)
+            ? Path.Combine(app.Environment.ContentRootPath, "wwwroot") : app.Environment.WebRootPath;
         foreach (var p in servicio.Todos().Where(p => p.Estado == EstadoProyecto.Activo))
         {
             var activo = servicio.Activo(p.Id);

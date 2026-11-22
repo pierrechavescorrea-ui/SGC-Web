@@ -14,7 +14,257 @@ window.sigAsistente = {
         foco.focus({ preventScroll: true });
     }
 };
-// Escape cierra el panel (pulsa su botón Cerrar).
+function pirClonar(original) {
+    const clon = original.cloneNode(true);
+    clon.classList.remove('parpadea', 'pir-reaparece');
+    clon.setAttribute('aria-hidden', 'true');
+    clon.removeAttribute('role');
+    clon.removeAttribute('tabindex');
+    clon.removeAttribute('aria-label');
+    clon.removeAttribute('data-gesto');
+    return clon;
+}
+
+function pirVolar(figura, x, y, duracion) {
+    return figura.animate([
+        { transform: getComputedStyle(figura).transform },
+        { transform: `translate(${x}px, ${y}px)` }
+    ], { duration: duracion, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'forwards' });
+}
+
+window.sigGuia = (() => {
+    const clave = 'sigweb.pir.guia';
+    let sesion;
+    const reducido = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const normal = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const rutaLocal = ruta => new URL(ruta.replace(/^\//, ''), document.baseURI);
+
+    function coincidePlantilla(plantilla, destino) {
+        if (!plantilla) return false;
+        const base = new URL(document.baseURI).pathname.replace(/\/$/, '');
+        const segmentos = plantilla.split('/');
+        const actuales = destino.pathname.slice(base.length).split('/');
+        return destino.pathname.startsWith(base + '/') && segmentos.length === actuales.length &&
+            segmentos.every((segmento, i) => segmento.startsWith('{') ? /^[\w-]+$/.test(actuales[i]) : segmento === actuales[i]);
+    }
+
+    function recuperar() {
+        try {
+            const dato = sessionStorage.getItem(clave);
+            sessionStorage.removeItem(clave);
+            if (!dato) return null;
+            const r = JSON.parse(dato);
+            const destino = new URL(r.destino, location.origin);
+            const actual = new URL(location.href);
+            return destino.origin === actual.origin && destino.pathname === actual.pathname &&
+                Array.from(destino.searchParams).every(([k, v]) => actual.searchParams.get(k) === v) &&
+                Number.isInteger(r.paso) && Date.now() - r.hora < 60000
+                ? { id: r.id, paso: r.paso } : null;
+        } catch { return null; }
+    }
+
+    function navegar(s, i, destino) {
+        if (destino.origin !== location.origin) return false;
+        try {
+            sessionStorage.setItem(clave, JSON.stringify({
+                id: s.guia.seccionId, paso: i, destino: destino.pathname + destino.search, hora: Date.now()
+            }));
+        } catch { return false; }
+        finalizar(false);
+        location.assign(destino.href);
+        return true;
+    }
+
+    function finalizar(regresar = true) {
+        const s = sesion;
+        if (!s) return;
+        sesion = null;
+        s.eventos.abort();
+        s.observador.disconnect();
+        cancelAnimationFrame(s.frame);
+        s.objetivo?.classList.remove('asis-guia-objetivo');
+        s.globo.remove();
+        s.panel.classList.remove('asis-guiando');
+        const limpiar = () => { s.figura.remove(); s.panel.classList.remove('asis-pir-ausente'); };
+        const posicion = getComputedStyle(s.figura).transform;
+        s.vuelo?.cancel();
+        if (!regresar || reducido() || !s.panel.isConnected || s.figura.hidden) { limpiar(); return; }
+        s.figura.style.transform = posicion;
+        const casa = s.panel.querySelector('.pir-cab').getBoundingClientRect();
+        pirVolar(s.figura, casa.left, casa.top, 380).finished.then(limpiar, limpiar);
+    }
+
+    function localizar(nombre) {
+        if (!nombre) return null;
+        const q = normal(nombre);
+        const campos = 'input:not([type="hidden"]),textarea,select';
+        const controles = document.querySelectorAll('button,a,input,textarea,select,summary,[role="tab"],[title],[aria-label],label');
+        const visibles = [];
+        for (const el of controles) {
+            if (el.closest('.asis-panel,.asis-guia-globo,[inert],[aria-hidden="true"]') ||
+                !el.checkVisibility({ visibilityProperty: true, opacityProperty: true })) continue;
+            if (![el.title, el.getAttribute('aria-label'), el.placeholder,
+                el.matches('a,button,summary,label,[role="tab"]') ? el.textContent : ''].some(v => normal(v) === q)) continue;
+            const hermano = el.nextElementSibling;
+            visibles.push(el.control || (el.matches('label') && hermano?.matches(campos) ? hermano : el));
+        }
+        return visibles.find(el => el.closest('[role="dialog"],.modal-box-custom,.panel-formulario')) || visibles[0] || null;
+    }
+
+    function colocar(s) {
+        if (sesion !== s) return;
+        if (!s.panel.isConnected || location.pathname !== s.pagina) { finalizar(false); return; }
+        const paso = s.guia.pasos[s.i];
+        const el = localizar(paso.control);
+        const nuevo = s.objetivo !== el;
+        if (nuevo) {
+            s.objetivo?.classList.remove('asis-guia-objetivo');
+            s.objetivo = el;
+            el?.classList.add('asis-guia-objetivo');
+            if (el) {
+                el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+                s.figura.classList.remove('asis-guia-presenta');
+            }
+        }
+        const nota = !paso.bloqueado && !el ? (paso.control ? 'Abra la vista o el menú que contiene «' + paso.control + '».' : 'Este paso no tiene un control identificado.') : '';
+        if (s.nota.textContent !== nota) s.nota.textContent = nota;
+        const r = el?.getBoundingClientRect();
+        const ancho = s.globo.offsetWidth, alto = s.globo.offsetHeight;
+        const limitar = (x,max) => Math.max(6,Math.min(x,max - 6));
+        function junto(w, h, preferirAbajo, disponible = () => true) {
+            if (!r) return [limitar((innerWidth - w) / 2, innerWidth - w), limitar(innerHeight - h - 64, innerHeight - h)];
+            const x = limitar(r.left, innerWidth - w), y = limitar(r.top, innerHeight - h);
+            const abajo = [x, r.bottom + 8], arriba = [x, r.top - h - 8];
+            const lados = [[r.right + 8, y], [r.left - w - 8, y]];
+            return (preferirAbajo ? [abajo, arriba, ...lados] : [...lados, arriba, abajo])
+                .find(([a, b]) => a >= 6 && b >= 6 && a + w <= innerWidth - 6 && b + h <= innerHeight - 6 && disponible(a, b));
+        }
+        const globo = junto(ancho, alto, true) || [6, limitar(innerHeight - alto - 64, innerHeight - alto)];
+        s.globo.style.transform = `translate(${globo[0]}px,${globo[1]}px)`;
+        if (r) {
+            const libre = (x, y) => x >= 6 && y >= 6 && x + 70 <= innerWidth - 6 && y + 52 <= innerHeight - 6;
+            // Sin sitio junto al control (p. ej. control pegado al borde y el globo ocupando el único hueco): π se posa
+            // pegado al globo, del lado más cercano al control, en vez de ocultarse.
+            const lugar = junto(70, 52, false, (x, y) =>
+                x + 70 < globo[0] || x > globo[0] + ancho || y + 52 < globo[1] || y > globo[1] + alto)
+                || [[globo[0] - 76, globo[1]], [globo[0] + ancho + 6, globo[1]], [globo[0], globo[1] + alto + 6], [globo[0], globo[1] - 58]]
+                    .filter(([x, y]) => libre(x, y))
+                    .sort((a, b) => Math.hypot(a[0] + 35 - (r.left + r.width / 2), a[1] + 26 - (r.top + r.height / 2))
+                        - Math.hypot(b[0] + 35 - (r.left + r.width / 2), b[1] + 26 - (r.top + r.height / 2)))[0];
+            if (lugar) {
+                const [x, y] = lugar;
+                s.figura.hidden = false;
+                s.figura.dataset.lado = x >= r.right ? 'derecha' : x + 70 <= r.left ? 'izquierda' : 'vertical';
+                const destino = `translate(${x}px,${y}px)`;
+                if (!nuevo && s.destinoFigura === destino) return;
+                s.destinoFigura = destino;
+                const posicion = getComputedStyle(s.figura).transform;
+                s.vuelo?.cancel();
+                s.figura.style.transform = posicion;
+                if (nuevo && !reducido()) {
+                    const vuelo = s.vuelo = pirVolar(s.figura, x, y, 420);
+                    vuelo.finished.then(() => {
+                        if (sesion === s) s.figura.classList.add('asis-guia-presenta');
+                        vuelo.cancel();
+                    }, () => {});
+                } else {
+                    s.figura.classList.add('asis-guia-presenta');
+                }
+                s.figura.style.transform = destino;
+                return;
+            }
+        }
+        s.destinoFigura = null;
+        s.figura.hidden = true;
+    }
+
+    function mostrar(s, i) {
+        if (i >= s.guia.pasos.length) { finalizar(); return; }
+        s.i = Math.max(0,i);
+        const paso = s.guia.pasos[s.i];
+        const destino = paso.ruta && rutaLocal(paso.ruta);
+        const actual = new URL(location.href);
+        if (destino && !coincidePlantilla(paso.rutaPlantilla, actual) &&
+            (destino.pathname !== actual.pathname || (!localizar(paso.control) &&
+                Array.from(destino.searchParams).some(([k, v]) => actual.searchParams.get(k) !== v))) &&
+            navegar(s, s.i, destino)) return;
+        s.contador.textContent = 'Paso ' + (s.i+1) + ' de ' + s.guia.pasos.length;
+        s.texto.textContent = paso.texto;
+        s.atras.disabled = s.i === 0;
+        s.siguiente.hidden = s.i === s.guia.pasos.length-1;
+        colocar(s);
+    }
+
+    function iniciar(guia, i = 0) {
+        finalizar(false);
+        const panel = document.querySelector('.asis-panel');
+        if (!panel || !guia.pasos.length) return;
+        const globo = document.createElement('aside'), figura = document.createElement('div');
+        globo.className = 'asis-guia-globo';
+        globo.setAttribute('aria-label','Guía paso a paso');
+        figura.className = 'asis-guia-figura';
+        figura.setAttribute('aria-hidden','true');
+        for (const original of panel.querySelectorAll('svg.pir')) figura.append(pirClonar(original));
+        const origen = panel.querySelector('.pir-cab').getBoundingClientRect();
+        figura.style.transform = 'translate(' + origen.left + 'px,' + origen.top + 'px)';
+        const eventos = new AbortController();
+        const s = sesion = {panel,guia,globo,figura,eventos,pagina:location.pathname,i:0};
+        s.contador = document.createElement('strong'); s.texto = document.createElement('p'); s.nota = document.createElement('small');
+        s.contador.setAttribute('aria-live','polite'); s.texto.setAttribute('aria-live','polite');
+        const nav = document.createElement('div');
+        function boton(titulo,icono,accion) {
+            const b = document.createElement('button');
+            b.type='button'; b.title=titulo; b.setAttribute('aria-label',titulo); b.textContent=icono;
+            b.addEventListener('click',accion,{signal:eventos.signal}); nav.append(b); return b;
+        }
+        s.atras = boton('Anterior','←',() => mostrar(s,s.i-1));
+        s.siguiente = boton('Siguiente','→',() => mostrar(s,s.i+1));
+        boton('Terminar','×',() => finalizar());
+        globo.append(s.contador,s.texto,s.nota,nav); document.body.append(figura,globo);
+        panel.classList.add('asis-guiando', 'asis-pir-ausente');
+        figura.getBoundingClientRect();
+        const actualizar = () => { cancelAnimationFrame(s.frame); s.frame=requestAnimationFrame(() => colocar(s)); };
+        s.observador = new MutationObserver(cambios => {
+            if (cambios.some(m => !globo.contains(m.target) && !figura.contains(m.target))) actualizar();
+        });
+        s.observador.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','hidden','open','aria-expanded']});
+        window.addEventListener('resize',actualizar,{signal:eventos.signal});
+        window.addEventListener('scroll',actualizar,{capture:true,signal:eventos.signal});
+        window.addEventListener('pagehide',() => finalizar(false),{signal:eventos.signal});
+        window.addEventListener('popstate',() => finalizar(false),{signal:eventos.signal});
+        document.addEventListener('keydown',e => {
+            if(e.key==='Escape') {e.preventDefault();e.stopImmediatePropagation();finalizar();}
+        },{capture:true,signal:eventos.signal});
+        const avanzarDesdeControl = e => {
+            if (s.objetivo?.contains(e.target) && !s.objetivo.matches(':disabled')) {
+                const campo = s.objetivo.matches('input:not([type="button"]):not([type="submit"]),textarea,select');
+                if (campo !== (e.type === 'change')) return;
+                const pasoActual = s.i;
+                const siguiente = s.guia.pasos[pasoActual + 1];
+                const enlace = s.objetivo.closest('a[href]:not([download])');
+                if (enlace && siguiente && e.type === 'click' && e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey &&
+                    (!enlace.target || enlace.target === '_self')) {
+                    const destino = new URL(enlace.href);
+                    const ruta = siguiente.ruta && rutaLocal(siguiente.ruta);
+                    if ((destino.pathname === ruta?.pathname || coincidePlantilla(siguiente.rutaPlantilla, destino)) &&
+                        destino.pathname !== location.pathname && navegar(s, pasoActual + 1, destino)) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                }
+                setTimeout(() => { if(sesion === s && s.i === pasoActual) mostrar(s,s.i+1); },100);
+            }
+        };
+        document.addEventListener('click',avanzarDesdeControl,{capture:true,signal:eventos.signal});
+        document.addEventListener('change',avanzarDesdeControl,{capture:true,signal:eventos.signal});
+        panel.querySelector('[title="Nueva conversación"]')?.addEventListener('click', () => finalizar(false), {signal:eventos.signal});
+        mostrar(s,Math.min(Math.max(0,i),guia.pasos.length-1));
+        if (sesion === s) globo.querySelector('button:not(:disabled):not([hidden])')?.focus({preventScroll:true});
+    }
+    return { iniciar, recuperar };
+})();
+// Escape cierra el panel cuando no hay una guía activa.
 document.addEventListener('keydown', e => {
     if (e.defaultPrevented || e.isComposing || e.key !== 'Escape') return;
     const panel = document.querySelector('.asis-panel');
@@ -316,13 +566,8 @@ window.sigPir = (() => {
             if (Math.hypot(dx, dy) < 5) return;
             limpiarGesto(s);
             const r = s.svg.getBoundingClientRect();
-            const svg = s.svg.cloneNode(true);
+            const svg = pirClonar(s.svg);
             svg.classList.add('pir-vuelo');
-            svg.classList.remove('parpadea', 'pir-reaparece');
-            svg.setAttribute('aria-hidden', 'true');
-            svg.removeAttribute('role');
-            svg.removeAttribute('tabindex');
-            svg.removeAttribute('aria-label');
             svg.dataset.gesto = 'sorpresa';
             svg.style.left = '0px';
             svg.style.top = '0px';
@@ -405,10 +650,7 @@ window.sigPir = (() => {
         };
         if (quieto()) { terminarRegreso(); return; }
         const destino = s.svg.getBoundingClientRect();
-        v.regreso = v.svg.animate([
-            { transform: v.svg.style.transform },
-            { transform: `translate(${destino.left}px, ${destino.top}px)` },
-        ], { duration: 460, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'forwards' });
+        v.regreso = pirVolar(v.svg, destino.left, destino.top, 460);
         v.regreso.onfinish = terminarRegreso;
     }
 

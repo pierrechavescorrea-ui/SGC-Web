@@ -102,7 +102,7 @@ public sealed partial class ManejadorBot
             if (cmd is null && RxCodigo().IsMatch(texto)) { await VincularAsync(chat, texto, msg, ct); return; }
             if (cmd is "start" or "ayuda" or "help")
                 await _tg.EnviarAsync(chat, "🔒 Este bot es de uso interno de SGC Web.\n\nPide a un administrador un código de vinculación " +
-                    "(SGC Web › Administración › Bot de Telegram, o Mi cuenta › Bot de Telegram) y envíalo así:\n<code>/vincular 123456</code>", null, ct);
+                    "(SGC Web › Administración › Bot de Telegram, o Mi cuenta › Bot de Telegram) y envíalo así:\n<code>/vincular CÓDIGO</code>", null, ct);
             return;
         }
 
@@ -148,7 +148,7 @@ public sealed partial class ManejadorBot
         return (cmd, esp < 0 ? "" : texto[(esp + 1)..].Trim());
     }
 
-    [GeneratedRegex(@"\b\d{6}\b")] private static partial Regex RxCodigo();
+    [GeneratedRegex(@"\b[0-9A-Fa-f]{32}\b")] private static partial Regex RxCodigo();
 
     internal static string? CodigoParaVincular(JsonObject? msg)
     {
@@ -156,8 +156,8 @@ public sealed partial class ManejadorBot
         var texto = (msg["text"]?.GetValue<string>() ?? "").Trim();
         var (cmd, arg) = Partir(texto);
         if (cmd is "vincular" or "start")
-            return RxCodigo().Match(arg) is { Success: true } m ? m.Value : null;
-        return cmd is null && texto.Length == 6 && RxCodigo().IsMatch(texto) ? texto : null;
+            return RxCodigo().Match(arg) is { Success: true } m ? m.Value.ToUpperInvariant() : null;
+        return cmd is null && texto.Length == 32 && RxCodigo().IsMatch(texto) ? texto.ToUpperInvariant() : null;
     }
 
     internal Task VincularCodigoAsync(JsonObject msg, string codigo, CancellationToken ct) =>
@@ -165,12 +165,12 @@ public sealed partial class ManejadorBot
 
     private async Task VincularAsync(long chat, string texto, JsonObject msg, CancellationToken ct)
     {
-        // Se toman los 6 dígitos aunque venga texto alrededor ("123456 a @bot", "123 456" no).
-        var codigo = RxCodigo().Match(texto) is { Success: true } m ? m.Value : "";
+        // Se toman los 32 caracteres hexadecimales aunque venga texto alrededor.
+        var codigo = RxCodigo().Match(texto) is { Success: true } m ? m.Value.ToUpperInvariant() : "";
         if (codigo.Length == 0)
         {
-            await _tg.EnviarAsync(chat, texto.Length == 0 ? "Envía el código así: <code>/vincular 123456</code>"
-                : "El código son 6 dígitos seguidos. Envíalo así: <code>/vincular 123456</code>", null, ct);
+            await _tg.EnviarAsync(chat, texto.Length == 0 ? "Envía el código así: <code>/vincular CÓDIGO</code>"
+                : "Copie el código completo que muestra SGC Web. Envíalo así: <code>/vincular CÓDIGO</code>", null, ct);
             return;
         }
         var canje = _bot.CanjearCodigo(chat, codigo, out var bloqueado);
@@ -593,10 +593,8 @@ public sealed partial class ManejadorBot
         if (a is null) { await _tg.EnviarAsync(chat, "Ese archivo ya no existe (¿se envió a la Papelera?).", null, ct); return; }
         var (ruta, nombre, nota) = a.Value;
 
-        // Solo archivos dentro de wwwroot (las rutas guardadas son "/uploads/…").
-        var raiz = Path.GetFullPath(_webRoot);
-        var fisica = Path.GetFullPath(Path.Combine(raiz, ruta.TrimStart('/', '\\').Replace('/', Path.DirectorySeparatorChar)));
-        if (!fisica.StartsWith(raiz, StringComparison.OrdinalIgnoreCase) || !File.Exists(fisica))
+        var fisica = ArchivosSeguros.RutaFisica(_webRoot, ruta);
+        if (fisica is null || !File.Exists(fisica))
         {
             await _tg.EnviarAsync(chat, $"No encuentro «{H(nombre)}» en el servidor.", null, ct);
             return;

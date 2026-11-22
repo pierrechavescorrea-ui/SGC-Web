@@ -5,13 +5,14 @@ namespace SigWeb.Data.Asistente;
 
 public static class LectorInterfaz
 {
-    public sealed record Control(string Ruta, string Nombre);
+    public sealed record Control(string Ruta, string Nombre, bool Campo = false);
     private static readonly Regex Pagina = new(@"^\s*@page\s+""(/[^""]*)""", RegexOptions.Multiline);
     private static readonly Regex Componente = new(@"<([A-Z][\w]+)\b");
     private static readonly Regex Etiqueta = new(
-        """<(?:button|a|input|select|summary)\b[^<>]*?\b(?:title|aria-label)\s*=\s*["']([^"'@\r\n<>]+)["']""",
+        """<(?:button|a|input|select|summary|textarea|label)\b[^<>]*?\b(?:title|aria-label|placeholder)\s*=\s*["']([^"'@\r\n<>]+)["']""",
         RegexOptions.IgnoreCase);
     private static readonly Regex TextoBoton = new(@"<button\b[^<>]*>\s*([^@<>{}]+?)\s*</button>", RegexOptions.IgnoreCase);
+    private static readonly Regex TextoCampo = new(@"<label\b[^<>]*>\s*([^@<>{}]+?)\s*</label>", RegexOptions.IgnoreCase);
     private static readonly Regex Comentarios = new(@"@\*[\s\S]*?\*@|<!--[\s\S]*?-->");
 
     public static List<Control> Leer(string carpeta)
@@ -29,11 +30,11 @@ public static class LectorInterfaz
             {
                 if (!visitados.Add(archivo)) return;
                 var markup = archivos[archivo];
-                foreach (var regex in new[] { Etiqueta, TextoBoton })
+                foreach (var regex in new[] { Etiqueta, TextoBoton, TextoCampo })
                 foreach (Match m in regex.Matches(markup))
                 {
                     var nombre = WebUtility.HtmlDecode(m.Groups[1].Value.Trim());
-                    if (nombre.Length is > 1 and <= 120) indice.Add(new(ruta.Groups[1].Value,nombre));
+                    if (nombre.Length is > 1 and <= 120) indice.Add(new(ruta.Groups[1].Value, nombre, regex == TextoCampo));
                 }
                 foreach (Match m in Componente.Matches(markup))
                     if (hijos.TryGetValue(m.Groups[1].Value,out var hijo) && !Pagina.IsMatch(archivos[hijo]))

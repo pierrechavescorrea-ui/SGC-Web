@@ -31,7 +31,20 @@ public static class LectorKmz
         }
 
         using var streamKml = entradaKml.Open();
-        var kml = KmlFile.Load(streamKml);
+        const int maximo = 32 * 1024 * 1024;
+        if (entradaKml.Length > maximo)
+            throw new InvalidDataException("El KML supera los 32 MiB descomprimidos.");
+        using var contenido = new MemoryStream();
+        var buffer = new byte[81920];
+        int leidos;
+        while ((leidos = streamKml.Read(buffer)) > 0)
+        {
+            if (contenido.Length + leidos > maximo)
+                throw new InvalidDataException("El KML supera los 32 MiB descomprimidos.");
+            contenido.Write(buffer, 0, leidos);
+        }
+        contenido.Position = 0;
+        var kml = KmlFile.Load(contenido);
 
         var placemarks = kml.Root.Flatten().OfType<Placemark>();
 
