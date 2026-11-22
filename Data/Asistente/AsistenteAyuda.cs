@@ -132,6 +132,34 @@ public sealed class AsistenteAyuda
         }
         if (PreguntaPorEstaPantalla(palabras)) return ResumenPantalla(ruta);
 
+        // Un pronombre después de «Exportar», por ejemplo, no identifica un registro.
+        // Busque los controles de la acción en la pantalla antes de comparar capítulos.
+        var terminos = TextoAyuda.Terminos(pregunta).Distinct().ToList();
+        if (ultima != null && ruta != null && terminos.Count == 1 &&
+            palabras.Any(p => p is "lo" or "la" or "los" or "las") &&
+            AccesoAyuda.Requisito(pregunta) != Accion.Ver &&
+            ultima.Seccion?.Tf.ContainsKey(terminos[0]) != true &&
+            _manual.CapituloDeRuta(ruta) is { } pantalla)
+        {
+            var pagina = ruta.Split('?', '#')[0];
+            var controles = pantalla.Opciones.Where(o => o.Ruta.Split('?', '#')[0] == pagina &&
+                o.Resaltar != null && o.Terminos.FirstOrDefault() == terminos[0]).ToList();
+            if (controles.Count > 0)
+            {
+                var terminosPantalla = TextoAyuda.Terminos(pantalla.Titulo).ToHashSet();
+                var locales = controles.Where(PuedeVerOpcion)
+                    .OrderByDescending(o => o.Terminos.Any(terminosPantalla.Contains))
+                    .DistinctBy(o => o.Resaltar!.TrimStart('!')).Take(3)
+                    .Select(o => new Sugerencia(o.Etiqueta, Ruta: o.Ruta, Resaltar: o.Resaltar!.TrimStart('!'), Destino: o.Etiqueta)).ToList();
+                return new Mensaje { De = Quien.Asistente, Atajos = locales, Texto = locales.Count switch
+                {
+                    0 => $"Su rol ({Rol}) no permite esa acción en {pantalla.Titulo}. Consulte al administrador del proyecto.",
+                    1 => $"En {pantalla.Titulo} puede localizar el control aquí.",
+                    _ => $"En {pantalla.Titulo}, ¿a cuál de estas opciones se refiere?"
+                } };
+            }
+        }
+
         // Seguimiento: pregunta corta después de una respuesta → se queda en el tema (capítulo) anterior.
         var anterior = Historial.LastOrDefault(m => m.De == Quien.Asistente && m.Seccion is not null)?.Seccion?.Capitulo;
         var contexto = utiles.Count <= 3 && (palabras.FirstOrDefault() == "y" || anterior == _manual.CapituloDeRuta(ruta)) ? anterior : null;

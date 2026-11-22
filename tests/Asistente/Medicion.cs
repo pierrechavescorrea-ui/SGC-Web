@@ -38,8 +38,9 @@ public static class Medicion
                 var motor = new AsistenteAyuda(manual,new UsuarioActual(),entorno,NullLogger<AsistenteAyuda>.Instance);
                 if (c.Anterior != null) motor.Preguntar(c.Anterior,c.Ruta);
                 var respuesta = motor.Preguntar(c.Pregunta,c.Ruta);
-                var opcionesSesion = new[]{respuesta.Seccion?.Titulo ?? respuesta.Texto}.Concat(respuesta.Sugerencias.Select(s => s.Texto)).Take(3).ToArray();
-                var pos = Array.FindIndex(opcionesSesion,t => t.Contains(c.Contiene ?? c.Esperado!,StringComparison.OrdinalIgnoreCase));
+                var opcionesSesion = c.Opcion != null ? respuesta.Atajos.Select(a => a.Texto).Take(3).ToArray() :
+                    new[]{respuesta.Seccion?.Titulo ?? respuesta.Texto}.Concat(respuesta.Sugerencias.Select(s => s.Texto)).Take(3).ToArray();
+                var pos = Array.FindIndex(opcionesSesion,t => t.Contains(c.Contiene ?? c.Opcion ?? c.Esperado!,StringComparison.OrdinalIgnoreCase));
                 filas.Add(new(c,opcionesSesion,pos + 1));
                 continue;
             }

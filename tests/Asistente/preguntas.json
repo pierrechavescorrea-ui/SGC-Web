@@ -1936,5 +1936,12 @@
     "Ruta": "/riesgos",
     "Pregunta": "¿Dónde está el botón Ronda de seguimiento?",
     "Opcion": "Ronda de seguimiento"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Anterior": "¿Dónde está el botón exportar?",
+    "Pregunta": "¿y cómo lo elimino?",
+    "Opcion": "Riesgos › Eliminar riesgo (va a la Papelera)"
   }
 ]

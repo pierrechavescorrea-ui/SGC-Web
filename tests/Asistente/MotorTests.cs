@@ -51,6 +51,18 @@ public class MotorTests
         var m = motor.Preguntar("¿Dónde está el botón Exportar en Riesgos?","/riesgos");
         Assert.Equal(descarga,m.Atajos.Any(a => a.Resaltar == "Exportar" && a.Ruta == "/riesgos?ver=lista"));
         if (!descarga) Assert.DoesNotContain(m.Sugerencias,s => s.Resaltar == "Exportar");
+        var seguimiento = motor.Preguntar("¿y cómo lo elimino?", "/riesgos");
+        Assert.Empty(seguimiento.Sugerencias);
+        if (elimina)
+        {
+            Assert.Equal("Eliminar riesgo (va a la Papelera)", seguimiento.Atajos.First().Resaltar);
+            Assert.All(seguimiento.Atajos, atajo => Assert.Equal("/riesgos", atajo.Ruta));
+        }
+        else
+        {
+            Assert.Empty(seguimiento.Atajos);
+            Assert.Contains("no permite", seguimiento.Texto);
+        }
         Assert.Contains(rol,motor.Preguntar("¿Qué rol tengo?","/riesgos").Texto);
         Assert.Contains("Proyecto de prueba",motor.Preguntar("¿En qué proyecto estoy?","/riesgos").Texto);
         var alcance = motor.Preguntar("¿Por qué no puedo eliminar?","/riesgos").Texto;
