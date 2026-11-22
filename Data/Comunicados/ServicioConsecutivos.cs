@@ -137,7 +137,11 @@ public static class ServicioConsecutivos
         if (r.RespondeA is { Length: > 0 } ra)
         {
             var claveRa = Norm(ra);
-            var original = (await db.Comunicados.ToListAsync()).FirstOrDefault(c => Norm(c.Consecutivo) == claveRa);
+            // Se acota por el primer segmento del consecutivo (Norm solo cambia mayúsculas y espacios junto a los guiones):
+            // nunca se trae la tabla entera de comunicados para comparar en memoria.
+            var primerSegmento = claveRa.Split('-')[0];
+            var original = (await db.Comunicados.Where(c => EF.Functions.ILike(c.Consecutivo, "%" + primerSegmento + "%")).ToListAsync())
+                .FirstOrDefault(c => Norm(c.Consecutivo) == claveRa);
             if (original is not null && string.IsNullOrWhiteSpace(original.ConsecutivoRespuesta))
             {
                 original.ConsecutivoRespuesta = r.Codigo;

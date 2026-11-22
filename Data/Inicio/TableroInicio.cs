@@ -84,7 +84,8 @@ public static class TableroInicio
         var calibracion = Calibraciones(db, hoy);
         var (comVencidos, comPorVencer) = SeccionesComunicados(ctx, responsable);
         var pie = Pie(db, ctx);
-        var acciones = db.AccionesPlan.AsNoTracking().ToList();
+        // Solo las acciones abiertas: el tablero cuenta vencidas y planes en curso; las cerradas no se usan.
+        var acciones = db.AccionesPlan.AsNoTracking().Where(a => a.Estado != EstadoAccionPlan.Cerrada).ToList();
         var planes = Planes(db, ctx, acciones, hoy);
         var materializados = Materializados(db, hoy);
         var accionesVencidas = AccionesVencidas(ctx, acciones, hoy);

@@ -601,8 +601,8 @@ else
             @Fila("Indicación", @<input aria-label="Indicación" value="@p.Descripcion" placeholder="Opcional" @onchange="e => Fijar(() => p.Descripcion = TxtONull(e))" />)
             @Fila("Permite N/A", @<input aria-label="Permite N/A" type="checkbox" class="form-check-input" checked="@p.PermiteNoAplica" @onchange="e => Fijar(() => p.PermiteNoAplica = e.Value is true)" />)
             <div class="dmz-acc">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-tip="Mover el paso a la izquierda" disabled="@(paso == 0)" @onclick="() => MoverPaso(-1)"><Ico Nombre="subir" /></button>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-tip="Mover el paso a la derecha" disabled="@(paso >= ed!.Def.Pasos.Count - 1)" @onclick="() => MoverPaso(1)"><Ico Nombre="bajar" /></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-tip="Mover el paso a la izquierda" aria-label="Mover el paso a la izquierda" disabled="@(paso == 0)" @onclick="() => MoverPaso(-1)"><Ico Nombre="subir" /></button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-tip="Mover el paso a la derecha" aria-label="Mover el paso a la derecha" disabled="@(paso >= ed!.Def.Pasos.Count - 1)" @onclick="() => MoverPaso(1)"><Ico Nombre="bajar" /></button>
                 <button type="button" class="btn btn-sm btn-outline-danger ms-auto" data-tip="@(borrarPaso == p.Clave ? "Pulse otra vez para quitar el paso y sus controles" : "Quitar paso")" @onclick="() => QuitarPaso(p)"><Ico Nombre="eliminar" /></button>
             </div>
         </div>
@@ -610,8 +610,9 @@ else
 
     private RenderFragment PropModulo => __builder =>
     {
+        if (ed is null) return;
         <div class="dmz-pg"><h6>Módulo</h6>
-            @Fila("Nombre", @<input aria-label="Nombre" value="@ed!.Nombre" maxlength="80" @onchange="e => Fijar(() => ed.Nombre = Txt(e))" />)
+            @Fila("Nombre", @<input aria-label="Nombre" value="@ed.Nombre" maxlength="80" @onchange="e => Fijar(() => ed.Nombre = Txt(e))" />)
             @Fila("Descripción", @<input aria-label="Descripción" value="@ed.Descripcion" maxlength="300" placeholder="Tooltip del menú" @onchange="e => Fijar(() => ed.Descripcion = TxtONull(e))" />)
             @Fila("Ícono", @<button type="button" class="dmz-ico-btn" data-tip="Elegir ícono" @onclick="() => verIconos = !verIconos"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">@((MarkupString)EncabezadoPagina.Trazos(ed.Icono))</svg> @GaleriaIconosModuloNombre(ed.Icono)</button>)
             @if (verIconos) { <div class="dmz-iconos"><SelectorIconoModulo Valor="@ed.Icono" ValorChanged="ElegirIcono" /></div> }

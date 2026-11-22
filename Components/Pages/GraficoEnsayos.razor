@@ -390,7 +390,6 @@
         public string CampoY = "__conteo";
         public string Agregacion = "valor";
         public string TipoGrafico = "barra";
-        public bool Etiquetas;
         public string? Color;   // null = el de la paleta elegida
     }
 
@@ -656,7 +655,7 @@
                             {
                                 ["label"] = EtiquetaSerie(s),
                                 ["data"] = datos,
-                                ["sigwebEtiquetas"] = s.Etiquetas,
+                                ["sigwebEtiquetas"] = false,
                                 ["backgroundColor"] = paletaNombre == "estados" && ColoresValores is not null && campoEjeX == CampoColores
                                     ? etiquetas.Select((et, i) => ColoresValores.TryGetValue(et, out var cv) ? cv : PaletaColores(etiquetas.Count)[i]).ToList()
                                     : PaletaColores(etiquetas.Count)
@@ -691,7 +690,7 @@
                 {
                     ["label"] = EtiquetaSerie(s),
                     ["data"] = datos,
-                    ["sigwebEtiquetas"] = s.Etiquetas,
+                    ["sigwebEtiquetas"] = false,
                 };
 
                 if (s.TipoGrafico == "linea")

@@ -56,7 +56,7 @@ else
 
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
-    [SupplyParameterFromForm(FormName = "invitacion")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "invitacion")] private Modelo M { get => field ??= new(); set; }
     [SupplyParameterFromQuery(Name = "t")] private string? TQ { get; set; }
 
     private Invitacion? inv;

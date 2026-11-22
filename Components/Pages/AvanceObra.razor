@@ -1156,6 +1156,7 @@ else
     // ================= Matriz de avance acumulado =================
     private RenderFragment VistaMatriz() => __builder =>
     {
+        if (s is null) return;
         var torres = TorresMostradas();
         var acts = ActividadesMostradas();
         <div class="tabla-scroll tabla-auto av-matriz-marco">
@@ -2044,7 +2045,7 @@ else
             if (!ReferenceEquals(tdDatosDe, s))
             {
                 tdDatosDe = s; tdEstado = null; tdSelEnviado = -1;
-                // Mismo formato que Línea 3D (su visor dibuja las torres y el terreno; tendido3d.js pone la capa de obra).
+                // Mismo formato que Línea 3D (su visor dibuja las torres y el terreno; tendidoCesium.js pone la capa de obra).
                 var ids = s.Tiros.SelectMany(t => t.Torres).ToHashSet();
                 var conPos = s.Torres.Where(t => ids.Contains(t.Id) && (t.Lat != 0 || t.Lon != 0)).ToList();
                 var lat0 = conPos.Count > 0 ? conPos.Average(t => t.Lat) : 0;
@@ -2723,6 +2724,7 @@ else
 
     private RenderFragment VistaAjustes() => __builder =>
     {
+        if (s is null) return;
         var total = actsEdit.Where(a => a.Activo).Sum(a => a.Peso);
         <div class="av-ajustes">
             <div class="frm-linea av-linea mb-2">

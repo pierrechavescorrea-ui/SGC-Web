@@ -59,7 +59,7 @@
 
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
-    [SupplyParameterFromForm(FormName = "dosfa")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "dosfa")] private Modelo M { get => field ??= new(); set; }
     [SupplyParameterFromQuery(Name = "ReturnUrl")] private string? ReturnUrl { get; set; }
     [SupplyParameterFromQuery(Name = "recordar")] private bool? RecordarQ { get; set; }
     [SupplyParameterFromQuery(Name = "recuperacion")] private bool? RecuperacionQ { get; set; }

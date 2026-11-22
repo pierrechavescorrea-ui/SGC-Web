@@ -583,7 +583,7 @@
     private string vistaComparar = "torres";
 
     // Vista previa por torre (solo cambios de valores ya cargados y de ubicación de patas) y lo elegido por torre.
-    private sealed record CambioVista(string Ambito, string Clave, string Antes, string Ahora);
+    private sealed record CambioVista(string Ambito, string Clave, string? Antes, string Ahora);
     private sealed class TorreVista { public string Codigo = ""; public List<CambioVista> Cambios = new(); public int Nuevos; }
     private Dictionary<int, TorreVista> cambiosPorTorre = new();
     private HashSet<string> torresExcluidas = new(StringComparer.OrdinalIgnoreCase);

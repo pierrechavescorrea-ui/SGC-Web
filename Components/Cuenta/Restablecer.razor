@@ -39,7 +39,7 @@
 
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
-    [SupplyParameterFromForm(FormName = "restablecer")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "restablecer")] private Modelo M { get => field ??= new(); set; }
     [SupplyParameterFromQuery(Name = "u")] private string? UQ { get; set; }
     [SupplyParameterFromQuery(Name = "t")] private string? TQ { get; set; }
     private readonly List<string> errores = new();

@@ -213,13 +213,13 @@
 
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
-    [SupplyParameterFromForm(FormName = "perfil")] private PerfilM Perfil { get; set; } = new();
-    [SupplyParameterFromForm(FormName = "clave")] private ClaveM Clave { get; set; } = new();
-    [SupplyParameterFromForm(FormName = "mfa")] private MfaM Mfa { get; set; } = new();
-    [SupplyParameterFromForm(FormName = "desactivar")] private DesactivarM Desactivar { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "perfil")] private PerfilM Perfil { get => field ??= new(); set; }
+    [SupplyParameterFromForm(FormName = "clave")] private ClaveM Clave { get => field ??= new(); set; }
+    [SupplyParameterFromForm(FormName = "mfa")] private MfaM Mfa { get => field ??= new(); set; }
+    [SupplyParameterFromForm(FormName = "desactivar")] private DesactivarM Desactivar { get => field ??= new(); set; }
     [SupplyParameterFromQuery(Name = "mfa")] private string? ExigirQ { get; set; }
     [SupplyParameterFromQuery(Name = "foto")] private string? FotoQ { get; set; }
-    [SupplyParameterFromForm(FormName = "avisos")] private AvisosM Avisos { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "avisos")] private AvisosM Avisos { get => field ??= new(); set; }
 
     public sealed class PerfilM
     {

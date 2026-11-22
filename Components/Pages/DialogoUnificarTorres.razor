@@ -28,8 +28,8 @@
 
             <div class="row g-2 mb-2">
                 <div class="col-md-6">
-                    <label class="form-label mb-1 small">Torre 1</label>
-                    <select class="form-select form-select-sm" @bind="idTorreA">
+                    <label for="unificar-torre-a" class="form-label mb-1 small">Torre 1</label>
+                    <select id="unificar-torre-a" class="form-select form-select-sm" @bind="idTorreA">
                         <option value="">-- Selecciona --</option>
                         @foreach (var t in torres)
                         {
@@ -38,8 +38,8 @@
                     </select>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label mb-1 small">Torre 2</label>
-                    <select class="form-select form-select-sm" @bind="idTorreB">
+                    <label for="unificar-torre-b" class="form-label mb-1 small">Torre 2</label>
+                    <select id="unificar-torre-b" class="form-select form-select-sm" @bind="idTorreB">
                         <option value="">-- Selecciona --</option>
                         @foreach (var t in torres)
                         {
@@ -252,8 +252,8 @@
                         Id = ++contador,
                         Ambito = "Torre (datos generales)",
                         Clave = cs.Clave,
-                        ValorSobreviviente = cs.Valor,
-                        ValorPerdedor = cp.Valor,
+                        ValorSobreviviente = cs.Valor ?? string.Empty,
+                        ValorPerdedor = cp.Valor ?? string.Empty,
                         Tipo = "CampoTorre",
                         CampoTorreObjetivo = cs,
                         CampoTorreOrigen = cp
@@ -267,7 +267,7 @@
                 {
                     ElementoTrazadoId = torreSobreviviente.Id,
                     Clave = cp.Clave,
-                    Valor = cp.Valor,
+                    Valor = cp.Valor ?? string.Empty,
                     Origen = cp.Origen
                 });
             }
@@ -334,8 +334,8 @@
                             Id = ++contador,
                             Ambito = compSobreviviente.Nombre,
                             Clave = cs.Clave,
-                            ValorSobreviviente = cs.Valor,
-                            ValorPerdedor = cp.Valor,
+                            ValorSobreviviente = cs.Valor ?? string.Empty,
+                            ValorPerdedor = cp.Valor ?? string.Empty,
                             Tipo = "CampoComponente",
                             ComponenteSobreviviente = compSobreviviente,
                             ComponentePerdedor = compPerdedor,
@@ -350,7 +350,7 @@
                     {
                         ComponenteId = compSobreviviente.Id,
                         Clave = cp.Clave,
-                        Valor = cp.Valor,
+                        Valor = cp.Valor ?? string.Empty,
                         Origen = cp.Origen
                     });
                 }

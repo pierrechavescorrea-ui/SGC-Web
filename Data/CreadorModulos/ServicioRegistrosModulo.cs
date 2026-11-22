@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
@@ -304,6 +305,7 @@ public sealed class ServicioRegistrosModulo
         };
     }
 
+    [return: NotNullIfNotNull(nameof(s))]
     private static string? Recortar(string? s, int max) => s is null ? null : s.Length <= max ? s : s[..max];
 
     public Task CambiarEstadoAsync(RegistroModulosCreados.Publicado m, int id, string estado, string usuario) => ConDb(async db =>
@@ -386,6 +388,6 @@ public sealed class ServicioRegistrosModulo
                        join r in db.RegistrosModulo.AsNoTracking() on v.RegistroModuloId equals r.Id
                        where v.Fuente == fuente && v.ElementoId == elementoId
                        select new { r.Modulo, r.Id, r.Codigo, r.Titulo, r.Estado }).Distinct().ToListAsync();
-        return l.Select(x => (x.Modulo, x.Id, x.Codigo, x.Titulo, x.Estado)).ToList();
+        return l.Select(x => (x.Modulo, x.Id, x.Codigo, (string?)x.Titulo, (string?)x.Estado)).ToList();
     });
 }

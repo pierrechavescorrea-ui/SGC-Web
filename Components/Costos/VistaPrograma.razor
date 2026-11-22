@@ -219,8 +219,8 @@ else
                     <tr class="@(a.EsResumen ? "cp-total" : "")">
                         <td class="cp-num cp-sub">@numero.GetValueOrDefault(a.Id)</td>
                         <td class="cp-fija cp-tarea" style="padding-left:@(4 + Math.Max(0, a.Nivel - 1) * 14)px" title="@a.Nombre">@(a.Wbs is null ? "" : a.Wbs + " ")@a.Nombre</td>
-                        <td class="cp-num">@(a.EsResumen ? "" : cr.Hito ? "hito" : cr.Dur.ToString())</td>
-                        <td class="cp-sub">@cr.Preds</td>
+                        <td class="cp-num">@(a.EsResumen || cr is null ? "" : cr.Hito ? "hito" : cr.Dur.ToString())</td>
+                        <td class="cp-sub">@(cr?.Preds)</td>
                         <td class="cp-sub">@(a.ActividadObraId is int ao ? S.ActividadesObra.FirstOrDefault(x => x.Id == ao)?.Nombre : "")</td>
                         <td>
                             <span title="@(a.ItemPagoId is int ii ? S.ItemPorId.GetValueOrDefault(ii)?.Descripcion : "")">@(a.ItemPagoId is int ii2 ? S.ItemPorId.GetValueOrDefault(ii2)?.Codigo : "")</span>
@@ -240,7 +240,7 @@ else
                         <td><span class="cp-estado cp-pdt-@Clase(f.Estado)">@f.Estado</span></td>
                         <td class="cp-gantt">
                             <div class="cp-gantt-pista">
-                                <i class="cp-gantt-barra @(a.EsResumen ? "resumen" : "") @(verCritica && cr.Critica ? "critica" : "") @(cr.Hito ? "hito" : "")" style="left:@Pos(a.Inicio)%;width:@Ancho(a.Inicio, a.Fin)%">
+                                <i class="cp-gantt-barra @(a.EsResumen ? "resumen" : "") @(verCritica && cr?.Critica == true ? "critica" : "") @(cr?.Hito == true ? "hito" : "")" style="left:@Pos(a.Inicio)%;width:@Ancho(a.Inicio, a.Fin)%">
                                     @if (f.Real is decimal rr) { <b style="width:@((int)Math.Round(rr * 100))%"></b> }
                                 </i>
                                 <s style="left:@Pos(Corte)%"></s>

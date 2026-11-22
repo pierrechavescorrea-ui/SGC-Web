@@ -1803,7 +1803,6 @@ else
     private List<CapaTrazado> capas = new();
     private Dictionary<int, int> conteoTorresPorCapa = new();
     private bool mostrarCapas = false;
-    private bool mostrarDatosAdicionales = false;
     private bool mostrarUnificarTorres = false;
     private bool mostrarInspeccionarCad = false;
     private bool mostrarImportarCad = false;
@@ -3236,32 +3235,11 @@ else
         var item = movibles[desde];
         movibles.RemoveAt(desde);
         movibles.Insert(hasta, item);
+        var ids = movibles.Select(c => c.Id).ToArray();
+        var entidades = await Db.Componentes.Where(c => ids.Contains(c.Id)).ToDictionaryAsync(c => c.Id);
         for (int i = 0; i < movibles.Count; i++)
-        {
-            var entidad = await Db.Componentes.FindAsync(movibles[i].Id);
-            if (entidad is not null) entidad.Orden = i + 1;
-        }
-        await Db.SaveChangesAsync();
-        Db.ChangeTracker.Clear();
-        RecargarComponentesDeLaTorre();
-    }
-
-    private async Task MoverComponente(Componente c, int direccion)
-    {
-        if (c.EsHojaDeVida) return;
-
-        var movibles = componentesDeLaTorre.Where(x => !x.EsHojaDeVida).ToList();
-        var indiceActual = movibles.FindIndex(x => x.Id == c.Id);
-        var indiceVecino = indiceActual + direccion;
-        if (indiceActual < 0 || indiceVecino < 0 || indiceVecino >= movibles.Count) return;
-
-        (movibles[indiceActual], movibles[indiceVecino]) = (movibles[indiceVecino], movibles[indiceActual]);
-
-        for (int i = 0; i < movibles.Count; i++)
-        {
-            var entidad = await Db.Componentes.FindAsync(movibles[i].Id);
-            if (entidad is not null) entidad.Orden = i;
-        }
+            if (entidades.TryGetValue(movibles[i].Id, out var entidad))
+                entidad.Orden = i + 1;
         await Db.SaveChangesAsync();
         Db.ChangeTracker.Clear();
 
@@ -4495,7 +4473,6 @@ else
     // (si el usuario cargó coordenadas por pata).
     private async Task CerrarDatosAdicionales()
     {
-        mostrarDatosAdicionales = false;
         if (elementoSeleccionado is not null)
         {
             SeleccionarElemento(elementoSeleccionado.Id);

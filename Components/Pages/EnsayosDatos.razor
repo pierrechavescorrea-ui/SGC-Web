@@ -849,13 +849,11 @@ else
     }
 
     // ---------- Exportar (Excel/PDF, igual que en Materiales) ----------
-    private bool mostrarMenuExportar = false;
     private List<Dictionary<string, object>> columnasParaImprimir = new();
     private List<Dictionary<string, object>> datosParaImprimir = new();
 
     private async Task Exportar(string formato)
     {
-        mostrarMenuExportar = false;
         var columnas = ColumnasExcel();
         var filas = FilasParaMostrar(FilasExcel());
 

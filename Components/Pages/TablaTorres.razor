@@ -190,7 +190,7 @@
     private List<(string Origen, int Cantidad)> cargas = new();
 
     private string filtro = "";
-    private bool mostrarColumnas, mostrarCargas;
+    private bool mostrarCargas;
     private string? origenConfirmando;
     private bool procesando;
     private string mensaje = "", mensajeExito = "";
@@ -209,7 +209,8 @@
         torres = torres.OrderBy(t => OrdenNatural(t.Codigo)).ToList();
         var idsT = torres.Select(t => t.Id).ToList();
 
-        var comps = await Db.Componentes.AsNoTracking().Where(c => !c.Eliminado && idsT.Contains(c.ElementoTrazadoId)).ToListAsync();
+        var comps = await Db.Componentes.AsNoTracking().Where(c => !c.Eliminado && idsT.Contains(c.ElementoTrazadoId))
+            .Select(c => new { c.Id, c.ElementoTrazadoId, c.Nombre }).ToListAsync();
         patas = new();
         var compTorre = new Dictionary<int, (int TorreId, string Letra)>();
         foreach (var c in comps)

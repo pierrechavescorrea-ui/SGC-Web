@@ -58,7 +58,7 @@ else
 
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
-    [SupplyParameterFromForm(FormName = "solicitar")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "solicitar")] private Modelo M { get => field ??= new(); set; }
     private bool listo;
     private string? mensaje;
 

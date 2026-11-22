@@ -40,7 +40,7 @@ else
 
 @code {
     [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
-    [SupplyParameterFromForm(FormName = "olvide")] private Modelo M { get; set; } = new();
+    [SupplyParameterFromForm(FormName = "olvide")] private Modelo M { get => field ??= new(); set; }
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (int N, DateTime Desde)> Envios = new();
     private bool enviado;
     private string? mensaje;

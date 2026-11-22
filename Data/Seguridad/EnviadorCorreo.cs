@@ -53,8 +53,9 @@ public sealed class EnviadorCorreo
             var puerto = _cfg.GetValue("Correo:Smtp:Puerto", 587);
             var seguridad = puerto == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls;
             await smtp.ConnectAsync(servidor, puerto, seguridad, ct);
-            if (!string.IsNullOrWhiteSpace(_cfg["Correo:Smtp:Usuario"]))
-                await smtp.AuthenticateAsync(_cfg["Correo:Smtp:Usuario"], _cfg["Correo:Smtp:Clave"], ct);
+            var usuario = _cfg["Correo:Smtp:Usuario"];
+            if (!string.IsNullOrWhiteSpace(usuario))
+                await smtp.AuthenticateAsync(usuario, _cfg["Correo:Smtp:Clave"] ?? throw new InvalidOperationException("Falta configurar la clave SMTP."), ct);
             await smtp.SendAsync(m, ct);
             await smtp.DisconnectAsync(true, ct);
             return true;
