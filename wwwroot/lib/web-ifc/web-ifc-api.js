@@ -3406,7 +3406,27 @@ var require_web_ifc_mt = __commonJS({
           }
           invokerFnBody += "}\n";
           args1.push(invokerFnBody);
-          return newFunc(Function, args1).apply(null, args2);
+          // Sin eval (CSP sin 'unsafe-eval'): mismo invocador que el cuerpo generado arriba, como cierre.
+          return createNamedFunction(humanName, function() {
+            if (arguments.length !== argCount - 2) {
+              throwBindingError("function " + humanName + " called with " + arguments.length + " arguments, expected " + (argCount - 2) + " args!");
+            }
+            var destructors = needsDestructorStack ? [] : null;
+            var thisWired;
+            var wired = [];
+            var invokerArgs = [cppTargetFunc];
+            if (isClassMethodFunc) { thisWired = argTypes[1].toWireType(destructors, this); invokerArgs.push(thisWired); }
+            for (var j = 0; j < argCount - 2; ++j) { wired[j] = argTypes[j + 2].toWireType(destructors, arguments[j]); invokerArgs.push(wired[j]); }
+            var rv = cppInvokerFunc.apply(null, invokerArgs);
+            if (needsDestructorStack) {
+              runDestructors(destructors);
+            } else {
+              for (var k = isClassMethodFunc ? 1 : 2; k < argTypes.length; ++k) {
+                if (argTypes[k].destructorFunction !== null) argTypes[k].destructorFunction(k === 1 ? thisWired : wired[k - 2]);
+              }
+            }
+            if (returns) return argTypes[0].fromWireType(rv);
+          });
         }
         function __embind_register_class_constructor(rawClassType, argCount, rawArgTypesAddr, invokerSignature, invoker, rawConstructor) {
           rawClassType >>>= 0;
@@ -6077,7 +6097,27 @@ var require_web_ifc = __commonJS({
           }
           invokerFnBody += "}\n";
           args1.push(invokerFnBody);
-          return newFunc(Function, args1).apply(null, args2);
+          // Sin eval (CSP sin 'unsafe-eval'): mismo invocador que el cuerpo generado arriba, como cierre.
+          return createNamedFunction(humanName, function() {
+            if (arguments.length !== argCount - 2) {
+              throwBindingError("function " + humanName + " called with " + arguments.length + " arguments, expected " + (argCount - 2) + " args!");
+            }
+            var destructors = needsDestructorStack ? [] : null;
+            var thisWired;
+            var wired = [];
+            var invokerArgs = [cppTargetFunc];
+            if (isClassMethodFunc) { thisWired = argTypes[1].toWireType(destructors, this); invokerArgs.push(thisWired); }
+            for (var j = 0; j < argCount - 2; ++j) { wired[j] = argTypes[j + 2].toWireType(destructors, arguments[j]); invokerArgs.push(wired[j]); }
+            var rv = cppInvokerFunc.apply(null, invokerArgs);
+            if (needsDestructorStack) {
+              runDestructors(destructors);
+            } else {
+              for (var k = isClassMethodFunc ? 1 : 2; k < argTypes.length; ++k) {
+                if (argTypes[k].destructorFunction !== null) argTypes[k].destructorFunction(k === 1 ? thisWired : wired[k - 2]);
+              }
+            }
+            if (returns) return argTypes[0].fromWireType(rv);
+          });
         }
         function __embind_register_class_constructor(rawClassType, argCount, rawArgTypesAddr, invokerSignature, invoker, rawConstructor) {
           rawClassType >>>= 0;
