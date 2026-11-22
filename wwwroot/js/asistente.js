@@ -123,15 +123,43 @@ document.addEventListener('click', e => {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', retomar); else retomar();
 })();
 
-// ---------- πr vivo ----------
+// ---------- π vivo ----------
 // Mira el cursor del texto mientras el usuario escribe; si no, el puntero del mouse. De vez en cuando mira al frente
 // (al usuario) y parpadea; balanceo leve (CSS). Al enviar asiente y «piensa»: la respuesta nueva se retiene un momento
-// (data-pir-espera) y luego la mira. prefers-reduced-motion = quieto, sin retener respuestas.
+// (data-pir-espera) y luego la mira. Con movimiento reducido se usan gestos estáticos y la respuesta aparece de inmediato.
 window.sigPir = (() => {
-    const quieto = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const movimientoReducido = matchMedia('(prefers-reduced-motion: reduce)');
+    const quieto = () => movimientoReducido.matches;
     const ahora = () => performance.now();
     const azar = (a, b) => a + Math.random() * (b - a);
     const lim = v => Math.max(-1, Math.min(1, v));
+    // Cada fila corresponde a un tramo de toques. Se excluye el gesto anterior al sortear.
+    const niveles = [
+        [
+            ['doble', '¿Sí?', 560],
+            ['salto', 'Aquí sigo.', 620],
+            ['inclina', 'Dígame.', 720],
+            ['guiño', 'Le escucho.', 650],
+        ],
+        [
+            ['giro', 'Vaya.', 620],
+            ['ojos', 'Eso hace cosquillas.', 650],
+            ['asoma', 'Por aquí.', 800],
+            ['duda', '¿Algo más?', 900],
+        ],
+        [
+            ['ceño', 'Ya van {n}.', 900],
+            ['sacude', 'Con calma.', 660],
+            ['aire', 'Un momento.', 850],
+            ['cruzadas', 'Sigo contando.', 900],
+        ],
+        [
+            ['espirales', 'Me mareo…', 1100],
+            ['tambalea', 'Necesito un segundo.', 1000],
+            ['esconde', 'Vuelvo enseguida.', 1400],
+            ['serio', 'Confirmado. Han sido {n}.', 1000],
+        ],
+    ];
     let st = null;
     let raton = null, ratonT = 0;
     document.addEventListener('mousemove', e => { raton = { x: e.clientX, y: e.clientY }; ratonT = ahora(); }, { passive: true });
@@ -157,19 +185,41 @@ window.sigPir = (() => {
             panel, svg, caja,
             ojos: svg.querySelector('.pir-ojos'), cabeza: svg.querySelector('.pir-cabeza'), boca: svg.querySelector('.pir-boca'),
             asiente: svg.querySelector('.pir-asiente'),
-            lx: 0, ly: 0, rot: 0, escrito: 0, alUsuario: ahora() + 1800, mirarA: null, mirarHasta: 0,
-            pensando: false, pensandoDesde: 0, timers: [],
+            lx: 0, ly: 0, escrito: 0, alUsuario: ahora() + 1800, mirarA: null, mirarHasta: 0,
+            pensando: false, pensandoDesde: 0, timers: new Set(), eventos: new AbortController(),
+            manos: panel.querySelector('.pir-manos'), globo: panel.querySelector('.pir-globo'),
+            toques: 0, ultimoToque: -Infinity, ultimoGesto: null,
         };
+        const opciones = { signal: s.eventos.signal };
+        panel.addEventListener('pointerdown', e => agarrar(s, e), opciones);
+        panel.addEventListener('pointermove', e => arrastrar(s, e), opciones);
+        panel.addEventListener('pointerup', e => soltar(s, e), opciones);
+        for (const tipo of ['pointercancel', 'lostpointercapture']) {
+            panel.addEventListener(tipo, e => {
+                if (s.puntero?.id !== e.pointerId) return;
+                s.puntero = null;
+                volver(s);
+            }, opciones);
+        }
+        svg.addEventListener('click', e => { if (e.detail === 0 && !s.vuelo) tocar(s); }, opciones);
+        svg.addEventListener('keydown', e => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            if (!e.repeat && !s.vuelo) tocar(s);
+        }, opciones);
+        s.cierre = new MutationObserver(() => { if (!panel.isConnected) detener(); });
+        s.cierre.observe(document.body, { childList: true, subtree: true });
         const entrada = panel.querySelector('.asis-pie input');
-        s.alEscribir = () => { s.escrito = ahora(); };
-        entrada?.addEventListener('input', s.alEscribir);
-        entrada?.addEventListener('keyup', s.alEscribir);
-        entrada?.addEventListener('click', s.alEscribir);
+        const alEscribir = () => { s.escrito = ahora(); };
+        for (const tipo of ['input', 'keyup', 'click']) entrada?.addEventListener(tipo, alEscribir, opciones);
         s.entrada = entrada;
         // Enter / Preguntar: asiente y piensa.
-        s.alEnviar = () => { if (s.entrada?.value.trim()) pensar(); };
-        panel.querySelector('.asis-pie')?.addEventListener('submit', s.alEnviar, true);
-        panel.addEventListener('click', s.alClic = e => { if (e.target.closest('button.asis-sug')) pensar(); }, true);
+        panel.querySelector('.asis-pie')?.addEventListener('submit', () => {
+            if (entrada?.value.trim()) pensar();
+        }, opciones);
+        panel.addEventListener('click', e => {
+            if (e.target.closest?.('button.asis-sug')) pensar();
+        }, { ...opciones, capture: true });
         // Respuesta nueva (después de una pregunta): se retiene mientras «piensa».
         s.obs = new MutationObserver(ms => {
             for (const m of ms) for (const n of m.addedNodes) {
@@ -178,29 +228,197 @@ window.sigPir = (() => {
             }
         });
         if (caja) s.obs.observe(caja, { childList: true });
-        if (quieto()) return;
+        movimientoReducido.addEventListener('change', () => {
+            if (!quieto()) {
+                s.raf = requestAnimationFrame(cuadro);
+                return;
+            }
+            cancelAnimationFrame(s.raf);
+            s.lx = s.ly = 0;
+            for (const parte of [s.ojos, s.boca, s.cabeza]) parte.style.removeProperty('transform');
+            s.svg.classList.remove('parpadea');
+            terminar(null);
+            if (s.vuelo && !s.puntero) volver(s);
+        }, opciones);
         asentir();                                   // saludo al aparecer
         programarParpadeo();
         programarMirada();
-        s.raf = requestAnimationFrame(cuadro);
+        if (!quieto()) s.raf = requestAnimationFrame(cuadro);
     }
 
     function detener() {
         if (!st) return;
         cancelAnimationFrame(st.raf);
         st.timers.forEach(clearTimeout);
-        st.obs?.disconnect();
+        st.obs.disconnect();
+        st.cierre.disconnect();
+        st.eventos.abort();
+        limpiarGesto(st);
+        retirarVuelo(st);
+        terminar(null);
         st = null;
     }
 
-    const tarde = (fn, ms) => { const s = st; const t = setTimeout(() => { if (st === s) fn(); }, ms); s.timers.push(t); };
+    function tarde(fn, ms) {
+        const s = st;
+        const id = setTimeout(() => {
+            s.timers.delete(id);
+            if (st === s) fn();
+        }, ms);
+        s.timers.add(id);
+    }
+
+    function limpiarGesto(s) {
+        clearTimeout(s.finGesto);
+        delete s.svg.dataset.gesto;
+        delete s.manos.dataset.gesto;
+        s.globo.textContent = '';
+    }
+
+    function gesto(s, nombre, frase, ms) {
+        limpiarGesto(s);
+        s.svg.dataset.gesto = nombre;
+        s.manos.dataset.gesto = nombre;
+        s.globo.textContent = frase;
+        s.alUsuario = ahora() + ms;
+        s.finGesto = setTimeout(() => limpiarGesto(s), ms);
+    }
+
+    function tocar(s) {
+        const t = ahora();
+        s.toques = t - s.ultimoToque >= 4000 ? 1 : s.toques + 1;
+        s.ultimoToque = t;
+        const nivel = s.toques <= 2 ? 0 : s.toques <= 5 ? 1 : s.toques <= 9 ? 2 : 3;
+        const posibles = niveles[nivel].filter(([nombre]) => nombre !== s.ultimoGesto);
+        const [nombre, frase, ms] = posibles[Math.floor(Math.random() * posibles.length)];
+        s.ultimoGesto = nombre;
+        gesto(s, nombre, frase.replace('{n}', s.toques), ms);
+    }
+
+    function agarrar(s, e) {
+        if (!e.isPrimary || e.button !== 0 || s.puntero || s.vuelo ||
+            !e.target.closest?.('.pir-cara, .pir-manos path')) return;
+        e.preventDefault();
+        s.panel.setPointerCapture(e.pointerId);
+        const { clientX: x, clientY: y } = e;
+        s.puntero = { id: e.pointerId, x, y, muestras: [{ x, y, t: ahora() }] };
+    }
+
+    function posicionar(v) {
+        v.svg.style.transform = `translate(${v.x}px, ${v.y}px) rotate(${v.angulo}deg)`;
+    }
+
+    function arrastrar(s, e) {
+        const p = s.puntero;
+        if (p?.id !== e.pointerId) return;
+        const dx = e.clientX - p.x, dy = e.clientY - p.y;
+        if (!s.vuelo) {
+            if (Math.hypot(dx, dy) < 5) return;
+            limpiarGesto(s);
+            const r = s.svg.getBoundingClientRect();
+            const svg = s.svg.cloneNode(true);
+            svg.classList.add('pir-vuelo');
+            svg.classList.remove('parpadea', 'pir-reaparece');
+            svg.setAttribute('aria-hidden', 'true');
+            svg.removeAttribute('role');
+            svg.removeAttribute('tabindex');
+            svg.removeAttribute('aria-label');
+            svg.dataset.gesto = 'sorpresa';
+            svg.style.left = '0px';
+            svg.style.top = '0px';
+            s.vuelo = { svg, origenX: r.left, origenY: r.top, ancho: r.width, alto: r.height, angulo: 0 };
+            s.panel.classList.add('pir-panel-arrastre');
+            document.body.append(svg);
+        }
+        const v = s.vuelo;
+        v.x = v.origenX + dx;
+        v.y = v.origenY + dy;
+        posicionar(v);
+        const t = ahora();
+        p.muestras = p.muestras.filter(m => t - m.t <= 120);
+        p.muestras.push({ x: e.clientX, y: e.clientY, t });
+    }
+
+    function soltar(s, e) {
+        const p = s.puntero;
+        if (p?.id !== e.pointerId) return;
+        const reciente = p.muestras.find(m => ahora() - m.t <= 120);
+        arrastrar(s, e);
+        s.puntero = null;
+        if (!s.vuelo) { tocar(s); return; }
+        if (quieto() || !reciente) { volver(s); return; }
+        const dt = Math.max(16, ahora() - reciente.t);
+        const vx = (e.clientX - reciente.x) / dt, vy = (e.clientY - reciente.y) / dt;
+        if (Math.hypot(vx, vy) < .22) { volver(s); return; }
+
+        const v = s.vuelo;
+        v.vx = lim(vx / 1.8) * 1.8;
+        v.vy = lim(vy / 1.8) * 1.8;
+        const inicio = ahora();
+        let anterior = inicio;
+        function volar(t) {
+            if (!s.panel.isConnected) { detener(); return; }
+            if (quieto() || t - inicio > 2500) { volver(s); return; }
+            const paso = Math.min(t - anterior, 32);
+            anterior = t;
+            v.vy += .0025 * paso;
+            v.x += v.vx * paso;
+            v.y += v.vy * paso;
+            const maxX = Math.max(0, innerWidth - v.ancho);
+            const maxY = Math.max(0, innerHeight - v.alto);
+            if (v.x < 0 || v.x > maxX) v.vx *= -.65;
+            if (v.y < 0 || v.y > maxY) {
+                v.vy *= -.56;
+                v.vx *= .82;
+            }
+            v.x = Math.max(0, Math.min(v.x, maxX));
+            v.y = Math.max(0, Math.min(v.y, maxY));
+            v.vx *= Math.pow(.998, paso);
+            v.angulo += v.vx * paso * .19;
+            posicionar(v);
+            if (v.y === maxY && Math.hypot(v.vx, v.vy) < .18) { volver(s); return; }
+            v.raf = requestAnimationFrame(volar);
+        }
+        v.raf = requestAnimationFrame(volar);
+    }
+
+    function retirarVuelo(s) {
+        const v = s.vuelo;
+        if (!v) return;
+        cancelAnimationFrame(v.raf);
+        v.regreso?.cancel();
+        v.svg.remove();
+        s.panel.classList.remove('pir-panel-arrastre');
+        s.vuelo = null;
+    }
+
+    function volver(s) {
+        const v = s.vuelo;
+        if (!v) return;
+        cancelAnimationFrame(v.raf);
+        const terminarRegreso = () => {
+            retirarVuelo(s);
+            s.svg.classList.remove('pir-reaparece');
+            void s.svg.getBoundingClientRect();
+            s.svg.classList.add('pir-reaparece');
+            gesto(s, 'alivio', 'De vuelta.', 850);
+        };
+        if (quieto()) { terminarRegreso(); return; }
+        const destino = s.svg.getBoundingClientRect();
+        v.regreso = v.svg.animate([
+            { transform: v.svg.style.transform },
+            { transform: `translate(${destino.left}px, ${destino.top}px)` },
+        ], { duration: 460, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'forwards' });
+        v.regreso.onfinish = terminarRegreso;
+    }
 
     function asentir() {
-        if (!st || quieto()) return;
+        if (!st || quieto() || st.vuelo || st.svg.dataset.gesto) return;
         st.asiente.classList.remove('si'); void st.asiente.getBoundingClientRect(); st.asiente.classList.add('si');
         tarde(() => st.asiente.classList.remove('si'), 600);
     }
     function parpadear() {
+        if (quieto() || st.vuelo || st.svg.dataset.gesto) return;
         st.svg.classList.add('parpadea');
         tarde(() => st.svg.classList.remove('parpadea'), 130);
     }
@@ -240,6 +458,7 @@ window.sigPir = (() => {
 
     // Punto al que mira (coordenadas de pantalla) o null = al frente.
     function objetivo(s, t) {
+        if (s.svg.dataset.gesto || s.vuelo) return null;
         if (s.pensando) return { dx: 0.6, dy: -0.8, fijo: true };            // arriba, a un lado
         if (s.mirarA && t < s.mirarHasta && s.mirarA.isConnected) {
             const r = s.mirarA.getBoundingClientRect();
@@ -254,7 +473,7 @@ window.sigPir = (() => {
 
     function cuadro() {
         const s = st;
-        if (!s) return;
+        if (!s || quieto()) return;
         if (!s.panel.isConnected) { detener(); return; }
         const t = ahora();
         const o = objetivo(s, t);

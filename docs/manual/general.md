@@ -3,7 +3,7 @@ modulo: general
 titulo: Uso general de SGC Web
 menu: (toda la app)
 rutas: [/cuenta/ingresar, /cuenta/ingresar-2fa, /cuenta/olvide, /cuenta/invitacion, /cuenta/solicitar-acceso, /cuenta/sin-proyectos, /mi-cuenta, /papelera, /acceso-denegado]
-palabras: [asistente, πr, pir, ayuda, chat, bot de ayuda, pregunta, ingresar, iniciar sesión, login, contraseña, clave, olvidé, invitación, cuenta, dos pasos, 2FA, código, menú, buscar, buscador, Ctrl K, favoritos, proyecto, cambiar de proyecto, permisos, rol, acceso denegado, botones, íconos, papelera, recuperar, restaurar, borrado, editar, guardar, importar, exportar, Excel, columnas, congelar, tema, foto]
+palabras: [asistente, π, pir, ayuda, chat, bot de ayuda, pregunta, ingresar, iniciar sesión, login, contraseña, clave, olvidé, invitación, cuenta, dos pasos, 2FA, código, menú, buscar, buscador, Ctrl K, favoritos, proyecto, cambiar de proyecto, permisos, rol, acceso denegado, botones, íconos, papelera, recuperar, restaurar, borrado, editar, guardar, importar, exportar, Excel, columnas, congelar, tema, foto]
 opciones:
   - Restaurar: /papelera | Restaurar
   - Eliminar definitivamente: /papelera | Eliminar definitivamente
@@ -106,14 +106,16 @@ Casi todos los botones muestran **solo un ícono**. **Deje el mouse quieto sobre
 1. Toque el botón **?** (**Asistente de ayuda**) a la derecha del encabezado de cualquier pantalla.
 2. Escriba su pregunta con sus palabras, por ejemplo «¿cómo subo una nueva versión de un documento?» o
    «¿qué puedo hacer aquí?».
-3. El asistente, **πr**, responde con los pasos del manual y muestra de qué capítulo salen. Si la respuesta es de otro módulo,
+3. El asistente, **π**, responde con los pasos del manual y muestra de qué capítulo salen. Si la respuesta es de otro módulo,
    ofrece **Ir a** ese módulo; debajo propone otras secciones que también pueden servir.
 4. **Nueva conversación** empieza de cero; **Cerrar** (o Esc) oculta el panel. La conversación se conserva mientras
    cambia de pantalla.
 
 El asistente funciona dentro de la app, sin conexión a servicios externos: solo sabe lo que dice este manual. Si no
-encuentra la respuesta, lo dice y sugiere secciones parecidas. Mientras usted escribe, πr mira la caja de texto; si no,
-sigue el puntero. Si prefiere menos movimiento, active «reducir movimiento» en su sistema y πr se queda quieto.
+encuentra la respuesta, lo dice y sugiere secciones parecidas. Mientras usted escribe, π mira la caja de texto; si no,
+sigue el puntero. Puede tocar la cabeza o las manos de π varias veces para ver cómo cambia su reacción.
+También puede agarrar la cabeza, arrastrarla y soltarla. Si la suelta con impulso, rebota y luego vuelve sola al panel.
+Con «reducir movimiento» activado en su sistema, π muestra gestos estáticos y vuelve de inmediato al soltarlo.
 
 ### Cómo encontrar cualquier cosa (buscador)
 1. Toque **Buscar…** en el menú o presione **Ctrl + K**.

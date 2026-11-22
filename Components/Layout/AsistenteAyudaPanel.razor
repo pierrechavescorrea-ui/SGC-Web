@@ -13,11 +13,11 @@
 
 @if (abierto)
 {
-    <div id="asis-panel" class="asis-panel" tabindex="-1" role="dialog" aria-label="πr, asistente de ayuda">
-        @* πr (avatar «Contorno», media sonrisa): la cabeza se asoma por detrás del borde superior y las manos se agarran a
+    <div id="asis-panel" class="asis-panel" tabindex="-1" role="dialog" aria-label="π, asistente de ayuda">
+        @* π (avatar «Contorno», media sonrisa): la cabeza se asoma por detrás del borde superior y las manos se agarran a
            él (dos SVG: cabeza detrás del encabezado, manos delante). Mirada, parpadeo, asentir y «pensando» en js/asistente.js
            (sigPir); estilos pir-* en css/asistente.css. *@
-        <svg class="pir pir-cab" viewBox="0 0 120 86" aria-hidden="true" focusable="false">
+        <svg class="pir pir-cab" viewBox="0 0 120 86" role="button" tabindex="0" aria-label="Tocar a π">
             <g class="pir-cuerpo"><g class="pir-asiente"><g class="pir-cabeza">
                 <rect class="pir-cara" x="30" y="14" width="60" height="52" rx="18" />
                 <g class="pir-ojos">
@@ -25,16 +25,23 @@
                     <path class="pir-ojo" d="M66 32 H80 M70 32 V43 M76 32 V43" />
                 </g>
                 <path class="pir-boca" d="M52 54 Q62 57 69 51" />
+                <path class="pir-cejas pir-gesto" d="M39 25 L53 28 M67 28 L81 25" />
+                <path class="pir-sorpresa pir-gesto" d="M39 25 Q46 21 53 25 M67 25 Q74 21 81 25 M53 53 H67" />
+                <path class="pir-espirales pir-gesto" d="M48 35 c3-2 5 3 1 5 c-5 3-10-3-6-8 c4-5 13-1 12 5 M74 35 c3-2 5 3 1 5 c-5 3-10-3-6-8 c4-5 13-1 12 5" />
+                <path class="pir-aire pir-gesto" d="M75 55 l8-3 M76 59 h10" />
+                <path class="pir-duda pir-gesto" d="M93 12 q0-5 5-5 t5 5 q0 3-5 5 v3 M98 25 h.1" />
                 <path class="pir-boca-hmm" d="M53 54 Q61 54.5 68 53" />
             </g></g></g>
             <g class="pir-puntos"><circle cx="97" cy="17" r="1.6" /><circle cx="103" cy="11" r="2.1" /><circle cx="110" cy="5" r="2.6" /></g>
         </svg>
         <svg class="pir pir-manos" viewBox="0 0 120 86" aria-hidden="true" focusable="false">
-            <path d="M22 80 q4-10 12-4 M86 76 q8-6 12 4" />
+            <path class="pir-cruzadas pir-gesto" d="M36 82 q10-8 29 0 M84 82 q-10-8-29 0" />
+            <path class="pir-apoyo" d="M22 80 q4-10 12-4 M86 76 q8-6 12 4" />
         </svg>
+        <span class="pir-globo" role="status"></span>
         <div class="asis-cab">
             <div class="asis-cab-txt">
-                <strong class="asis-nombre" title="πr"><span class="asis-pi">π</span><span class="asis-r">r</span></strong>
+                <strong class="asis-nombre" title="π"><span class="asis-pi">π</span></strong>
             </div>
             <button type="button" class="asis-cab-btn" title="Nueva conversación" aria-label="Nueva conversación" @onclick="Reiniciar"><Ico Nombre="restaurar" /></button>
             <button type="button" class="asis-cab-btn" title="Cerrar" aria-label="Cerrar" @onclick="() => abierto = false"><Ico Nombre="cancelar" /></button>

@@ -1,6 +1,6 @@
 /* Asistente de ayuda interno (Components/Layout/AsistenteAyudaPanel.razor). Colores del tema con respaldo Bootstrap. */
 .asis-panel {
-    position: fixed; top: 66px; right: 12px; bottom: 12px; z-index: 1080;   /* 66 px: espacio para la cabeza de πr */
+    position: fixed; top: 66px; right: 12px; bottom: 12px; z-index: 1080;   /* 66 px: espacio para la cabeza de π */
     width: min(420px, calc(100vw - 24px));
     display: flex; flex-direction: column;
     background: var(--t-solido, var(--t-superficie, var(--bs-body-bg, #fff)));
@@ -83,10 +83,9 @@
 }
 @media (prefers-reduced-motion: reduce) { .asis-panel, .asis-resalte { animation: none; } }
 
-/* ---------- πr: nombre y avatar «Contorno» (media sonrisa) ---------- */
+/* ---------- π: nombre y avatar «Contorno» (media sonrisa) ---------- */
 .asis-nombre { font-size: 1.25rem; line-height: 1; letter-spacing: -.01em; font-weight: 600; }
 .asis-pi { font-family: "Times New Roman", "Liberation Serif", Georgia, serif; font-style: italic; font-weight: 500; }
-.asis-r { font-family: system-ui, "Segoe UI", "Liberation Sans", Arial, sans-serif; margin-left: -.02em; }
 
 /* Dos SVG con el mismo viewBox (120 × 86): y = 78 es el borde superior del panel. Ancho 100 px → borde a 65 px. */
 .pir { position: absolute; left: 22px; top: -65px; width: 100px; height: 71.7px; overflow: visible; pointer-events: none;
@@ -111,7 +110,7 @@
 .asis-panel.pir-pensando .pir-puntos circle:nth-child(2) { animation-delay: .15s; }
 .asis-panel.pir-pensando .pir-puntos circle:nth-child(3) { animation-delay: .3s; }
 .pir-asiente.si { animation: pir-si .55s ease-in-out; }
-/* Respuesta retenida mientras πr «piensa» (js/asistente.js): aparece suave. */
+/* Respuesta retenida mientras π «piensa» (js/asistente.js): aparece suave. */
 .asis-el { transition: opacity .25s ease-out, transform .25s ease-out; }
 .asis-el[data-pir-espera] { opacity: 0; transform: translateY(4px); }
 
@@ -123,4 +122,107 @@
 @media (prefers-reduced-motion: reduce) {
     .pir-cab, .pir-cuerpo, .pir-asiente.si, .asis-panel.pir-pensando .pir-puntos circle { animation: none; }
     .pir-ojo, .asis-el { transition: none; }
+}
+
+/* Solo las partes pintadas capturan el puntero. El resto deja pasar a los controles del encabezado. */
+.pir-cara, .pir-manos .pir-apoyo, .pir-manos .pir-cruzadas { pointer-events: visiblePainted; touch-action: none; cursor: grab; }
+.pir-cab:focus-visible .pir-cara { stroke: var(--t-acento, var(--sig-rojo, #EC1C24)); }
+.pir-gesto { display: none; }
+.pir-cab[data-gesto="duda"] .pir-duda,
+.pir-cab[data-gesto="ceño"] .pir-cejas,
+.pir-cab[data-gesto="aire"] .pir-aire,
+.pir-cab[data-gesto="espirales"] .pir-espirales,
+.pir-cab[data-gesto="sorpresa"] .pir-sorpresa,
+.pir-manos[data-gesto="cruzadas"] .pir-cruzadas { display: inline; }
+.pir-cab[data-gesto="espirales"] .pir-ojos,
+.pir-cab[data-gesto="sorpresa"] :is(.pir-boca, .pir-boca-hmm),
+.pir-manos[data-gesto="cruzadas"] .pir-apoyo { visibility: hidden; }
+.pir-cab[data-gesto="serio"] .pir-boca { opacity: 0; }
+.pir-cab[data-gesto="serio"] .pir-boca-hmm { opacity: 1; }
+.pir-cab[data-gesto="guiño"] .pir-ojo:first-child { transform: scaleY(.12); }
+.pir-cab[data-gesto="alivio"] .pir-ojo { transform: scaleY(.6); }
+.pir-cab[data-gesto="sorpresa"] .pir-ojo { transform: scale(1.2); }
+.pir-panel-arrastre > .pir { visibility: hidden; }
+.pir-vuelo { position: fixed; z-index: 1081; animation: none; }
+.pir-vuelo *, .pir-panel-arrastre > .pir * { pointer-events: none; }
+.pir-vuelo .pir-cuerpo { animation: none; }
+
+.pir-globo {
+    position: absolute; z-index: 1; left: 108px; bottom: calc(100% + 9px);
+    padding: 4px 9px; border-radius: 10px;
+    background: var(--t-solido, var(--bs-body-bg, #fff));
+    border: 1px solid var(--t-borde, var(--bs-border-color, #dee2e6));
+    color: var(--t-texto, var(--bs-body-color, #212529)); font-size: .75rem;
+    pointer-events: none;
+}
+.pir-globo:empty { opacity: 0; }
+
+@media (max-width: 270px) {
+    .pir-globo { right: 6px; }
+}
+@media print { .pir-vuelo { display: none; } }
+
+.pir-cab, .pir-manos { touch-action: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+    .pir-reaparece { animation: pir-asoma .46s cubic-bezier(.2, .9, .3, 1.2) both; }
+    .pir-cab[data-gesto] .pir-cuerpo { animation: none; }
+    .pir-cab[data-gesto="doble"] .pir-ojo { animation: pir-doble .55s ease-in-out; }
+    .pir-cab[data-gesto="salto"] .pir-cuerpo { animation: pir-salto .6s ease-out; }
+    .pir-cab[data-gesto="inclina"] .pir-cuerpo { animation: pir-inclina .71s ease-in-out; }
+    .pir-cab[data-gesto="giro"] .pir-cuerpo { animation: pir-giro .61s ease-in-out; }
+    .pir-cab[data-gesto="ojos"] .pir-ojos { animation: pir-ojos .64s ease-in-out; }
+    .pir-cab[data-gesto="asoma"] .pir-cuerpo { animation: pir-oculta .79s ease-in-out; }
+    .pir-cab[data-gesto="sacude"] .pir-cuerpo { animation: pir-sacude .64s ease-in-out; }
+    .pir-cab[data-gesto="tambalea"] .pir-cuerpo { animation: pir-tambalea .98s ease-in-out; }
+    .pir-cab[data-gesto="esconde"] .pir-cuerpo { animation: pir-oculta 1.38s ease-in-out; }
+    .pir-cab[data-gesto="esconde"] .pir-boca { opacity: 0; }
+    .pir-cab[data-gesto="esconde"] .pir-boca-hmm { opacity: 1; }
+}
+
+@keyframes pir-doble {
+    0%, 30%, 58%, 100% { transform: scaleY(1); }
+    16%, 46% { transform: scaleY(.12); }
+}
+@keyframes pir-salto {
+    0%, 100% { transform: none; }
+    38% { transform: translateY(-9px); }
+    70% { transform: translateY(3px) scaleY(.94); }
+}
+@keyframes pir-inclina {
+    0%, 100% { transform: none; }
+    35%, 63% { transform: rotate(-12deg); }
+}
+@keyframes pir-giro {
+    0%, 100% { transform: none; }
+    50% { transform: rotate(26deg) scaleX(-.8); }
+}
+@keyframes pir-ojos {
+    0%, 100% { transform: none; }
+    25% { transform: translate(5px, -3px); }
+    50% { transform: translate(0, -6px); }
+    75% { transform: translate(-5px, -3px); }
+}
+@keyframes pir-oculta {
+    0%, 100% { transform: none; opacity: 1; }
+    27%, 68% { transform: translateY(55px); opacity: 0; }
+}
+@keyframes pir-sacude {
+    0%, 100% { transform: none; }
+    20%, 65% { transform: rotate(-9deg); }
+    43%, 83% { transform: rotate(8deg); }
+}
+@keyframes pir-tambalea {
+    0%, 100% { transform: none; }
+    25% { transform: translate(-5px, 5px) rotate(-20deg); }
+    57% { transform: translate(8px, -2px) rotate(18deg); }
+    79% { transform: translate(-4px, 4px) rotate(-10deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pir-cab[data-gesto="doble"] .pir-ojo, .pir-cab[data-gesto="salto"] .pir-ojo { transform: scaleY(.75); }
+    .pir-cab[data-gesto="inclina"] .pir-cara, .pir-cab[data-gesto="giro"] .pir-cara { stroke-width: 4; }
+    .pir-cab[data-gesto="ojos"] .pir-ojo, .pir-cab[data-gesto="tambalea"] .pir-ojo { transform: scale(.82); }
+    .pir-cab:is([data-gesto="asoma"], [data-gesto="esconde"]) .pir-duda,
+    .pir-cab[data-gesto="sacude"] .pir-cejas { display: inline; }
 }
