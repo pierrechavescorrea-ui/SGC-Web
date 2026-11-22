@@ -3,10 +3,10 @@ modulo: trazado
 titulo: Trazado
 menu: Operación › Trazado
 rutas: [/trazado, /trazado/tabla-torres, /trazado/datos-adicionales]
-palabras: [trazado, torre anterior, torre siguiente, siguiente torre, navegar entre torres, mapa, torre, torres, hoja de vida, ficha, pata, patas, elemento, elementos, KMZ, coordenadas, ubicación, este, norte, sistema de coordenadas, magna sirgas, DWG, DXF, capas, tabla de torres, cotas, vanos, alturas, revisión de la tabla, deshacer revisión, vincular planos, materiales de la torre, ensayos de la torre, actividades, parámetros, unificar torres, renombrar torre]
+palabras: [trazado, torre anterior, torre siguiente, siguiente torre, navegar entre torres, mapa, torre, torres, hoja de vida, ficha, pata, patas, elemento, elementos, KMZ, coordenadas, ubicación, este, norte, sistema de coordenadas, magna sirgas, DWG, DXF, capas, tabla de torres, cotas, vanos, alturas, revisión de la tabla, deshacer revisión, vincular planos, materiales de la torre, ensayos de la torre, actividades, parámetros, unificar torres, renombrar torre, torre corrida, poste, plano CAD, gavión, trincho, abscisa, carpeta de fotos]
 opciones:
-  - Trazado (KMZ): /trazado | Base de datos
-  - Elementos (DWG/DXF): /trazado | Base de datos
+  - Trazado (KMZ): /trazado | !Base de datos
+  - Elementos (DWG/DXF): /trazado | !Base de datos
   - Ver, ocultar, renombrar o eliminar capas: /trazado | Base de datos
   - 'Corregir columnas: /trazado/tabla-torres?revisiones=1 | Corregir columnas: deshace esta revisión y vuelve a la pantalla de columnas con el mismo archivo'
   - Comparar A → B: /trazado/tabla-torres?revisiones=1 | Revisión anterior
@@ -15,20 +15,72 @@ opciones:
   - Vista Mapa: /trazado
   - Tabla: /trazado?vista=tabla
   - Vista Tabla: /trazado?vista=tabla
-  - Tabla de torres (cotas, vanos, alturas): /trazado/tabla-torres
+  - Tabla de torres (cotas, vanos, alturas): /trazado/tabla-torres | Tabla de torres (cotas, vanos, alturas)
   - Tabla de torres: /trazado/tabla-torres
   - Tabla de torres (Excel): /trazado/datos-adicionales
   - Unificar torres duplicadas: /trazado | Unificar torres duplicadas
   - Torre anterior: /trazado | Torre anterior
   - Torre siguiente: /trazado | Torre siguiente
-  - Base de datos: /trazado | Base de datos
+  - Base de datos: /trazado | !Base de datos
   - Campos: /trazado?vista=tabla | Campos
-  - Exportar: /trazado?vista=tabla | Exportar
+  - Exportar: /trazado?vista=tabla | !Exportar
   - Ver revisiones y cambios por torre: /trazado/tabla-torres?revisiones=1
   - Revisiones de la tabla (cambios por torre, deshacer): /trazado/tabla-torres?revisiones=1
   - Ver sus cambios (contra la revisión anterior): /trazado/tabla-torres?revisiones=1 | Ver sus cambios (contra la revisión anterior)
   - Deshacer esta revisión: /trazado/tabla-torres?revisiones=1 | Deshacer esta revisión (devuelve los valores anteriores)
   - Descargar el archivo de esta revisión: /trazado/tabla-torres?revisiones=1 | Descargar el archivo de esta revisión
+  - Importar tabla: /trazado/tabla-torres | Importar tabla
+  - Campos de Tabla de torres: /trazado/tabla-torres | Campos
+  - Exportar Tabla de torres: /trazado/tabla-torres | !Exportar
+  - Base de datos de Tabla de torres: /trazado/tabla-torres | !Base de datos
+  - Eliminar esta carga: /trazado/tabla-torres | Eliminar esta carga
+  - Editar: /trazado/tabla-torres | Editar
+  - Guardar cambios: /trazado/tabla-torres | Guardar cambios
+  - Descartar cambios y salir de edición: /trazado/tabla-torres | Descartar cambios y salir de edición
+  - Vista previa de los datos: /trazado/datos-adicionales | Vista previa de los datos
+  - Volver a las columnas: /trazado/datos-adicionales | Volver a las columnas
+  - Continuar: /trazado/datos-adicionales | Continuar
+  - Volver a las columnas (no se pierde lo elegido): /trazado/datos-adicionales | Volver a las columnas (no se pierde lo elegido)
+  - Confirmar e importar: /trazado/datos-adicionales | Confirmar e importar
+  - Cambios por torre: /trazado/datos-adicionales | Cambios por torre
+  - Resumen por columna: /trazado/datos-adicionales | Resumen por columna
+  - Buscar por torre: /trazado/tabla-torres | Buscar por torre...
+  - Buscar por nombre: /trazado | Buscar por nombre...
+  - Abrir ficha: /trazado | Abrir ficha
+  - Ver en el mapa: /trazado | Ver en el mapa
+  - Cambiar nombre de la torre: /trazado | Cambiar nombre de la torre
+  - Agregar elemento (trincho, cuneta, gavión...): /trazado | Agregar elemento (trincho, cuneta, gavión...)
+  - Información: /trazado | Información
+  - Cambios: /trazado | Cambios (revisiones de la tabla de torres, KMZ y coordenadas)
+  - Módulos creados: /trazado | Módulos creados (inspecciones y otros registros que enlazan esta torre)
+  - Elegir qué actividades ver en este elemento: /trazado | Elegir qué actividades ver en este elemento
+  - Editar mosaico: /trazado | Editar mosaico
+  - Terminar edición: /trazado | Terminar edición
+  - Restaurar disposición: /trazado | Restaurar disposición
+  - Nueva carpeta: /trazado | Nueva carpeta
+  - Guardar carpeta: /trazado | Guardar carpeta
+  - Renombrar carpeta global: /trazado | Renombrar carpeta global
+  - Eliminar carpeta global: /trazado | Eliminar carpeta global
+  - Enviar archivo a la Papelera: /trazado | Enviar archivo a la Papelera
+  - Vincular planos del listado maestro: /trazado | Vincular planos del listado maestro
+  - Relacionar material del listado: /trazado | Relacionar material del listado
+  - Quitar relación: /trazado | Quitar relación
+  - Subir o gestionar documentos del informe: /trazado | Subir o gestionar documentos del informe
+  - Importar sin vincular patas: /trazado | Importar sin vincular patas
+  - Mostrar/ocultar en el mapa: /trazado | Mostrar/ocultar en el mapa
+  - Eliminar del mapa: /trazado | Eliminar del mapa
+  - Comparar datos: /trazado | Comparar datos
+  - Crear elemento(s) en la torre: /trazado | Crear elemento(s) en la torre
+  - Confirmar unificación: /trazado | Confirmar unificación
+  - Inspeccionar DWG/DXF: /trazado | !Base de datos
+  - Importar desde DWG/DXF: /trazado | !Base de datos
+  - Archivos y ensayos: /trazado | Archivos y ensayos
+  - Archivos: /trazado | Archivos
+  - Riesgos: /trazado | Riesgos
+  - Planes de acción: /trazado | Planes de acción
+  - Renombrar: /trazado | Renombrar
+  - Color en el mapa: /trazado | Color en el mapa
+  - Ícono en el mapa: /trazado | Ícono en el mapa
 actualizado: 2026-11-21
 ---
 
@@ -188,8 +240,30 @@ En el panel de Base de datos, **Ver, ocultar, renombrar o eliminar capas**: casi
 **Renombrar** y **Eliminar del mapa**.
 
 ### Cómo unir torres repetidas
-Toque **Unificar torres duplicadas** en el encabezado y siga los pasos.
-> Por confirmar: pasos exactos de la ventana de unificación.
+1. Toque **Unificar torres duplicadas**. Elija **Torre 1** y **Torre 2** y marque cuál queda como principal.
+2. Toque **Comparar datos**. Para cada conflicto, elija el valor que desea conservar.
+3. Toque **Confirmar unificación** y revise el resultado.
+
+### Cómo organizar las carpetas de la hoja de vida o de un elemento
+
+1. Abra la ficha de la torre o de un elemento y entre en **Archivos y ensayos** para la torre o **Archivos** para el elemento.
+2. Toque **Nueva carpeta**, escriba el **Nombre de la carpeta** y toque **Guardar carpeta**. La definición de la carpeta es global para las hojas de vida de torre o para el mismo tipo de elemento. Los adjuntos pertenecen a la ficha donde los carga.
+3. Abra la carpeta para cargar o consultar sus archivos. Use **Enviar archivo a la Papelera** sobre el archivo que desea retirar.
+4. Para reorganizar las tarjetas use **Editar mosaico**. Puede usar **Restaurar disposición** o toque **Terminar edición** para cerrar la edición del mosaico.
+
+### Cómo editar y exportar la tabla de torres
+
+1. Abra **Tabla de torres (cotas, vanos, alturas)** y use **Buscar por torre...**.
+2. Use **Editar** para modificar los datos editables. Toque **Guardar cambios** para aplicar, o **Descartar cambios y salir de edición**.
+3. Abra **Exportar** para elegir Excel o PDF. Para consultar los orígenes cargados, use **Base de datos** en esta tabla. Para examinar el historial de revisiones, use **Revisiones de la tabla (cambios por torre, deshacer)**.
+
+### Cómo inspeccionar un DWG o agregar una cuneta, trincho o gavión
+
+1. Abra **Base de datos** y seleccione un DWG o DXF.
+2. Entre en **Inspeccionar DWG/DXF** para revisar el rango de coordenadas, capas, bloques y anotaciones.
+3. Para crear elementos, elija **Importar desde DWG/DXF**, seleccione la **Torre** y revise el origen local que se usará para colocarlos.
+4. Revise **Nombre del elemento**, **Dibujar** y **Usar info** por capa. Debe haber al menos una geometría marcada en **Dibujar**.
+5. Toque **Crear elemento(s) en la torre** y revise las fichas en Trazado.
 
 ## Permisos
 - **Ver**: mapa, tabla y hojas de vida. **Descargar**: archivos y exportar.
@@ -197,7 +271,8 @@ Toque **Unificar torres duplicadas** en el encabezado y siga los pasos.
 - **Crear / Editar**: elementos, archivos, vínculos de planos, materiales, actividades y nombre de torres.
 - **Comentar**: registrar evidencias y observaciones de actividades.
 - **Eliminar**: elementos, archivos y capas (a la Papelera).
-- **ConfigurarCampos**: columnas de la vista Tabla.
+- **Configurar campos** permite ajustar las columnas de las tablas.
+- De fábrica, **Consulta sin descarga** tiene **Ver**. **Consulta** también descarga. **Colaborador** puede crear o aportar evidencias. **Editor** y **Coordinador / aprobador** añaden edición, importación y eliminación. **Administrador del proyecto** tiene todos los permisos.
 
 ## Problemas frecuentes
 - **«El mapa no carga»** → la tabla, las hojas de vida y las cargas siguen funcionando. Recargue la página; si sigue,
@@ -248,6 +323,15 @@ Arrástrelas; el orden queda igual para todas las torres.
 
 ### ¿Por qué una torre no aparece en el mapa?
 No tiene coordenadas o están fuera de Colombia; revise la tabla de torres (columnas de coordenadas y su sistema).
+
+### ¿Cómo creo una carpeta para fotos de una pata?
+Abra la ficha de la pata y entre en **Archivos**. Toque **Nueva carpeta**, indique el nombre y use **Guardar carpeta**. Los archivos que suba quedan en esa ficha.
+
+### ¿Cómo edito un dato de la tabla de torres sin subir otro Excel?
+Abra **Tabla de torres (cotas, vanos, alturas)**, busque la torre y toque **Editar**. Termine con **Guardar cambios**.
+
+### ¿Dónde veo el archivo Excel que se cargó en una revisión?
+Abra **Revisiones de la tabla (cambios por torre, deshacer)** y use **Descargar el archivo de esta revisión** en la fila que lo tenga.
 
 ## Relacionado
 - [Planos](planos.md) — listado maestro de donde salen los planos vinculados.

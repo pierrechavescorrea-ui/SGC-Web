@@ -21,6 +21,9 @@ public static class TextoAyuda
     // Sinónimos → palabra del manual. Se aplican ANTES de sacar la raíz.
     private static readonly Dictionary<string, string> Sinonimos = new(StringComparer.Ordinal)
     {
+        ["estructura"] = "torre", ["estructuras"] = "torre", ["cimentacion"] = "pata", ["cimentaciones"] = "pata",
+        ["tramo"] = "tiro", ["tramos"] = "tiro", ["quito"] = "eliminar", ["exporto"] = "exportar",
+        ["importar"] = "cargar", ["fichero"] = "archivo", ["ficheros"] = "archivo",
         ["subir"] = "cargar", ["sube"] = "cargar", ["subo"] = "cargar", ["adjuntar"] = "cargar", ["anexar"] = "cargar",
         ["borrar"] = "eliminar", ["borro"] = "eliminar", ["quitar"] = "eliminar", ["suprimir"] = "eliminar", ["eliminacion"] = "eliminar",
         ["crear"] = "agregar", ["creo"] = "agregar", ["anadir"] = "agregar", ["nuevo"] = "agregar", ["nueva"] = "agregar", ["registrar"] = "agregar",
@@ -39,7 +42,7 @@ public static class TextoAyuda
         ["calibrar"] = "calibracion", ["calibraciones"] = "calibracion",
         ["nc"] = "hallazgo", ["noconformidad"] = "hallazgo", ["hallazgos"] = "hallazgo",
         ["abro"] = "abrir", ["anado"] = "agregar", ["ingreso"] = "registrar", ["registro"] = "agregar",
-        ["importo"] = "importar", ["borre"] = "eliminar", ["elimino"] = "eliminar", ["recupero"] = "restaurar", ["revertir"] = "restaurar",
+        ["importo"] = "cargar", ["borre"] = "eliminar", ["elimino"] = "eliminar", ["recupero"] = "restaurar", ["revertir"] = "restaurar",
         ["paso"] = "editar", ["cambio"] = "editar", ["edito"] = "editar",
         ["conecto"] = "vincular", ["conectar"] = "vincular", ["vinculo"] = "vincular",
         ["duplicadas"] = "repetidas", ["duplicados"] = "repetidos", ["puesto"] = "cargo", ["puestos"] = "cargo",
@@ -131,11 +134,15 @@ public static class TextoAyuda
     public static List<string> Terminos(string? texto, bool conVacias = false)
     {
         var r = new List<string>();
-        foreach (var p in Palabras(texto))
+        var normalizado = SinTildes((texto ?? "").ToLowerInvariant()).Replace("accion correctiva","plan de accion")
+            .Replace("plan de inspeccion y ensayo","pie").Replace("puesta a tierra","spt");
+        normalizado = System.Text.RegularExpressions.Regex.Replace(normalizado, @"\bficha (?:de )?(?:esa |esta |la |una )?(?:estructura|torre)\b","hoja de vida de la torre");
+        foreach (var p in Palabras(normalizado))
         {
             if (!conVacias && Vacias.Contains(p)) continue;
             if (p.Length == 1 && !char.IsDigit(p[0])) continue;
             var w = Sinonimos.TryGetValue(p, out var s) ? s : p;
+            if (System.Text.RegularExpressions.Regex.IsMatch(w, @"^\d{1,5}[a-z]{1,4}$")) r.Add("torre");
             r.Add(Raiz(w));
         }
         return r;

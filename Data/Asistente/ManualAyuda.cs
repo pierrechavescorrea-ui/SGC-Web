@@ -4,7 +4,7 @@ namespace SigWeb.Data.Asistente;
 
 // Asistente de ayuda INTERNO (sin API ni servicios externos): lee el manual de usuario (docs/manual/*.md), lo parte en
 // secciones y responde buscando la sección más pertinente con BM25 (relevancia por términos), dando prioridad al capítulo
-// de la pantalla donde está el usuario. El manual es la única fuente: si no está escrito ahí, el asistente lo dice.
+// de la pantalla donde está el usuario. Las opciones se completan con los controles de la interfaz.
 // Singleton: el índice se arma una vez y se rehace solo si cambia algún archivo del manual.
 public sealed class ManualAyuda
 {
@@ -12,6 +12,9 @@ public sealed class ManualAyuda
     // Ruta = URL local exacta (empieza con "/"); Resaltar = title/aria-label/texto del control que se ilumina al llegar.
     public sealed record Opcion(string Nombre, string Ruta, string? Resaltar, Capitulo Capitulo)
     {
+        public IReadOnlyList<string> Terminos { get; } = TextoAyuda.Terminos(Regex.Replace(Nombre, @"\([^)]*\)", " ")).Distinct().ToList();
+        public string Modulo => AccesoAyuda.Modulo(Ruta);
+        public Seguridad.Accion Requiere => AccesoAyuda.RequisitoControl(Nombre,Resaltar,Ruta);
         public string Etiqueta => Capitulo.Titulo + " › " + Nombre;
     }
 
@@ -31,6 +34,7 @@ public sealed class ManualAyuda
         public string? Padre { get; init; }                   // ## al que pertenece un ###
         public required string Markdown { get; init; }        // cuerpo, sin «Por confirmar» ni comentarios
         public Dictionary<string, double> Tf { get; } = new(StringComparer.Ordinal);
+        public HashSet<string> TerminosTitulo { get; } = new();
         public double Largo { get; set; }
     }
 
@@ -41,11 +45,13 @@ public sealed class ManualAyuda
     private List<Capitulo> _capitulos = new();
     private Dictionary<string, int> _df = new(StringComparer.Ordinal);
     private double _largoMedio = 1;
-    private DateTime _firma = DateTime.MinValue;
+    private readonly IWebHostEnvironment _entorno;
+    private string _firma = "";
     private DateTime _revisado = DateTime.MinValue;
 
     public ManualAyuda(IWebHostEnvironment env, ILogger<ManualAyuda> log)
     {
+        _entorno = env;
         _log = log;
         // En desarrollo está en la raíz del proyecto; al publicar se copia junto a la app (ver SigWeb.csproj).
         var candidatas = new[] { Path.Combine(env.ContentRootPath, "docs", "manual"), Path.Combine(AppContext.BaseDirectory, "docs", "manual") };
@@ -101,7 +107,8 @@ public sealed class ManualAyuda
             if (presentes == 0) continue;
             // Cubrir más palabras de la pregunta pesa más que repetir una sola.
             puntaje *= 0.12 + 0.88 * presentes / terminos.Count;
-            if (actual is not null && s.Capitulo == actual) puntaje *= 1.2;
+            puntaje *= 1 + 1.8 * terminos.Count(s.TerminosTitulo.Contains) / Math.Max(terminos.Count, s.TerminosTitulo.Count);
+            if (actual is not null && s.Capitulo == actual) puntaje *= 1.35;
             if (contexto is not null && s.Capitulo == contexto) puntaje *= 1.25;
             // Preguntas frecuentes («¿…?») que contienen casi todas las palabras de la pregunta: suelen ser la respuesta exacta.
             if (s.Titulo.StartsWith('¿') && presentes == terminos.Count && terminos.Count >= 2) puntaje *= 1.15;
@@ -154,6 +161,21 @@ public sealed class ManualAyuda
     }
 
     // ---------- Índice ----------
+    private List<LectorInterfaz.Control> LeerControles(bool desarrollo,string componentes)
+    {
+        try
+        {
+            if (desarrollo) return LectorInterfaz.Leer(componentes);
+            var publicado = Path.Combine(AppContext.BaseDirectory,"asistente-interfaz.json");
+            return File.Exists(publicado) ? System.Text.Json.JsonSerializer.Deserialize<List<LectorInterfaz.Control>>(File.ReadAllText(publicado)) ?? new() : new();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            _log.LogWarning(ex,"Asistente: el índice de controles no está disponible");
+            return new();
+        }
+    }
+
     private void Asegurar()
     {
         if ((DateTime.UtcNow - _revisado).TotalSeconds < 30 && _secciones.Count > 0) return;
@@ -162,16 +184,23 @@ public sealed class ManualAyuda
             _revisado = DateTime.UtcNow;
             if (!Directory.Exists(_carpeta)) { _log.LogWarning("Asistente: no se encontró el manual en {Carpeta}", _carpeta); return; }
             var archivos = Directory.GetFiles(_carpeta, "*.md").Where(f => !Path.GetFileName(f).StartsWith('_') && !Path.GetFileName(f).Equals("README.md", StringComparison.OrdinalIgnoreCase)).ToList();
-            var firma = archivos.Select(File.GetLastWriteTimeUtc).DefaultIfEmpty().Max();
+            var componentes = Path.Combine(_entorno.ContentRootPath,"Components");
+            var desarrollo = _entorno.IsDevelopment() && Directory.Exists(componentes);
+            var fuentes = desarrollo ? archivos.Concat(Directory.EnumerateFiles(componentes,"*.razor",SearchOption.AllDirectories)) : archivos;
+            var firma = string.Join('|', fuentes.Order(StringComparer.Ordinal).Select(f => f + File.GetLastWriteTimeUtc(f).Ticks));
             if (firma == _firma && _secciones.Count > 0) return;
-            try { Indexar(archivos); _firma = firma; }
+            try
+            {
+                Indexar(archivos, LeerControles(desarrollo,componentes));
+                _firma = firma;
+            }
             catch (Exception ex) { _log.LogError(ex, "Asistente: no se pudo leer el manual"); }
         }
     }
 
     private static readonly Regex Comentario = new(@"<!--.*?-->", RegexOptions.Singleline | RegexOptions.Compiled);
 
-    private void Indexar(List<string> archivos)
+    private void Indexar(List<string> archivos, List<LectorInterfaz.Control> controles)
     {
         var capitulos = new List<Capitulo>();
         var secciones = new List<Seccion>();
@@ -189,13 +218,29 @@ public sealed class ManualAyuda
             Partir(cap, cuerpo, secciones);
         }
 
+        foreach (var grupo in controles.GroupBy(x => x.Ruta))
+        {
+            var ruta = grupo.Key;
+            var cap = capitulos.FirstOrDefault(c => c.Rutas.Contains(ruta));
+            if (cap == null)
+            {
+                var nombre = Navegacion.MapaNavegacion.De(ruta)?.Nombre;
+                if (nombre == null) continue;
+                cap = new Capitulo(ruta.Trim('/'),Seguridad.CatalogoModulos.ClaveDeRuta(ruta),nombre,"",new[] { ruta }, Array.Empty<string>());
+                capitulos.Add(cap);
+            }
+            foreach (var control in grupo)
+                if (!cap.Opciones.Any(o => o.Ruta.Split('?')[0] == ruta && (o.Nombre == control.Nombre || o.Resaltar?.TrimStart('!') == control.Nombre)))
+                    cap.Opciones.Add(new(control.Nombre,DestinoControl(ruta,control.Nombre),control.Nombre,cap));
+        }
         var df = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var s in secciones)
         {
             void Sumar(IEnumerable<string> terminos, double peso) { foreach (var t in terminos) s.Tf[t] = s.Tf.GetValueOrDefault(t) + peso; }
             var cuerpo = TextoAyuda.Terminos(s.Markdown);
             Sumar(cuerpo, 1);
-            Sumar(TextoAyuda.Terminos(s.Titulo), 10);
+            s.TerminosTitulo.UnionWith(TextoAyuda.Terminos(s.Titulo));
+            Sumar(s.TerminosTitulo, 10);
             if (s.Padre is not null) Sumar(TextoAyuda.Terminos(s.Padre), 0.25);
             Sumar(TextoAyuda.Terminos(s.Capitulo.Titulo + " " + s.Capitulo.Menu), 0.6);
             Sumar(s.Capitulo.Palabras.SelectMany(p => TextoAyuda.Terminos(p)), 0.15);
@@ -282,6 +327,18 @@ public sealed class ManualAyuda
         }
     }
 
+    // La página de riesgos muestra el exportador en la vista Lista (Riesgos.VerQ).
+    private static string DestinoControl(string ruta,string control) =>
+        ruta == "/riesgos" && control == "Exportar" ? "/riesgos?ver=lista" : ruta;
+
+    private static bool CoincidePlantilla(string plantilla,string ruta)
+    {
+        var segmentos = plantilla.Trim('/').Split('/');
+        var actuales = ruta.Trim('/').Split('/');
+        return segmentos.Length == actuales.Length && segmentos.Zip(actuales).All(par =>
+            par.First.StartsWith('{') ? Regex.IsMatch(par.Second, "^[a-zA-Z0-9_-]+$") : par.First == par.Second);
+    }
+
     private static readonly char[] Separadores = { ' ', '\t', '«', '»', '"', '.', ':', '¿', '?' };
     private static string Clave(string s) =>
         string.Join(' ', TextoAyuda.SinTildes(s).ToLowerInvariant().Split(Separadores, StringSplitOptions.RemoveEmptyEntries));
@@ -330,9 +387,11 @@ public sealed class ManualAyuda
     public List<Opcion> OpcionesPara(string pregunta, string? rutaActual, int cuantas = 3)
     {
         Asegurar();
-        var q = TextoAyuda.Terminos(pregunta).ToHashSet();
+        var q = Corregir(TextoAyuda.Terminos(pregunta)).ToHashSet();
+        q.UnionWith(TextoAyuda.Terminos(pregunta));
         if (q.Count == 0) return new();
         var actual = CapituloDeRuta(rutaActual);
+        var literal = " " + Clave(pregunta) + " ";
         var res = new List<(Opcion O, double P)>();
         foreach (var c in _capitulos)
         {
@@ -340,10 +399,20 @@ public sealed class ManualAyuda
             foreach (var o in c.Opciones)
             {
                 // Lo que va entre paréntesis («Importar avance acumulado (Excel)») no se exige en la pregunta.
-                var t = TextoAyuda.Terminos(Regex.Replace(o.Nombre, @"\([^)]*\)", " ")).Distinct().ToList();
-                if (t.Count == 0 || !t.All(q.Contains)) continue;
+                var t = o.Terminos;
+                var exacto = literal.Contains(" " + Clave(o.Nombre) + " ");
+                if (!exacto && (t.Count == 0 || !t.All(q.Contains))) continue;
                 if (t.Count == 1 && !nombraModulo && c != actual) continue;
-                res.Add((o, t.Count + (nombraModulo ? 2 : 0) + (c == actual ? 1 : 0)));
+                var enPagina = string.Equals(o.Ruta.Split('?')[0],rutaActual?.Split('?')[0],StringComparison.OrdinalIgnoreCase);
+                var control = o.Resaltar != null && (pregunta.Contains("botón") || pregunta.Contains("export"));
+                var destino = o;
+                if (o.Ruta.Contains('{'))
+                {
+                    var actualSinConsulta = rutaActual?.Split('?','#')[0];
+                    if (actualSinConsulta == null || !CoincidePlantilla(o.Ruta,actualSinConsulta)) continue;
+                    destino = o with { Ruta = actualSinConsulta };
+                }
+                res.Add((destino, (exacto ? 2 + Math.Min(o.Nombre.Length,120) / 120.0 : 0) + t.Count + (nombraModulo ? 2 : 0) + (c == actual ? 1 : 0) + (enPagina ? .2 : 0) + (control ? .4 : 0)));
             }
         }
         return res.OrderByDescending(x => x.P).ThenBy(x => x.O.Nombre.Length)

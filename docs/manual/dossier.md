@@ -20,7 +20,13 @@ opciones:
   - Subcarpetas por clase: /dossier | Subcarpetas por clase
   - Carpetas por grupo: /dossier | Carpetas por grupo
   - Numerar módulos: /dossier | Numerar módulos
-actualizado: 2026-11-19
+  - Orden en el ZIP: /dossier | Orden en el ZIP
+  - Elementos: /dossier | Elementos
+  - Tablas: /dossier | Tablas
+  - Archivos: /dossier | Archivos
+  - Tamaño aproximado: /dossier | Tamaño aproximado
+  - Archivos que no están en el servidor (van a la hoja Faltantes del índice): /dossier | Archivos que no están en el servidor (van a la hoja Faltantes del índice)
+actualizado: 2026-11-21
 ---
 
 # Dossier
@@ -121,7 +127,7 @@ Compruebe que está en el proyecto cuyo dossier necesita preparar.
 
 ## Permisos
 
-- **Ver** en **Dossier** permite entrar. **Ver** en cada módulo permite consultar sus fuentes en el panel.
+- **Ver** en **Dossier** permite entrar. **Consulta** de fábrica tiene también **Descargar** y **Consulta sin descarga** solo puede consultar. **Ver** en cada módulo permite consultar sus fuentes en el panel.
 - Para seleccionar una fuente y descargarla en el ZIP, necesita **Descargar** tanto en **Dossier** como en el módulo de origen.
 - El servidor vuelve a comprobar **Ver** y **Descargar** al recibir la solicitud del ZIP. Si perdió el acceso a una fuente, esta se omite. Si ninguna fuente sigue autorizada, el enlace de descarga deja de estar disponible.
 
@@ -170,6 +176,10 @@ En Dossier, seleccione las auditorías y active **Tabla (Excel)** en Auditoría 
 ### ¿Cómo separo las fotos y certificados en carpetas?
 
 En Dossier, marque **Subcarpetas por clase** y revise el árbol. Si quiere además una carpeta por cada registro, active **Carpeta por elemento** y revise **Nombre de la carpeta de cada elemento**.
+
+### ¿Cómo cambio el orden de los módulos en el ZIP?
+
+Arrastre la fuente incluida a la posición deseada en el panel de módulos y compruebe su **Orden en el ZIP**. Luego use **Descargar dossier (ZIP)**.
 
 ## Relacionado
 

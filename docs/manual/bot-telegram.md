@@ -2,8 +2,8 @@
 modulo: administracion
 titulo: Bot de Telegram
 menu: Administración › Bot de Telegram
-rutas: [/admin/telegram]
-palabras: [telegram, bot, celular, teléfono, vincular, código, QR, /torre, /buscar, /planos, /documentos, /equipo, /estados, /consecutivo, consultar desde el celular]
+rutas: [/admin/telegram, /bot-telegram]
+palabras: [telegram, bot, celular, teléfono, vincular, código, QR, /torre, /buscar, /planos, /documentos, /equipo, /estados, /consecutivo, consultar desde el celular, chat privado, código de vinculación, cambiar de proyecto, usar bot, chat desactivado, chat ID]
 opciones:
   - Bot de Telegram: /admin/telegram
   - Generar código: /admin/telegram | Generar código
@@ -15,7 +15,20 @@ opciones:
   - Reiniciar activación: /admin/telegram | Reiniciar activación
   - Pasar al registro central: /admin/telegram | Pasar al registro central
   - Eliminar vínculo: /admin/telegram | Eliminar vínculo
-actualizado: 2026-11-19
+  - Actualizar: /admin/telegram | Actualizar
+  - Buscar chat: /admin/telegram | Buscar chat
+  - Filtrar por proyecto: /admin/telegram | Filtrar por proyecto
+  - Reducir QR: /admin/telegram | Reducir QR
+  - Guardar cambios: /admin/telegram | Guardar cambios
+  - Desactivar chat: /admin/telegram | Desactivar chat
+  - Activar chat: /admin/telegram | Activar chat
+  - Usuario de SGC Web: /admin/telegram | Usuario de SGC Web
+  - Nombre del chat: /admin/telegram | Nombre del chat
+  - Proyecto: /admin/telegram | Proyecto
+  - Cancelar: /admin/telegram | Cancelar
+  - Confirmar eliminación: /admin/telegram | Confirmar eliminación
+  - Generar código de vinculación: /mi-cuenta | Generar código de vinculación
+actualizado: 2026-11-21
 ---
 
 # Bot de Telegram
@@ -47,13 +60,13 @@ Solo funciona en chats privados (no en grupos).
 | `/buscar texto` (o cualquier texto) | Busca en todo SGC Web |
 | `/planos` · `/plano código` | Planos por grupo · un plano |
 | `/documentos` · `/doc código` | Documentos por tipología · un documento |
-| `/equipo nombre, marca o serie` | Estado de calibración del equipo |
-| `/estados` | Estado de las torres y avance de obra, tiro por tiro |
+| `/equipos` · `/equipo nombre, marca o serie` | Equipos por categoría · estado de calibración de un equipo |
+| `/estados` (también `/estado` o `/avance`) | Estado de las torres y avance de obra, tiro por tiro |
 | `/consecutivo` | Pedir un consecutivo de comunicado, paso a paso |
 | `/misconsecutivos` | Confirmar el envío o anular sus consecutivos |
 | `/proyecto` | Cambiar de proyecto |
 | `/cancelar` | Cancelar la conversación en curso |
-| `/ayuda` | Lista de comandos |
+| `/ayuda` (también `/start` o `/help`) | Lista de comandos |
 
 **Lista mientras escribe:** en la caja de texto escriba `@nombre_del_bot 57` (torres), `@… p cim` (planos),
 `@… d PR` (documentos) o `@… e estación` (equipos).
@@ -71,9 +84,21 @@ En **Chats vinculados** puede filtrar por proyecto y buscar por chat o usuario:
 - **Eliminar vínculo** pide confirmación en la fila. El chat deberá vincularse otra vez.
 - **Pasar al registro central** registra un chat marcado **Anterior** en el proyecto donde se encontró. Al asignarle un usuario o moverlo de proyecto, también pasa al registro central.
 
+### Cómo cambiar el proyecto o consultar la ayuda desde Telegram
+
+1. En el chat privado envíe `/proyecto`.
+2. Seleccione uno de sus proyectos habilitados para Telegram.
+3. Envíe `/ayuda` para ver los comandos. Si estaba solicitando un consecutivo, puede salir de ese flujo con `/cancelar`.
+
+### Cómo retirar el acceso a un chat
+
+1. Abra **Bot de Telegram** en Administración y use **Buscar chat** o **Filtrar por proyecto**.
+2. Use **Desactivar chat** para conservar el vínculo e impedir su uso. **Activar chat** vuelve a habilitarlo.
+3. Si quiere retirar el vínculo, toque **Eliminar vínculo** y **Confirmar eliminación**. El chat deberá vincularse de nuevo.
+
 ## Permisos
 Para usar el bot hace falta el permiso **Consultas por Telegram**; cada consulta respeta además el permiso del módulo.
-El módulo **Administración › Bot de Telegram** está disponible para administradores. Cada usuario puede generar su código personal en **Mi cuenta › Bot de Telegram**.
+Los roles de fábrica incluyen **Ver** en Consultas por Telegram. **Consulta sin descarga** tiene solo **Ver** en ese módulo. El **Administrador del SGC** gestiona los vínculos en **Administración › Bot de Telegram**. En **Mi cuenta › Bot de Telegram**, use **Generar código de vinculación**. La app pide activar la verificación en dos pasos si la configuración la exige para su cuenta.
 
 ## Problemas frecuentes
 - **«El código no funciona»** → venció (15 minutos) o ya se usó. Genere otro. Envíelo así: `/vincular 123456`.
@@ -112,7 +137,20 @@ vinculación.
 ### Me salió «demasiados intentos» al vincular, ¿qué hago?
 Tras 5 códigos fallidos en una hora, el bot bloquea ese chat por un rato. Espere y pida un código nuevo.
 
+### ¿Cómo cambio de proyecto sin volver a vincular mi Telegram?
+Envíe `/proyecto` y elija un proyecto al que tenga acceso para consultas por Telegram.
+
+### ¿Cómo consulto mis consecutivos o anulo uno sin usar?
+Envíe `/misconsecutivos` y elija el consecutivo y la acción disponible.
+
+### ¿Qué comando uso para ver equipos por categoría?
+Envíe `/equipos` sin argumento. Para un equipo concreto, envíe `/equipo` seguido por su nombre, marca o serie.
+
+### ¿Cómo quito un código que envié a la persona equivocada?
+
+Busque el código en Códigos pendientes y toque **Anular código**.
+
 ## Relacionado
 - [Comunicados](comunicados.md) — consecutivos.
 - [Trazado](trazado.md) — hoja de vida de la torre.
-- [Uso general](general.md) — Mi cuenta.
+- [Mi cuenta](mi-cuenta.md)

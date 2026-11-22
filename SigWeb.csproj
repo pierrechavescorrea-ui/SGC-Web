@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/Asistente/**</DefaultItemExcludes>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -48,4 +49,5 @@
     <None Update="Data\Demo\recursos\*" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <Import Project="Data/Asistente/Indice.targets" Condition="Exists('Data/Asistente/Indice.targets')" />
 </Project>

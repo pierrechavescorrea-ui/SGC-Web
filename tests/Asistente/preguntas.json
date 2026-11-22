@@ -1,0 +1,1940 @@
+[
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "de que manera doy acceso a una persona nueva?",
+    "Esperado": "¿Cómo doy acceso a una persona nueva?"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "De qué manera quito el acceso a alguien que se retiró?",
+    "Esperado": "¿Cómo quito el acceso a alguien que se retiró?"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "Qué cambia entre un rol y un permiso individual?",
+    "Esperado": "¿Qué diferencia hay entre un rol y un permiso individual?"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "de que manera le doy permisos a un modulo creado con el creador de modulos?",
+    "Esperado": "¿Cómo le doy permisos a un módulo creado con el Creador de módulos?"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "De qué manera cambio el logo de la app?",
+    "Esperado": "¿Cómo cambio el logo de la app?"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "De qué manera veo quién entró o quién hizo un cambio?",
+    "Esperado": "¿Cómo veo quién entró o quién hizo un cambio?"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "de que manera creo un proyecto nuevo?",
+    "Esperado": "¿Cómo creo un proyecto nuevo?"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "Por qué será que no me deja borrar un proyecto?",
+    "Esperado": "¿Por qué no puedo eliminar un proyecto?"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "¿Dónde está el botón Eliminados?",
+    "Opcion": "Eliminados"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "¿Dónde está el botón Correo saliente?",
+    "Opcion": "Correo saliente"
+  },
+  {
+    "Modulo": "administracion",
+    "Ruta": "/admin",
+    "Pregunta": "¿Dónde está el botón Logo de la app?",
+    "Opcion": "Logo de la app"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "por que sera que dice «escribe el titulo del programa»?",
+    "Esperado": "¿Por qué dice «Escribe el título del programa»?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "Por qué será que no me deja crear otra auditoría en el programa?",
+    "Esperado": "¿Por qué no me deja crear otra auditoría en el programa?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "De qué manera apruebo el programa y qué hago si falta el nombre?",
+    "Esperado": "¿Cómo apruebo el programa y qué hago si falta el nombre?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "en que parte veo las no conformidades y los hallazgos abiertos?",
+    "Esperado": "¿Dónde veo las no conformidades y los hallazgos abiertos?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "Por qué será que no me deja agregar un hallazgo?",
+    "Esperado": "¿Por qué no me deja agregar un hallazgo?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "Por qué será que no me deja cerrar la auditoría?",
+    "Esperado": "¿Por qué no me deja cerrar la auditoría?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "en que parte quedan las evidencias y los planes que ligue a un hallazgo?",
+    "Esperado": "¿Dónde quedan las evidencias y los planes que ligué a un hallazgo?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "De qué manera saco el informe de auditoría en PDF o exel?",
+    "Esperado": "¿Cómo saco el informe de auditoría en PDF o Excel?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "A dónde va un programa de auditoría que borré?",
+    "Esperado": "¿A dónde va un programa de auditoría que borré?"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "¿Dónde está el botón Nuevo programa?",
+    "Opcion": "Nuevo programa"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "¿Dónde está el botón Nueva auditoría?",
+    "Opcion": "Nueva auditoría"
+  },
+  {
+    "Modulo": "auditoria-interna",
+    "Ruta": "/auditoria-interna",
+    "Pregunta": "¿Dónde está el botón Aprobar programa?",
+    "Opcion": "Aprobar programa"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "en que parte veo el porcentaje de una torre a fin de mes?",
+    "Esperado": "¿Dónde veo el porcentaje de una torre a fin de mes?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "Por qué será que no me deja editar el avance de una actividad que sale de cantidades?",
+    "Esperado": "¿Por qué no me deja editar el avance de una actividad que sale de cantidades?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "Qué escribo si me pide «un % entre 0 y 100 (o N/A)»?",
+    "Esperado": "¿Qué escribo si me pide «un % entre 0 y 100 (o N/A)»?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "por que sera que el excel dice que hay estructuras sin casar o sin patas?",
+    "Esperado": "¿Por qué el Excel dice que hay torres sin casar o sin patas?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "Qué fecha usa el Excel si el avance viene sin fecha fin?",
+    "Esperado": "¿Qué fecha usa el Excel si el avance viene sin fecha fin?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "Por qué será que no me deja guardar otro informe para el mismo día?",
+    "Esperado": "¿Por qué no me deja guardar otro informe para el mismo día?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "en que parte cargo y consulto las fotos de la obra del dia?",
+    "Esperado": "¿Dónde subo y consulto las fotos de la obra del día?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "De qué manera borro un informe diario equivocado?",
+    "Esperado": "¿Cómo borro un informe diario equivocado?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "Por qué será que no me aparece el botón para subir el Excel del avance?",
+    "Esperado": "¿Por qué no me aparece el botón para subir el Excel del avance?"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "¿Dónde está el botón Cotas del visor 3D?",
+    "Opcion": "Cotas del visor 3D"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "¿Dónde está el botón Fecha de corte?",
+    "Opcion": "Fecha de corte"
+  },
+  {
+    "Modulo": "avance-obra",
+    "Ruta": "/avance-obra",
+    "Pregunta": "¿Dónde está el botón Filtrar torres?",
+    "Opcion": "Filtrar torres"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "de que manera vinculo mi telegram?",
+    "Esperado": "¿Cómo vinculo mi Telegram?"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "En qué parte administro los chats vinculados?",
+    "Esperado": "¿Dónde administro los chats vinculados?"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "Por qué será que el bot no me responde?",
+    "Esperado": "¿Por qué el bot no me responde?"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "que le puedo preguntar al bot?",
+    "Esperado": "¿Qué le puedo preguntar al bot?"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "Puedo usar el bot en un grupo?",
+    "Esperado": "¿Puedo usar el bot en un grupo?"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "Qué pasó con Configuración › Bot Telegram?",
+    "Esperado": "¿Qué pasó con Configuración › Bot Telegram?"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "de que manera comparto el bot con alguien de obra?",
+    "Esperado": "¿Cómo comparto el bot con alguien de obra?"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "¿Dónde está el botón Generar código?",
+    "Opcion": "Generar código"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "¿Dónde está el botón Anular código?",
+    "Opcion": "Anular código"
+  },
+  {
+    "Modulo": "bot-telegram",
+    "Ruta": "/admin/telegram",
+    "Pregunta": "¿Dónde está el botón Copiar enlace?",
+    "Opcion": "Copiar enlace"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "de que manera cargo el pdf de un certificado nuevo?",
+    "Esperado": "¿Cómo subo el PDF de un certificado nuevo?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "En qué parte veo cuáles certificados están por vencer?",
+    "Esperado": "¿Dónde veo cuáles certificados están por vencer?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "Qué pasa cuando la vitrina dice «Sin fichero vigente»?",
+    "Esperado": "¿Qué hago si la vitrina dice «Sin archivo vigente»?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "por que sera que sigue vencido si ya cargue el pdf renovado?",
+    "Esperado": "¿Por qué sigue vencido si ya cargué el PDF renovado?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "En qué parte bajo el PDF vigente o busco uno viejo?",
+    "Esperado": "¿Dónde descargo el PDF vigente o busco uno viejo?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "Qué pasa cuando ya existe un documento con ese código?",
+    "Esperado": "¿Qué hago si ya existe un documento con ese código?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "que pasa con el pdf si borro el certificado de la vitrina?",
+    "Esperado": "¿Qué pasa con el PDF si borro el certificado de la vitrina?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "En qué parte veo todos los certificados en una tabla?",
+    "Esperado": "¿Dónde veo todos los certificados en una tabla?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "Por qué será que no aparecen las opciones para renovar o borrar un certificado?",
+    "Esperado": "¿Por qué no aparecen las opciones para renovar o borrar un certificado?"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "¿Dónde está el botón Pantalla completa?",
+    "Opcion": "Pantalla completa"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "¿Dónde está el botón Agregar certificado?",
+    "Opcion": "Agregar certificado"
+  },
+  {
+    "Modulo": "certificaciones",
+    "Ruta": "/certificaciones",
+    "Pregunta": "¿Dónde está el botón Ver actual?",
+    "Opcion": "Ver actual"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "en que parte veo las cartas pendientes de respuesta o vencidas?",
+    "Esperado": "¿Dónde veo las cartas pendientes de respuesta o vencidas?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "Por qué será que no aparece una carta que ya registré?",
+    "Esperado": "¿Por qué no aparece una carta que ya registré?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "Qué pasa cuando sale «El consecutivo no puede quedar vacío»?",
+    "Esperado": "¿Qué hago si sale «El consecutivo no puede quedar vacío»?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "que pasa cuando el excel dice «no hay filas con datos para importar»?",
+    "Esperado": "¿Qué hago si el Excel dice «No hay filas con datos para importar»?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "En qué parte cargo el PDF de un oficio o pongo un enlace?",
+    "Esperado": "¿Dónde subo el PDF de un oficio o pongo un enlace?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "Qué número uso si el que reservé es distinto del Código previsto?",
+    "Esperado": "¿Qué número uso si el que reservé es distinto del Código previsto?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "de que manera paso un consecutivo reservado a enviado?",
+    "Esperado": "¿Cómo paso un consecutivo reservado a enviado?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "De qué manera borro un comunicado mal registrado?",
+    "Esperado": "¿Cómo borro un comunicado mal registrado?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "Por qué será que no veo el botón para importar correspondencia?",
+    "Esperado": "¿Por qué no veo el botón para importar correspondencia?"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "¿Dónde está el botón Requieren respuesta?",
+    "Opcion": "Requieren respuesta"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "¿Dónde está el botón Periodo?",
+    "Opcion": "Periodo"
+  },
+  {
+    "Modulo": "comunicados",
+    "Ruta": "/comunicados",
+    "Pregunta": "¿Dónde está el botón Entrada / Salida?",
+    "Opcion": "Entrada / Salida"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "en que parte creo una lista desplegable nueva?",
+    "Esperado": "¿Dónde creo una lista desplegable nueva?"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "De qué manera añado un campo nuevo a un formulario de la app?",
+    "Esperado": "¿Cómo agrego un campo nuevo a un formulario de la app?"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "De qué manera dejo un formulario como estaba al principio?",
+    "Esperado": "¿Cómo dejo un formulario como estaba al principio?"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "de que manera cambio el orden o el nombre de los tiros?",
+    "Esperado": "¿Cómo cambio el orden o el nombre de los tiros?"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "En qué parte se configuran las actividades y parámetros de obra?",
+    "Esperado": "¿Dónde se configuran las actividades y parámetros de obra?"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "De qué manera cambio el aspecto de la app?",
+    "Esperado": "¿Cómo cambio el aspecto de la app?"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "en que parte quedo el bot telegram?",
+    "Esperado": "¿Dónde quedó el Bot Telegram?"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "¿Dónde está el botón Eliminar parámetro?",
+    "Opcion": "Eliminar parámetro"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "¿Dónde está el botón Seleccionar las torres que coinciden?",
+    "Opcion": "Seleccionar las torres que coinciden"
+  },
+  {
+    "Modulo": "configuracion",
+    "Ruta": "/actividades",
+    "Pregunta": "¿Dónde está el botón Nueva actividad?",
+    "Opcion": "Nueva actividad"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "de que manera veo cuanto costaron los hallazgos de un proceso este ano?",
+    "Esperado": "¿Cómo veo cuánto costaron los hallazgos de un proceso este año?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "En qué parte veo qué plan de acción salió más caro?",
+    "Esperado": "¿Dónde veo qué plan de acción salió más caro?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "En qué parte corrijo un valor de costo mal digitado?",
+    "Esperado": "¿Dónde corrijo un valor de costo mal digitado?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "por que sera que no aparece el rubro que diligencie en el plan?",
+    "Esperado": "¿Por qué no aparece el rubro que diligencié en el plan?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "Qué me muestra el Pareto de no calidad?",
+    "Esperado": "¿Qué me muestra el Pareto de no calidad?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "De qué manera saco a Excel solo los costos que estoy viendo?",
+    "Esperado": "¿Cómo saco a Excel solo los costos que estoy viendo?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "por que sera que dejo de aparecer un plan que tenia costos?",
+    "Esperado": "¿Por qué dejó de aparecer un plan que tenía costos?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "Por qué será que no veo Costos de no calidad en el menú?",
+    "Esperado": "¿Por qué no veo Costos de no calidad en el menú?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "En qué parte veo el hallazgo que originó un costo?",
+    "Esperado": "¿Dónde veo el hallazgo que originó un costo?"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "¿Dónde está el botón Ver el plan en Planes de acción?",
+    "Opcion": "Ver el plan en Planes de acción"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "¿Dónde está el botón Ver el plan?",
+    "Opcion": "Ver el plan"
+  },
+  {
+    "Modulo": "costos-no-calidad",
+    "Ruta": "/costos-no-calidad",
+    "Pregunta": "¿Dónde está el botón Año del hallazgo?",
+    "Opcion": "Año del hallazgo"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "en que parte veo el total de costos al cierre del mes?",
+    "Esperado": "¿Dónde veo el total de costos al cierre del mes?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "En qué parte consulto lo ejecutado por torre e ítem de pago?",
+    "Esperado": "¿Dónde consulto lo ejecutado por torre e ítem de pago?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "Qué pasa cuando aparece «No se pudo leer el libro»?",
+    "Esperado": "¿Qué hago si aparece «No se pudo leer el libro»?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "que hago con las estructuras sin casar al importar el libro de costos?",
+    "Esperado": "¿Qué hago con las torres sin casar al importar el libro de costos?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "Qué pasa con los registros anteriores si vuelvo a importar el libro?",
+    "Esperado": "¿Qué pasa con los registros anteriores si vuelvo a importar el libro?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "De qué manera bajo el Excel para cargar mi lista de precios?",
+    "Esperado": "¿Cómo bajo el Excel para cargar mi lista de precios?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "que pasa cuando la vista previa de la plantilla trae errores?",
+    "Esperado": "¿Qué hago si la vista previa de la plantilla trae errores?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "De qué manera revierto una carga de plantilla que hice por error?",
+    "Esperado": "¿Cómo revierto una carga de plantilla que hice por error?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "En qué parte cargo una reprogramación del PDT desde Project?",
+    "Esperado": "¿Dónde cargo una reprogramación del PDT desde Project?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "por que sera que no veo costos y presupuestos en el menu?",
+    "Esperado": "¿Por qué no veo Costos y presupuestos en el menú?"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "¿Dónde está el botón Fecha de corte?",
+    "Opcion": "Fecha de corte"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "¿Dónde está el botón Avance diario (cantidades por torre e ítem)?",
+    "Opcion": "Avance diario (cantidades por torre e ítem)"
+  },
+  {
+    "Modulo": "costos",
+    "Ruta": "/costos",
+    "Pregunta": "¿Dónde está el botón Avance diario?",
+    "Opcion": "Avance diario"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "puedo crear un modulo de inspecciones sin programar?",
+    "Esperado": "¿Puedo crear un módulo de Inspecciones sin programar?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "De qué manera hago que una tabla muestre solo los ensayos de la torre elegida?",
+    "Esperado": "¿Cómo hago que una tabla muestre solo los ensayos de la torre elegida?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "Qué significan Editable, Solo vista y Calculado?",
+    "Esperado": "¿Qué significan Editable, Solo vista y Calculado?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "si cambio el modulo pierdo los registros que ya existen?",
+    "Esperado": "¿Si cambio el módulo pierdo los registros que ya existen?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "Por qué será que no me deja publicar?",
+    "Esperado": "¿Por qué no me deja publicar?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "De qué manera muevo o agrando un control?",
+    "Esperado": "¿Cómo muevo o agrando un control?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "de que manera oculto los paneles para tener mas espacio?",
+    "Esperado": "¿Cómo oculto los paneles para tener más espacio?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "De qué manera hago que un campo aparezca solo en ciertos casos?",
+    "Esperado": "¿Cómo hago que un campo aparezca solo en ciertos casos?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "De qué manera recupero un módulo que eliminé?",
+    "Esperado": "¿Cómo recupero un módulo que eliminé?"
+  },
+  {
+    "Modulo": "creador-modulos",
+    "Ruta": "/admin/modulos",
+    "Pregunta": "¿Dónde está el botón Módulo nuevo?",
+    "Opcion": "Módulo nuevo"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "de que manera cargo el pdf de la politica integrada?",
+    "Esperado": "¿Cómo subo el PDF de la política integrada?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "Qué pasa cuando sale «Sin texto» al subir un PDF escaneado?",
+    "Esperado": "¿Qué hago si sale «Sin texto» al subir un PDF escaneado?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "De qué manera arreglo un PDF que quedó mal dividido?",
+    "Esperado": "¿Cómo arreglo un PDF que quedó mal dividido?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "que significa «ya cargada» en una parte del pdf?",
+    "Esperado": "¿Qué significa «Ya cargada» en una parte del PDF?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "Por qué será que no me sale el compilado de misión y políticas?",
+    "Esperado": "¿Por qué no me sale el compilado de misión y políticas?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "En qué parte veo el PDF anterior de la política?",
+    "Esperado": "¿Dónde veo el PDF anterior de la política?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "por que sera que no aparecen los botones para cargar o borrar?",
+    "Esperado": "¿Por qué no aparecen los botones para cargar o borrar?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "De qué manera retiro un documetno de la exhibición?",
+    "Esperado": "¿Cómo retiro un documento de la exhibición?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "De qué manera cambio el orden en que se muestran las políticas?",
+    "Esperado": "¿Cómo cambio el orden en que se muestran las políticas?"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "¿Dónde está el botón Elegir PDF?",
+    "Opcion": "Elegir PDF"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "¿Dónde está el botón Pantalla completa?",
+    "Opcion": "Pantalla completa"
+  },
+  {
+    "Modulo": "direccionamiento",
+    "Ruta": "/direccionamiento",
+    "Pregunta": "¿Dónde está el botón Cargar documentos (PDF)?",
+    "Opcion": "Cargar documentos (PDF)"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "de que manera cargo una version nueva de un procedimiento?",
+    "Esperado": "¿Cómo subo una versión nueva de un procedimiento?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "Por qué será que sigue saliendo el PDF viejo si ya subí el nuevo?",
+    "Esperado": "¿Por qué sigue saliendo el PDF viejo si ya subí el nuevo?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "En qué parte quedan los ficheros obsoletos y los editables?",
+    "Esperado": "¿Dónde quedan los archivos obsoletos y los editables?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "que pasa cuando el codigo del documento no me deja abrir ficheros?",
+    "Esperado": "¿Qué hago si el código del documento no me deja abrir archivos?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "Qué pasa cuando dice que el código quedaría repetido?",
+    "Esperado": "¿Qué hago si dice que el código quedaría repetido?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "Qué pasa si importo un Excel con un código que ya existe?",
+    "Esperado": "¿Qué pasa si importo un Excel con un código que ya existe?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "que pasa cuando la carga masiva dice «no se cargaron»?",
+    "Esperado": "¿Qué hago si la carga masiva dice «No se cargaron»?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "De qué manera deshago una carga de ficheros sin quitar todo el listado?",
+    "Esperado": "¿Cómo deshago una carga de archivos sin quitar todo el listado?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "Por qué será que no veo el botón para cargar documentos en lote?",
+    "Esperado": "¿Por qué no veo el botón para cargar documentos en lote?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "¿Dónde está el botón control de cambios?",
+    "Opcion": "control de cambios"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "¿Dónde está el botón ＋?",
+    "Opcion": "＋"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "¿Dónde está el botón Quitar filtros?",
+    "Opcion": "Quitar filtros"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "en que parte bajo el dossier del proyecto?",
+    "Esperado": "¿Dónde descargo el dossier del proyecto?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "Por qué será que no me deja descargar el ZIP?",
+    "Esperado": "¿Por qué no me deja descargar el ZIP?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "Por qué será que no aparece un módulo en el Dossier?",
+    "Esperado": "¿Por qué no aparece un módulo en el Dossier?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "de que manera saco solo los registros que encontre con la busqueda?",
+    "Esperado": "¿Cómo saco solo los registros que encontré con la búsqueda?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "Por qué será que faltan fotos o PDF en el ZIP?",
+    "Esperado": "¿Por qué faltan fotos o PDF en el ZIP?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "De qué manera incluyo las versiones anteriores de los documentos?",
+    "Esperado": "¿Cómo incluyo las versiones anteriores de los documentos?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "de que manera dejo todos los listados en un solo excel?",
+    "Esperado": "¿Cómo dejo todos los listados en un solo Excel?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "En qué parte queda el informe de cada auditoría dentro del ZIP?",
+    "Esperado": "¿Dónde queda el informe de cada auditoría dentro del ZIP?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "De qué manera separo las fotos y certificados en carpetas?",
+    "Esperado": "¿Cómo separo las fotos y certificados en carpetas?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "¿Dónde está el botón Descargar dossier (ZIP)?",
+    "Opcion": "Descargar dossier (ZIP)"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "¿Dónde está el botón Todo / nada?",
+    "Opcion": "Todo / nada"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "¿Dónde está el botón Tabla (Excel)?",
+    "Opcion": "Tabla (Excel)"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "en que parte cargo el pdf del laboratorio para una muestra?",
+    "Esperado": "¿Dónde subo el PDF del laboratorio para una muestra?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "Qué pasa cuando dice «Debes indicar el No. de Torre antes de guardar»?",
+    "Esperado": "¿Qué hago si dice «Debes indicar el No. de Torre antes de guardar»?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "De qué manera cargo los resultados de laboratorio que tengo en exel?",
+    "Esperado": "¿Cómo subo los resultados de laboratorio que tengo en Excel?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "de que manera borro una carga de ensayos que subi por error?",
+    "Esperado": "¿Cómo borro una carga de ensayos que subí por error?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "En qué parte veo todos los ensayos de una torre?",
+    "Esperado": "¿Dónde veo todos los ensayos de una torre?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "Qué pasa cuando el resumen dice «Sin columnas marcadas «Resumen»»?",
+    "Esperado": "¿Qué hago si el resumen dice «Sin columnas marcadas «Resumen»»?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "de que manera saco en excel el resumen filtrado de ensayos?",
+    "Esperado": "¿Cómo saco en Excel el resumen filtrado de ensayos?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "Qué pasa cuando el análisis dice «Este ensayo no tiene campos numéricos para analizar.»?",
+    "Esperado": "¿Qué hago si el análisis dice «Este ensayo no tiene campos numéricos para analizar.»?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "¿Dónde está el botón Exportar a Excel (una hoja por ensayo, lo filtrado)?",
+    "Opcion": "Exportar a Excel (una hoja por ensayo, lo filtrado)"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "¿Dónde está el botón Abrir el ensayo para marcar sus columnas?",
+    "Opcion": "Abrir el ensayo para marcar sus columnas"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "¿Dónde está el botón Agregar resultado?",
+    "Opcion": "Agregar resultado"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "de que manera cargo el certificado nuevo de calibracion de un equipo?",
+    "Esperado": "¿Cómo subo el certificado nuevo de calibración de un equipo?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Por qué será que me rechaza el fichero de calibración o mantenimiento?",
+    "Esperado": "¿Por qué me rechaza el archivo de calibración o mantenimiento?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Por qué será que veo el número del certificado pero no abre?",
+    "Esperado": "¿Por qué veo el número del certificado pero no abre?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "en que parte quedan las fotos y la ficha tecnica de un equipo?",
+    "Esperado": "¿Dónde quedan las fotos y la ficha técnica de un equipo?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Qué pasa cuando el Excel pide relacionar la columna del equipo?",
+    "Esperado": "¿Qué hago si el Excel pide relacionar la columna del equipo?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Por qué será que no encuentro un equipo que ya cargué?",
+    "Esperado": "¿Por qué no encuentro un equipo que ya cargué?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "que se borra si elimino una carga de equipos?",
+    "Esperado": "¿Qué se borra si elimino una carga de equipos?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Por qué será que está deshabilitada la pantalla completa de Equipos?",
+    "Esperado": "¿Por qué está deshabilitada la pantalla completa de Equipos?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Por qué será que no veo el botón para cargar el Excel de equipos?",
+    "Esperado": "¿Por qué no veo el botón para cargar el Excel de equipos?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "¿Dónde está el botón Abrir hoja de vida?",
+    "Opcion": "Abrir hoja de vida"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "¿Dónde está el botón Nuevo equipo?",
+    "Opcion": "Nuevo equipo"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "¿Dónde está el botón Base de datos?",
+    "Opcion": "Base de datos"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "de que manera vuelvo a la pantalla donde estaba?",
+    "Esperado": "¿Cómo vuelvo a la pantalla donde estaba?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "Por qué será que los botones no tienen texto?",
+    "Esperado": "¿Por qué los botones no tienen texto?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "Qué pasa cuando guardé algo por error o lo borré?",
+    "Esperado": "¿Qué hago si guardé algo por error o lo borré?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "por que sera que no me deja editar, crear o borrar?",
+    "Esperado": "¿Por qué no me deja editar, crear o eliminar?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "Por qué será que no veo un módulo en el menú?",
+    "Esperado": "¿Por qué no veo un módulo en el menú?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "De qué manera encuentro una torre, un plano o un documento sin saber en qué módulo está?",
+    "Esperado": "¿Cómo encuentro una torre, un plano o un documento sin saber en qué módulo está?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "de que manera cambio el tema o el color de la app?",
+    "Esperado": "¿Cómo cambio el tema o el color de la app?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "De qué manera cambio de proyecto?",
+    "Esperado": "¿Cómo cambio de proyecto?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "Qué significa «Cambios sin guardar»?",
+    "Esperado": "¿Qué significa «Cambios sin guardar»?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "de que manera exporto una tabla a excel?",
+    "Esperado": "¿Cómo exporto una tabla a Excel?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "El asistente de ayuda usa internet o inteligencia artificial externa?",
+    "Esperado": "¿El asistente de ayuda usa internet o inteligencia artificial externa?"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "¿Dónde está el botón Restaurar?",
+    "Opcion": "Restaurar"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "¿Dónde está el botón Eliminar definitivamente?",
+    "Opcion": "Eliminar definitivamente"
+  },
+  {
+    "Modulo": "general",
+    "Ruta": "/cuenta/ingresar",
+    "Pregunta": "¿Dónde está el botón Enviar enlace?",
+    "Opcion": "Enviar enlace"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "en que parte veo todos los indicadores del ano en una sola tabla?",
+    "Esperado": "¿Dónde veo todos los indicadores del año en una sola tabla?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "Por qué será que no aparece el indicador que busco?",
+    "Esperado": "¿Por qué no aparece el indicador que busco?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "Por qué será que no me deja escribir un valor en ese mes?",
+    "Esperado": "¿Por qué no puedo escribir un valor en ese mes?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "por que sera que no hay medicion en todos los meses?",
+    "Esperado": "¿Por qué no hay medición en todos los meses?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "En qué parte cargo y bajo el soporte de una medición?",
+    "Esperado": "¿Dónde subo y descargo el soporte de una medición?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "Qué pasa cuando aparece «No se cargaron» al adjuntar soportes?",
+    "Esperado": "¿Qué hago si aparece «No se cargaron» al adjuntar soportes?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "de que manera dejo fijo el valor automatico que veo hoy?",
+    "Esperado": "¿Cómo dejo fijo el valor automático que veo hoy?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "De dónde salen los indicadores de respuesta de correspondencia?",
+    "Esperado": "¿De dónde salen los indicadores de respuesta de correspondencia?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "De qué manera borro un indicador que creé por error?",
+    "Esperado": "¿Cómo borro un indicador que creé por error?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "¿Dónde está el botón Año?",
+    "Opcion": "Año"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "¿Dónde está el botón Fuente?",
+    "Opcion": "Fuente"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "¿Dónde está el botón Todas las fuentes?",
+    "Opcion": "Todas las fuentes"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "en que parte cargo la remision, el certificado o las fotos de un material?",
+    "Esperado": "¿Dónde subo la remisión, el certificado o las fotos de un material?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "Qué pasa cuando dice que un adjunto supera 50 MB?",
+    "Esperado": "¿Qué hago si dice que un adjunto supera 50 MB?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "Por qué será que no me aparecen todos los PDF del material?",
+    "Esperado": "¿Por qué no me aparecen todos los PDF del material?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "por que sera que no me deja abrir los adjuntos mientras edito?",
+    "Esperado": "¿Por qué no me deja abrir los adjuntos mientras edito?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "De qué manera vinculo un material con la pata de una torre?",
+    "Esperado": "¿Cómo vinculo un material con la pata de una torre?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "Qué pasa cuando el Excel pide completar las columnas que identifican la fila?",
+    "Esperado": "¿Qué hago si el Excel pide completar las columnas que identifican la fila?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "por que sera que no veo el boton para importar materiales?",
+    "Esperado": "¿Por qué no veo el botón para importar materiales?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "De qué manera borro una remisión que subí al material equivocado?",
+    "Esperado": "¿Cómo borro una remisión que subí al material equivocado?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "Por qué será que el listado de materiales muestra solo unas filas?",
+    "Esperado": "¿Por qué el listado de materiales muestra solo unas filas?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "¿Dónde está el botón Campos?",
+    "Opcion": "Campos"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "¿Dónde está el botón Nuevo material?",
+    "Opcion": "Nuevo material"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "¿Dónde está el botón Importar listado (Excel)?",
+    "Opcion": "Importar listado (Excel)"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "de que manera veo el cumplimiento de una torre?",
+    "Esperado": "¿Cómo veo el cumplimiento de una torre?"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "De qué manera cambio el estado de un parámetro?",
+    "Esperado": "¿Cómo cambio el estado de un parámetro?"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "En qué parte cargo la documentación de un parámetro?",
+    "Esperado": "¿Dónde subo la documentación de un parámetro?"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "que cambia entre fecha y fecha de facturado?",
+    "Esperado": "¿Qué diferencia hay entre Fecha y Fecha de facturado?"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "De qué manera se calcula el % de cumplimiento?",
+    "Esperado": "¿Cómo se calcula el % de cumplimiento?"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "Por qué será que un parámetro sale apagado?",
+    "Esperado": "¿Por qué un parámetro sale apagado?"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "de que manera exporto la matriz?",
+    "Esperado": "¿Cómo exporto la matriz?"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "De qué manera voy de la Matriz PIE a la hoja de vida o al avance de obra de la misma torre?",
+    "Esperado": "¿Cómo voy de la Matriz PIE a la hoja de vida o al avance de obra de la misma torre?"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "¿Dónde está el botón Elegir torres?",
+    "Opcion": "Elegir torres"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "¿Dónde está el botón Elegir actividades y parámetros?",
+    "Opcion": "Elegir actividades y parámetros"
+  },
+  {
+    "Modulo": "matriz-pie",
+    "Ruta": "/matriz-pie",
+    "Pregunta": "¿Dónde está el botón Mostrar solo torres con estos estados?",
+    "Opcion": "Mostrar solo torres con estos estados"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "de que manera giro, muevo o acerco el modelo?",
+    "Esperado": "¿Cómo giro, muevo o acerco el modelo?"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "De qué manera cargo un modelo IFC nuevo?",
+    "Esperado": "¿Cómo cargo un modelo IFC nuevo?"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "De qué manera cargo una vercion nueva de un modelo?",
+    "Esperado": "¿Cómo subo una versión nueva de un modelo?"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "en que parte veo la lista de materiales de la torre?",
+    "Esperado": "¿Dónde veo la lista de materiales de la torre?"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "Por qué será que el modelo no aparece en Avance de obra o Línea 3D?",
+    "Esperado": "¿Por qué el modelo no aparece en Avance de obra o Línea 3D?"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "Qué significan los supuestos de la ficha del modelo?",
+    "Esperado": "¿Qué significan los supuestos de la ficha del modelo?"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "de que manera vuelvo a una version anterior del modelo?",
+    "Esperado": "¿Cómo vuelvo a una versión anterior del modelo?"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "Qué atajos de teclado tiene el visor?",
+    "Esperado": "¿Qué atajos de teclado tiene el visor?"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "¿Dónde está el botón Datos de la torre, validación y supuestos?",
+    "Opcion": "Datos de la torre, validación y supuestos"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "¿Dónde está el botón Descargar .ifc?",
+    "Opcion": "Descargar .ifc"
+  },
+  {
+    "Modulo": "modelos-3d",
+    "Ruta": "/ifc",
+    "Pregunta": "¿Dónde está el botón Modelos en Línea 3D?",
+    "Opcion": "Modelos en Línea 3D"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "de que manera hago un cambio en el organigrama vigente?",
+    "Esperado": "¿Cómo hago un cambio en el organigrama vigente?"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "Por qué será que no me deja editar el organigrama?",
+    "Esperado": "¿Por qué no puedo editar el organigrama?"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "De qué manera añado un cargo debajo de un jefe?",
+    "Esperado": "¿Cómo agrego un cargo debajo de un jefe?"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "que es un cargo de apoyo (staff)?",
+    "Esperado": "¿Qué es un cargo de apoyo (staff)?"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "De qué manera comparo dos versiones?",
+    "Esperado": "¿Cómo comparo dos versiones?"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "De qué manera importo el organigrama desde Excel?",
+    "Esperado": "¿Cómo importo el organigrama desde Excel?"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "que pasa con un cargo que quito?",
+    "Esperado": "¿Qué pasa con un cargo que quito?"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "De qué manera exporto el organigrama?",
+    "Esperado": "¿Cómo exporto el organigrama?"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "¿Dónde está el botón Versión anterior?",
+    "Opcion": "Versión anterior"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "¿Dónde está el botón Versión posterior?",
+    "Opcion": "Versión posterior"
+  },
+  {
+    "Modulo": "organigrama",
+    "Ruta": "/organigrama",
+    "Pregunta": "¿Dónde está el botón Pantalla completa?",
+    "Opcion": "Pantalla completa"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "de que manera cambio una parte interesada?",
+    "Esperado": "¿Cómo cambio una parte interesada?"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "De qué manera registro un seguimiento?",
+    "Esperado": "¿Cómo registro un seguimiento?"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "De qué manera hago varios seguimientos el mismo día?",
+    "Esperado": "¿Cómo hago varios seguimientos el mismo día?"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "cada cuanto se hace seguimiento a una parte?",
+    "Esperado": "¿Cada cuánto se hace seguimiento a una parte?"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "Por qué será que el cuadrante no coincide con la clasificación escrita?",
+    "Esperado": "¿Por qué el cuadrante no coincide con la clasificación escrita?"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "De qué manera desactivo una parte que ya no aplica?",
+    "Esperado": "¿Cómo desactivo una parte que ya no aplica?"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "de que manera exporto la matriz?",
+    "Esperado": "¿Cómo exporto la matriz?"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "En qué parte veo cómo ha cambiado la valoración de una parte?",
+    "Esperado": "¿Dónde veo cómo ha cambiado la valoración de una parte?"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "¿Dónde está el botón Inactivas?",
+    "Opcion": "Inactivas"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "¿Dónde está el botón Ronda de seguimiento?",
+    "Opcion": "Ronda de seguimiento"
+  },
+  {
+    "Modulo": "partes-interesadas",
+    "Ruta": "/partes-interesadas",
+    "Pregunta": "¿Dónde está el botón Hacer seguimiento?",
+    "Opcion": "Hacer seguimiento"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "de que manera creo un plan de accion?",
+    "Esperado": "¿Cómo creo un plan de acción?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "De qué manera añado los soportes de una acción?",
+    "Esperado": "¿Cómo agrego los soportes de una acción?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "De qué manera hago el análisis de causa?",
+    "Esperado": "¿Cómo hago el análisis de causa?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "de que manera verifico la eficacia?",
+    "Esperado": "¿Cómo verifico la eficacia?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "De qué manera asocio el plan a uno o varios riesgos?",
+    "Esperado": "¿Cómo asocio el plan a uno o varios riesgos?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "De qué manera importo planes desde Excel?",
+    "Esperado": "¿Cómo importo planes desde Excel?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "de que manera veo los planes como tablero o lista?",
+    "Esperado": "¿Cómo veo los planes como tablero o lista?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "Por qué será que no me deja guardar el plan?",
+    "Esperado": "¿Por qué no me deja guardar el plan?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "¿Dónde está el botón Abrir plan?",
+    "Opcion": "Abrir plan"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "de que manera cargo la revision nueva de un plano?",
+    "Esperado": "¿Cómo cargo la revisión nueva de un plano?"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "De qué manera cargo muchos PDF de una vez?",
+    "Esperado": "¿Cómo cargo muchos PDF de una vez?"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "De qué manera importo el listado de planos desde exel?",
+    "Esperado": "¿Cómo importo el listado de planos desde Excel?"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "en que parte veo todas las hojas de un plano?",
+    "Esperado": "¿Dónde veo todas las hojas de un plano?"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "De qué manera organizo los planos por grupos?",
+    "Esperado": "¿Cómo organizo los planos por grupos?"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "De qué manera vinculo un plano a una torre?",
+    "Esperado": "¿Cómo vinculo un plano a una torre?"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "que pasa con las revisiones viejas?",
+    "Esperado": "¿Qué pasa con las revisiones viejas?"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "De qué manera elimino una carga equivocada?",
+    "Esperado": "¿Cómo elimino una carga equivocada?"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "¿Dónde está el botón ＋ (Nuevo grupo de planos)?",
+    "Opcion": "＋ (Nuevo grupo de planos)"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "¿Dónde está el botón Base de datos?",
+    "Opcion": "Base de datos"
+  },
+  {
+    "Modulo": "planos",
+    "Ruta": "/planos",
+    "Pregunta": "¿Dónde está el botón Cargas de archivos?",
+    "Opcion": "Cargas de archivos"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "de que manera anado un riesgo a la matriz?",
+    "Esperado": "¿Cómo agrego un riesgo a la matriz?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "De qué manera registro un seguimiento de un riesgo?",
+    "Esperado": "¿Cómo registro un seguimiento de un riesgo?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "De qué manera hago una ronda de seguimiento a varios riesgos?",
+    "Esperado": "¿Cómo hago una ronda de seguimiento a varios riesgos?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "de que manera veo como cambio la matriz?",
+    "Esperado": "¿Cómo veo cómo cambió la matriz?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "Por qué será que después de aprobar no veo los seguimientos?",
+    "Esperado": "¿Por qué después de aprobar no veo los seguimientos?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "De qué manera leo el mapa de calor?",
+    "Esperado": "¿Cómo leo el mapa de calor?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "de que manera importo una matriz desde excel?",
+    "Esperado": "¿Cómo importo una matriz desde Excel?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "De qué manera veo los riesgos de una torre?",
+    "Esperado": "¿Cómo veo los riesgos de una torre?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Dónde está el botón Todas las versiones?",
+    "Opcion": "Todas las versiones"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Dónde está el botón Filtrar por nivel?",
+    "Opcion": "Filtrar por nivel"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Dónde está el botón Versiones y control de cambios?",
+    "Opcion": "Versiones y control de cambios"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "de que manera abro la hoja de vida de una torre?",
+    "Esperado": "¿Cómo abro la hoja de vida de una torre?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "De qué manera cargo el trazado o la tabla de estructuras?",
+    "Esperado": "¿Cómo cargo el trazado o la tabla de torres?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "De qué manera cargo las coordenadas de las estructuras?",
+    "Esperado": "¿Cómo cargo las coordenadas de las torres?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "de que manera deshago una carga de la tabla de estructuras?",
+    "Esperado": "¿Cómo deshago una carga de la tabla de torres?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "En qué parte veo qué cambió en una torre?",
+    "Esperado": "¿Dónde veo qué cambió en una torre?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "De qué manera vinculo planos a una torre o a todas las de su tipo?",
+    "Esperado": "¿Cómo vinculo planos a una torre o a todas las de su tipo?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "en que parte veo las inspecciones u otros registros de una torre?",
+    "Esperado": "¿Dónde veo las inspecciones u otros registros de una torre?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "De qué manera paso a la torre siguiente sin cerrar la hoja de vida?",
+    "Esperado": "¿Cómo paso a la torre siguiente sin cerrar la hoja de vida?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "De qué manera reordeno las pestañas de la hoja de vida?",
+    "Esperado": "¿Cómo reordeno las pestañas de la hoja de vida?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "por que sera que una torre no aparece en el mapa?",
+    "Esperado": "¿Por qué una torre no aparece en el mapa?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "¿Dónde está el botón Trazado (KMZ)?",
+    "Opcion": "Trazado (KMZ)"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "¿Dónde está el botón Elementos (DWG/DXF)?",
+    "Opcion": "Elementos (DWG/DXF)"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "¿Dónde está el botón Ver, ocultar, renombrar o eliminar capas?",
+    "Opcion": "Ver, ocultar, renombrar o eliminar capas"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Anterior": "¿Cómo manejar las capas del mapa?",
+    "Pregunta": "¿y cómo lo elimino?",
+    "Esperado": "Cómo manejar las capas del mapa"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Me llegó otro certificado de calibración, ¿dónde lo dejo?",
+    "Esperado": "¿Cómo subo el certificado nuevo de calibración de un equipo?"
+  },
+  {
+    "Modulo": "equipos",
+    "Ruta": "/equipos",
+    "Pregunta": "Veo el número pero al tocarlo no se abre el certificado",
+    "Esperado": "¿Por qué veo el número del certificado pero no abre?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "El laboratorio mandó el PDF, ¿en qué parte lo adjunto a la muestra?",
+    "Esperado": "¿Dónde subo el PDF del laboratorio para una muestra?"
+  },
+  {
+    "Modulo": "ensayos",
+    "Ruta": "/ensayos",
+    "Pregunta": "Me equivoqué de archivo de ensayos, quiero quitar esa importación",
+    "Esperado": "¿Cómo borro una carga de ensayos que subí por error?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "Subí la remisión donde no era. ¿La puedo borrar?",
+    "Esperado": "¿Cómo borro una remisión que subí al material equivocado?"
+  },
+  {
+    "Modulo": "materiales",
+    "Ruta": "/materiales",
+    "Pregunta": "¿Cómo relaciono este material con la cimentación de la estructura?",
+    "Esperado": "¿Cómo vinculo un material con la pata de una torre?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "Ya cambié el procedimiento y me sigue abriendo el PDF anterior",
+    "Esperado": "¿Por qué sigue saliendo el PDF viejo si ya subí el nuevo?"
+  },
+  {
+    "Modulo": "documentos",
+    "Ruta": "/documentos",
+    "Pregunta": "No me acepta el código, me dice que está repetido",
+    "Esperado": "¿Qué hago si dice que el código quedaría repetido?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "Quiero hacer seguimiento a varios riesgos de una vez",
+    "Esperado": "¿Cómo hago una ronda de seguimiento a varios riesgos?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Qué significan los colores del mapa de calor?",
+    "Esperado": "¿Cómo leo el mapa de calor?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "Necesito todos los listados juntos en el mismo Excel",
+    "Esperado": "¿Cómo dejo todos los listados en un solo Excel?"
+  },
+  {
+    "Modulo": "dossier",
+    "Ruta": "/dossier",
+    "Pregunta": "Bajé el zip y le faltan fotos, ¿qué pasó?",
+    "Esperado": "¿Por qué faltan fotos o PDF en el ZIP?"
+  },
+  {
+    "Modulo": "indicadores",
+    "Ruta": "/indicadores",
+    "Pregunta": "¿Me guarda el valor automático tal como está hoy?",
+    "Esperado": "¿Cómo dejo fijo el valor automático que veo hoy?"
+  },
+  {
+    "Modulo": "planes-accion",
+    "Ruta": "/planes-accion",
+    "Pregunta": "¿Dónde abro una acción correctiva nueva?",
+    "Esperado": "¿Cómo creo un plan de acción?"
+  },
+  {
+    "Modulo": "trazado",
+    "Ruta": "/trazado",
+    "Pregunta": "la 102NNN, ¿cómo entro a la ficha de esa estructura?",
+    "Esperado": "¿Cómo abro la hoja de vida de una torre?"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Qué rol tengo?",
+    "Rol": "consulta-restringida",
+    "Contiene": "consulta-restringida"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿En qué proyecto estoy?",
+    "Rol": "consulta-restringida",
+    "Contiene": "Proyecto de prueba"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Puedo editar riesgos?",
+    "Rol": "consulta-restringida",
+    "Contiene": "solicite acceso"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Qué módulos tengo?",
+    "Rol": "consulta-restringida",
+    "Contiene": "Módulos disponibles"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Qué ve un consultor?",
+    "Rol": "consulta-restringida",
+    "Contiene": "matriz de fábrica"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Cómo exporto en Riesgos?",
+    "Opcion": "Exportar"
+  },
+  {
+    "Modulo": "riesgos",
+    "Ruta": "/riesgos",
+    "Pregunta": "¿Dónde está el botón Ronda de seguimiento?",
+    "Opcion": "Ronda de seguimiento"
+  }
+]

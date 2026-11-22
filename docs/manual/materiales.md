@@ -3,7 +3,7 @@ modulo: materiales
 titulo: Materiales
 menu: Operación › Materiales
 rutas: ['/materiales']
-palabras: [remisión, certificado, registro fotográfico, despacho, ubicación, lote, Excel, subir, cargar, pdf, foto, adjunto, bodega, pata, excel, borrar, papelera, no aparece]
+palabras: [remisión, certificado, registro fotográfico, despacho, ubicación, lote, Excel, subir, cargar, pdf, foto, adjunto, bodega, pata, excel, borrar, papelera, no aparece, suministro, trazabilidad, certificado de calidad, carga masiva]
 opciones:
   - Materiales: /materiales
   - Campos: /materiales | Campos
@@ -18,7 +18,19 @@ opciones:
   - Descartar cambios y salir de edición: /materiales | Descartar cambios y salir de edición
   - Guardar cambios: /materiales | Guardar cambios
   - Quitar: /materiales | Quitar
-actualizado: 2026-11-19
+  - Pantalla completa: /materiales | Pantalla completa
+  - Salir de pantalla completa: /materiales | Salir de pantalla completa
+  - Base de datos: /materiales | !Base de datos
+  - Exportar: /materiales | !Exportar
+  - Eliminar material seleccionado: /materiales | Eliminar material seleccionado
+  - Editar: /materiales | Editar
+  - Buscar material: /materiales | Buscar material...
+  - Ver solo esta carga: /materiales | Ver solo esta carga
+  - Quitar filtros: /materiales | Quitar filtros
+  - Editar (reemplazar archivo o clase): /materiales | Editar (reemplazar archivo o clase)
+  - Quitar ubicación: /materiales | Quitar ubicación
+  - Descargar: /materiales | Descargar
+actualizado: 2026-11-21
 ---
 
 # Materiales
@@ -103,13 +115,24 @@ La hoja de vida de una torre también muestra los materiales vinculados en **Arc
 4. Toque el botón de más (Agregar ubicación).
 5. Revise la nueva relación y repita si necesita agregar otra ubicación.
 
+### Cómo consultar o retirar una carga del listado
+
+1. Abra **Base de datos**.
+2. Use **Ver solo esta carga** para revisar sus materiales. Use **Todas** para volver al listado completo.
+3. Para retirar una carga seleccione la acción de eliminar junto a ella. Revise la advertencia y confirme con **Eliminar (va a la Papelera)**.
+
+### Cómo exportar los materiales
+
+1. Aplique el filtro que necesita, incluida la carga si corresponde.
+2. Abra **Exportar** y elija **Excel** o **PDF**.
+
 ## Permisos
 
 - **Ver** permite consultar los materiales. **Descargar** corresponde a archivos y exportaciones.
 - **Crear**, **Editar**, **Eliminar** e **Importar** corresponden al alta, los cambios, la eliminación y la carga de registros.
 - **ConfigurarCampos** corresponde a la configuración de las columnas. El rol de fábrica **Consulta** permite ver y descargar.
 
-> Por confirmar: qué acción individual controla la asociación de ubicaciones y cada operación de adjuntos con un rol personalizado.
+**Colaborador** puede agregar registros y evidencias. **Editor** incluye edición, importación y eliminación. Agregar una ubicación crea una relación. Reemplazar archivos modifica el adjunto existente. Enviar adjuntos a la Papelera requiere **Eliminar** o **Administrar**.
 
 ## Problemas frecuentes
 
@@ -155,6 +178,12 @@ En Materiales, abra **Adjuntos** y use **Ver todos**. Localice la remisión, toq
 ### ¿Por qué el listado de materiales muestra solo unas filas?
 
 En Materiales, seleccione **Todos**, limpie **Buscar material...** y toque **Quitar** en la etiqueta de carga si está activa.
+
+### ¿Cómo veo qué quedó de una importación de materiales?
+Abra **Base de datos** y toque **Ver solo esta carga** al lado del archivo.
+
+### ¿Cómo saco una ubicación incorrecta del material?
+Abra el selector de ubicaciones de la fila y toque **Quitar ubicación** en la relación correspondiente.
 
 ## Relacionado
 

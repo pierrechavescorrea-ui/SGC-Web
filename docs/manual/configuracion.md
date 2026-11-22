@@ -3,7 +3,7 @@ modulo: configuracion
 titulo: Configuración (Actividades, Tiros, Catálogos, Editor, Temas)
 menu: Configuración
 rutas: [/actividades, /tiros, /catalogos, /editor, /temas]
-palabras: [configuración, actividades, parámetros, sub actividades, planilla, tiros, tablero de tiros, catálogos, listas desplegables, opciones, ítems, íconos, galería, plantillas de proyecto, editor, diseñador de formularios, formularios, campos nuevos, vistas, tableros, temas, colores, oscuro, cristal, pastel]
+palabras: [configuración, actividades, parámetros, sub actividades, planilla, tiros, tablero de tiros, catálogos, listas desplegables, opciones, ítems, íconos, galería, plantillas de proyecto, editor, diseñador de formularios, formularios, campos nuevos, vistas, tableros, temas, colores, oscuro, cristal, pastel, ajustes proyecto, parametrización, diseñador, listas maestras, control de cambios de tiro]
 opciones:
   - Eliminar parámetro: /actividades | Eliminar parámetro
   - Seleccionar las torres que coinciden: /tiros | Seleccionar las torres que coinciden
@@ -25,7 +25,70 @@ opciones:
   - Vistas (tableros de los registros): /editor?pestana=vistas
   - Oscuro: /temas | Oscuro
   - Cristal: /temas | Cristal
-actualizado: 2026-11-19
+  - Actividades y parámetros: /actividades
+  - Campos de actividades: /actividades | Campos
+  - Exportar parámetros: /actividades | !Exportar
+  - Mover a otro grupo: /actividades | Mover a otro grupo
+  - Tiros y sus torres: /tiros
+  - Buscar actividad: /actividades | Buscar actividad...
+  - Buscar parámetro: /actividades | Buscar parámetro...
+  - Nuevo tiro: /tiros | Nuevo tiro
+  - Campos de tiros: /tiros | Campos
+  - Exportar tiros: /tiros | !Exportar
+  - Guardar cambios: /tiros | Guardar cambios
+  - Sin cambios por guardar: /tiros | Sin cambios por guardar
+  - Descartar cambios y salir de edición: /tiros | Descartar cambios y salir de edición
+  - Deshacer el último paso: /tiros | Deshacer el último paso
+  - Deshacer este cambio: /tiros | Deshacer este cambio
+  - Buscar torre o tiro: /tiros | Buscar torre o tiro
+  - Buscar torre, tiro o motivo: /tiros | Buscar torre, tiro o motivo
+  - Crear un tiro nuevo con las seleccionadas: /tiros | Crear un tiro nuevo con las seleccionadas
+  - Dejar las seleccionadas sin tiro: /tiros | Dejar las seleccionadas sin tiro
+  - Mover el tiro a la izquierda (orden): /tiros | Mover el tiro a la izquierda (orden)
+  - Mover el tiro a la derecha (orden): /tiros | Mover el tiro a la derecha (orden)
+  - Eliminar el tiro (va a la Papelera): /tiros | Eliminar el tiro (va a la Papelera)
+  - Nuevo ítem: /catalogos | Nuevo ítem
+  - Eliminar este catálogo: /catalogos | Eliminar este catálogo
+  - Eliminar catálogo: /catalogos | Eliminar catálogo
+  - Campos de catálogo: /catalogos | Campos
+  - Exportar catálogo: /catalogos | !Exportar
+  - Buscar catálogo: /catalogos | Buscar catálogo...
+  - Crear catálogo: /catalogos | Crear catálogo
+  - Elegir ícono: /catalogos | Elegir ícono
+  - Cargar imagen: /catalogos?pestana=iconos | Cargar imagen
+  - Eliminar ícono (Papelera): /catalogos?pestana=iconos | Eliminar ícono (Papelera)
+  - Buscar imagen o ícono: /catalogos?pestana=iconos | Buscar imagen o ícono
+  - Filtrar por categoría: /catalogos?pestana=iconos | Filtrar por categoría
+  - Ordenar por categoría: /catalogos?pestana=iconos | Ordenar por categoría
+  - Ordenar por nombre: /catalogos?pestana=iconos | Ordenar por nombre
+  - Editor: /editor
+  - Deshacer: /editor?pestana=formularios | Deshacer
+  - Agregar paso: /editor?pestana=formularios | Agregar paso
+  - Campo nuevo: /editor?pestana=formularios | Campo nuevo
+  - Versiones del diseño: /editor?pestana=formularios | Versiones del diseño
+  - Traer esta versión al boceto: /editor?pestana=formularios | Traer esta versión al boceto
+  - Descartar cambios: /editor?pestana=formularios | Descartar cambios
+  - Guardar (versión nueva): /editor?pestana=formularios | Guardar (versión nueva)
+  - Quitar del formulario (el campo sigue en la tabla): /editor?pestana=formularios | Quitar del formulario (el campo sigue en la tabla)
+  - Eliminar el campo (va a la Papelera con sus valores): /editor?pestana=formularios | Eliminar el campo (va a la Papelera con sus valores)
+  - Quitar el paso (sus campos pasan al primer paso): /editor?pestana=formularios | Quitar el paso (sus campos pasan al primer paso)
+  - Temas: /temas
+  - Institucional: /temas | Institucional
+  - Empresarial: /temas | Empresarial
+  - Cálido: /temas | Cálido
+  - Pastel: /temas | Pastel
+  - Restablecer el formulario original: /editor?pestana=formularios | Restablecer el formulario original
+  - Clic otra vez para volver al formulario original: /editor?pestana=formularios | Clic otra vez para volver al formulario original
+  - Crear una vista nueva (parte de la clásica): /editor?pestana=vistas | Crear una vista nueva (parte de la clásica)
+  - Ver en el módulo: /editor?pestana=vistas | Ver en el módulo
+  - Duplicar para editarla: /editor?pestana=vistas | Duplicar para editarla
+  - Usar como predeterminada: /editor?pestana=vistas | Usar como predeterminada
+  - Diseñar (abre el módulo con un registro real): /editor?pestana=vistas | Diseñar (abre el módulo con un registro real)
+  - Renombrar: /editor?pestana=vistas | Renombrar
+  - Duplicar: /editor?pestana=vistas | Duplicar
+  - Eliminar (va a la Papelera): /editor?pestana=vistas | Eliminar (va a la Papelera)
+  - Guardar: /editor?pestana=vistas | Guardar
+actualizado: 2026-11-21
 ---
 
 # Configuración
@@ -56,7 +119,7 @@ Organiza las torres en **tiros** de tendido.
   3. Arrástrelas a otra columna, o use **Pasar las torres seleccionadas a otro tiro**, **Crear un tiro nuevo con las
      seleccionadas** o **Dejar las seleccionadas sin tiro**.
   4. Renombre un tiro en su cabecera (**Nombre del tiro**) y ordénelo con las flechas.
-  5. **Deshacer el último paso** si se equivoca. Toque **Guardar** (puede escribir un motivo).
+  5. **Deshacer el último paso** si se equivoca. Toque **Guardar cambios** (puede escribir un motivo).
 - Cada cambio queda en **Control de cambios** (qué torre pasó de qué tiro a cuál, cuándo y por qué).
 
 ## Catálogos
@@ -70,7 +133,7 @@ Las **listas desplegables** de toda la app (estados, tipos, procesos, orígenes�
 ## Editor (formularios y vistas)
 - **Formularios**: el diseñador de formularios. Permite mover campos entre pasos, renombrarlos, cambiar su tamaño y
   **agregar campos nuevos** (texto, número, lista, fecha, sí/no, archivos adjuntos…). Un campo de lista puede tener
-  **Campos según la opción** (solo aparecen si se elige esa opción). **Restablecer** vuelve al diseño original.
+  **Campos según la opción** (solo aparecen si se elige esa opción). **Restablecer el formulario original** vuelve al diseño original.
   Los campos marcados como fijos u obligatorios por la app no se pueden ocultar.
 - **Vistas (tableros de los registros)**: diseñe cómo se ve el detalle de un registro (por ejemplo Plan por plan en
   Planes de acción) con widgets; marque una como predeterminada.
@@ -80,16 +143,56 @@ Elija una tarjeta para aplicar sus colores a la app. **Pastel** es un tema claro
 
 ---
 
+## Cómo hacer…
+
+### Cómo cambiar un parámetro o consultar sus columnas
+
+1. Entre en **Actividades y parámetros**. Use **Buscar actividad...** o abra un grupo y seleccione una actividad.
+2. Busque el parámetro con **Buscar parámetro...** y use **Editar** en su fila.
+3. Revise **Planilla** para decidir si debe aparecer en las planillas del bot. Use **Campos** para configurar columnas de la tabla.
+
+### Cómo deshacer un movimiento de tiro
+
+1. Durante la edición use **Deshacer el último paso** para revertir el último cambio pendiente.
+2. Para un movimiento guardado, salga de edición, abra **Control de cambios**, busque la torre y use **Deshacer este cambio** en el registro correspondiente.
+
+### Cómo usar una plantilla de proyecto
+
+1. Abra **Catálogos** y toque **Plantillas de proyecto**.
+2. Elija los módulos que van en el libro y descárguelo. Después de diligenciarlo, cárguelo y revise la vista previa antes de aplicar.
+
+Consulte [Plantillas de proyecto](plantillas-proyecto.md) para descargar, validar, aplicar y deshacer un libro.
+
+### Cómo recuperar un diseño anterior de un formulario
+
+1. En **Editor**, abra **Formularios** y elija el formulario.
+2. Abra **Versiones del diseño**. Use **Traer esta versión al boceto** sobre la versión que quiere recuperar.
+3. Revise el boceto y toque **Guardar (versión nueva)**.
+
+### Cómo quitar un campo del formulario
+
+1. En el diseñador seleccione el campo.
+2. Use **Quitar del formulario (el campo sigue en la tabla)** para retirarlo del diseño.
+3. Si debe retirar un campo personalizado y sus valores, revise **Eliminar el campo (va a la Papelera con sus valores)** y su confirmación.
+
+### Cómo crear, duplicar o retirar una vista configurable
+
+1. Abra **Vistas (tableros de los registros)** y elija el módulo.
+2. Use **Crear una vista nueva (parte de la clásica)** o **Duplicar para editarla**. Si la vista ya existe, toque **Diseñar (abre el módulo con un registro real)**.
+3. Vuelva a la lista para **Renombrar**, **Duplicar** o **Usar como predeterminada**.
+4. Si ya no necesita una vista creada, toque **Eliminar (va a la Papelera)** y revise la confirmación.
+
 ## Permisos
-Actividades, Tiros, Catálogos y Editor son módulos de **configuración**: los maneja el
-**Administrador del proyecto** (permisos ConfigurarCampos y EditarVistas para formularios y vistas). Temas lo puede usar cualquiera.
+- **Administrador del proyecto** tiene los permisos de fábrica para los cinco módulos. **Editor** y **Coordinador / aprobador** tienen **Ver** en Actividades, Tiros y Catálogos de fábrica.
+- Los permisos **Configurar campos**, **Editar formularios** y **Editar vistas** corresponden a tareas distintas. El acceso al Editor depende de los permisos para diseñar formularios o vistas en algún módulo.
+- Todos los roles de fábrica tienen **Ver** en Temas.
 
 ## Problemas frecuentes
 - **«Falta una opción en una lista desplegable»** → agréguela en **Catálogos** (busque el catálogo por su nombre o por módulo).
 - **«Agregué un campo al formulario y no sale en la tabla»** → revise en el diseñador a qué tabla pertenece; los campos
   nuevos de la tabla del módulo también salen como columna.
-- **«Moví torres de tiro y no se guardó»** → en el tablero los cambios quedan pendientes hasta **Guardar**.
-- **«No veo Configuración en el menú»** → su rol no es administrador del proyecto.
+- **«Moví torres de tiro y no se guardó»** → en el tablero los cambios quedan pendientes hasta **Guardar cambios**.
+- **«No veo una opción de Configuración en el menú»**. Revise los permisos de esa opción para el proyecto activo.
 
 ## Preguntas frecuentes
 
@@ -105,7 +208,7 @@ Configuración › **Editor** › Formularios: elija el formulario, use «Campo 
 aparece también como columna de la lista del módulo.
 
 ### ¿Cómo dejo un formulario como estaba al principio?
-En el Editor, **Restablecer** vuelve el formulario al diseño original de la app (las versiones anteriores quedan guardadas).
+En el Editor, toque **Restablecer el formulario original** y confirme con **Clic otra vez para volver al formulario original**.
 
 ### ¿Cómo cambio el orden o el nombre de los tiros?
 Configuración › **Tiros**: en el tablero arrastre torres entre tiros, renombre en la cabecera y guarde. Cada cambio queda en el
@@ -119,6 +222,18 @@ Configuración › **Temas** (por ejemplo, **Pastel**, **Oscuro** o **Cristal**)
 
 ### ¿Dónde quedó el Bot Telegram?
 Ahora está en Administración › Bot de Telegram (lo ve el administrador).
+
+### ¿Puedo traer un diseño anterior del formulario?
+En **Versiones del diseño**, use **Traer esta versión al boceto** y toque **Guardar (versión nueva)** cuando lo haya revisado.
+
+### ¿Dónde deshago una torre que ya cambié de tiro y guardé?
+En **Control de cambios**, busque la torre y use **Deshacer este cambio** en la fila correspondiente.
+
+### ¿Cómo saco un campo del formulario y lo sigo viendo en la tabla?
+Seleccione el campo y use **Quitar del formulario (el campo sigue en la tabla)**.
+
+### ¿Dónde marco qué vista sale primero cuando abro la ficha?
+En **Vistas (tableros de los registros)** elija el módulo y toque **Usar como predeterminada** junto a la vista deseada.
 
 ## Relacionado
 - [Uso general](general.md) — formularios y tablas.

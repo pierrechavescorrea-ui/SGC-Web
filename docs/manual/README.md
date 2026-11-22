@@ -12,9 +12,14 @@ una pantalla, se actualiza su capítulo en el mismo cambio.
 | Grupo del menú | Módulo | Capítulo | Estado |
 |---|---|---|---|
 | — | Uso general: ingresar, menú, buscador, proyectos, permisos, botones, Papelera, Mi cuenta | [general.md](general.md) | Borrador |
+| — | Ingreso, invitación y privacidad | [ingreso.md](ingreso.md) | Borrador |
+| — | Inicio (panel de widgets) | [inicio.md](inicio.md) | Borrador |
+| — | Tablero de proyectos | [proyectos.md](proyectos.md) | Borrador |
+| — | Mi cuenta | [mi-cuenta.md](mi-cuenta.md) | Borrador |
 | Contexto y liderazgo | Direccionamiento estratégico | [direccionamiento.md](direccionamiento.md) | Borrador |
 | Contexto y liderazgo | Partes interesadas | [partes-interesadas.md](partes-interesadas.md) | Borrador |
 | Contexto y liderazgo | Organigrama | [organigrama.md](organigrama.md) | Borrador |
+| Contexto y liderazgo | Manuales de funciones | [manuales-funciones.md](manuales-funciones.md) | Borrador |
 | Planificación | Riesgos | [riesgos.md](riesgos.md) | Borrador |
 | Planificación | Costos y presupuestos | [costos.md](costos.md) | Borrador |
 | Apoyo | Certificaciones | [certificaciones.md](certificaciones.md) | Borrador |
@@ -29,11 +34,14 @@ una pantalla, se actualiza su capítulo en el mismo cambio.
 | Operación | Modelos 3D | [modelos-3d.md](modelos-3d.md) | Borrador |
 | Operación | Materiales | [materiales.md](materiales.md) | Borrador |
 | Operación | Ensayos | [ensayos.md](ensayos.md) | Borrador |
+| Operación | Análisis estadístico de ensayos | [analisis-estadistico-ensayos.md](analisis-estadistico-ensayos.md) | Borrador |
 | Evaluación y mejora | Indicadores | [indicadores.md](indicadores.md) | Borrador |
 | Evaluación y mejora | Auditoría interna | [auditoria-interna.md](auditoria-interna.md) | Borrador |
 | Evaluación y mejora | Planes de acción | [planes-accion.md](planes-accion.md) | Borrador |
 | Evaluación y mejora | Costos de no calidad | [costos-no-calidad.md](costos-no-calidad.md) | Borrador |
 | Configuración | Actividades, Tiros, Catálogos, Editor, Temas | [configuracion.md](configuracion.md) | Borrador |
+| Configuración | Plantillas de proyecto | [plantillas-proyecto.md](plantillas-proyecto.md) | Borrador |
+| — | Papelera de reciclaje | [papelera.md](papelera.md) | Borrador |
 | Administración | Bot de Telegram | [bot-telegram.md](bot-telegram.md) | Borrador |
 | Administración | Proyectos, usuarios, roles, avisos, auditoría | [administracion.md](administracion.md) | Borrador |
 | Administración | Creador de módulos y módulos creados | [creador-modulos.md](creador-modulos.md) | Borrador |

@@ -8,10 +8,53 @@ opciones:
   - Todas las versiones: /riesgos | Base de datos
   - Filtrar por nivel: /riesgos?ver=lista | Filtrar por nivel
   - Riesgos: /riesgos
-  - Versiones y control de cambios: /riesgos | Versiones y control de cambios
-  - Resultados de los seguimientos: /riesgos?ver=resultados
+  - Mapa de calor (probabilidad × impacto): /riesgos?ver=mapa | Mapa de calor (probabilidad × impacto)
+  - Lista: /riesgos?ver=lista | Lista
+  - Campos: /riesgos?ver=lista | Campos
+  - Resultados de los seguimientos: /riesgos?ver=resultados | Resultados de los seguimientos
+  - Versiones y control de cambios: /riesgos | !Versiones y control de cambios
+  - Base de datos: /riesgos | Base de datos
+  - Importar el libro Excel de la matriz: /riesgos | !Importar el libro Excel de la matriz
+  - Exportar: /riesgos?ver=lista | Exportar
+  - Ronda de seguimiento: /riesgos | !Ronda de seguimiento
+  - Agregar riesgo al borrador: /riesgos | Agregar riesgo al borrador
+  - Crear revisión en blanco: /riesgos | Crear revisión en blanco
+  - Editar (crea un borrador): /riesgos | Editar (crea un borrador)
+  - Editar borrador: /riesgos | Editar borrador
+  - Aprobar y publicar: /riesgos | Aprobar y publicar
+  - Publicar como vigente: /riesgos | Publicar como vigente
+  - Nueva revisión: /riesgos | Nueva revisión
+  - Nueva revisión (borrador copiando la vigente): /riesgos | Nueva revisión (borrador copiando la vigente)
+  - Ir al borrador: /riesgos | Ir al borrador
+  - Eliminar revisión: /riesgos | Eliminar revisión
+  - Revisión anterior: /riesgos | Revisión anterior
+  - Revisión posterior: /riesgos | Revisión posterior
+  - Editar (al guardar eliges en qué revisión): /riesgos | Editar (al guardar eliges en qué revisión)
+  - Eliminar riesgo (va a la Papelera): /riesgos | Eliminar riesgo (va a la Papelera)
+  - Eliminar (crea un borrador): /riesgos | Eliminar (crea un borrador)
+  - Importar las revisiones marcadas: /riesgos | Importar las revisiones marcadas
+  - Marcar todos como no materializado: /riesgos | Marcar todos como no materializado
+  - Guardar la ronda: /riesgos | Guardar la ronda
+  - Nuevo seguimiento: /riesgos | Nuevo seguimiento
+  - Editar seguimiento: /riesgos | Editar seguimiento
+  - Eliminar seguimiento: /riesgos | Eliminar seguimiento
+  - Asociar torre, pata o localización: /riesgos | Asociar torre, pata o localización
+  - Adjuntar documentos, fotos o anexos: /riesgos | Adjuntar documentos, fotos o anexos
+  - Agregar hallazgo: /riesgos | Agregar hallazgo
+  - Quitar hallazgo: /riesgos | Quitar hallazgo
+  - Nuevo plan de acción: /riesgos | Nuevo plan de acción
+  - Abrir plan: /riesgos | Abrir plan
+  - Guardar: /riesgos | Guardar
+  - Cancelar: /riesgos | Cancelar
   - Libro Excel de la matriz de riesgos: /riesgos | Importar el libro Excel de la matriz
-actualizado: 2026-11-19
+  - Estado actual: /riesgos | Estado actual
+  - Categoría: /riesgos | Categoría
+  - Estrategia de respuesta: /riesgos | Estrategia de respuesta
+  - Estado del plan: /riesgos | Estado del plan
+  - Ver sus riesgos: /riesgos | Ver sus riesgos
+  - Guardar en: /riesgos | Guardar en
+  - Eliminar la revisión existente, para reemplazarla con esta: /riesgos | Eliminar la revisión existente, para reemplazarla con esta
+actualizado: 2026-11-21
 ---
 
 # Riesgos
@@ -45,7 +88,7 @@ Abra un riesgo desde su código en la matriz. También puede llegar desde un pla
 ### Cómo consultar un riesgo
 
 1. Seleccione la revisión que desea consultar.
-2. Toque el botón de tablero (Mapa de calor (probabilidad × impacto)) o el botón de lista (Lista).
+2. Toque **Mapa de calor (probabilidad × impacto)** o **Lista**.
 3. Escriba en **Buscar riesgo...** o use **Filtrar por nivel**.
 4. Abra el riesgo que corresponda.
 5. Revise la valoración, los seguimientos y los planes asociados.
@@ -64,7 +107,7 @@ Abra un riesgo desde su código en la matriz. También puede llegar desde un pla
 
 1. Abra el riesgo que quiere modificar.
 2. En el borrador, toque el botón de lápiz (Editar).
-3. Desde una revisión aprobada, use el botón de lápiz (Editar (al guardar eliges en qué revisión)).
+3. Desde una revisión aprobada, use **Editar (al guardar eliges en qué revisión)**.
 4. Revise **Guardar en** cuando se muestre. Puede elegir el borrador o una revisión disponible para corregir el riesgo.
 5. Verifique la revisión de destino y toque el botón de disquete (Guardar).
 
@@ -79,24 +122,24 @@ Abra un riesgo desde su código en la matriz. También puede llegar desde un pla
 
 ### Cómo registrar un seguimiento
 
-1. Abra el riesgo y toque el botón de seguimiento (Nuevo seguimiento).
+1. Abra el riesgo y toque **Nuevo seguimiento**.
 2. Diligencie los datos del formulario **Seguimiento**.
-3. Si tiene soportes, toque el botón de clip (Adjuntar documentos, fotos o anexos).
+3. Si tiene soportes, toque **Adjuntar documentos, fotos o anexos**.
 4. Toque el botón de disquete (Guardar).
 5. Consulte el detalle del riesgo o el botón de indicador (Resultados de los seguimientos).
 
 ### Cómo registrar una ronda de seguimiento
 
 1. Seleccione una revisión con riesgos que ya salió del borrador.
-2. Toque el botón de seguimiento (Ronda de seguimiento).
+2. Toque **Ronda de seguimiento**.
 3. Indique **Fecha del seguimiento** y seleccione **Responsables**.
 4. Marque los riesgos que va a incluir.
 5. Diligencie la información de seguimiento de los riesgos seleccionados.
-6. Toque el botón de disquete (Guardar la ronda).
+6. Toque **Guardar la ronda**.
 
 ### Cómo importar revisiones de una matriz
 
-1. Toque el botón de importación (Importar el libro Excel de la matriz).
+1. Toque **Importar el libro Excel de la matriz**.
 2. Seleccione el archivo en **Libro Excel de la matriz de riesgos**.
 3. Revise las revisiones detectadas y la columna **Avisos**.
 4. Marque las revisiones que desea incorporar.
@@ -116,10 +159,10 @@ Abra un riesgo desde su código en la matriz. También puede llegar desde un pla
 - **Ver** permite consultar la matriz, los resultados y el detalle. **Descargar** corresponde a exportar información.
 - **Crear** corresponde al alta de registros y **Editar** a su modificación. **Eliminar** corresponde al envío a la Papelera.
 - **Importar** corresponde a la carga de revisiones. **Aprobar** corresponde a publicar una revisión como vigente.
-- **ConfigurarCampos** y **EditarVistas** corresponden a la configuración de campos y vistas.
+- **Configurar campos** y **Editar vistas** corresponden a la configuración de campos y vistas.
 - El rol de fábrica **Consulta** permite ver y descargar. Los permisos efectivos dependen de la configuración del proyecto.
 
-> Por confirmar: qué permiso individual controla el registro de una ronda de seguimiento cuando se usa un rol personalizado.
+**Colaborar** permite registrar seguimientos. Si la ronda también modifica un registro o crea un plan, la app comprueba los permisos de esa operación.
 
 ## Problemas frecuentes
 
@@ -155,6 +198,14 @@ Con la importación de revisiones: cada carga queda como revisión y se ve en la
 
 ### ¿Cómo veo los riesgos de una torre?
 En la hoja de vida de la torre (Trazado), pestaña Riesgos.
+
+### ¿Cómo filtro los riesgos de impacto y probabilidad altos?
+
+Toque la celda en **Mapa de calor (probabilidad × impacto)** o use **Filtrar por nivel** en **Lista**.
+
+### ¿Dónde cargo una foto de donde ocurrió el riesgo?
+
+En **Nuevo seguimiento**, use **Adjuntar documentos, fotos o anexos**. Agregue el lugar en **Hallazgos (dónde se materializó)** si corresponde.
 
 ## Relacionado
 

@@ -3,7 +3,7 @@ modulo: ensayos
 titulo: Ensayos
 menu: Operación › Ensayos
 rutas: ['/ensayos', '/ensayos/{TipoEnsayoId:int}', '/ensayos/resumen']
-palabras: [laboratorio, muestra, resultado, concreto, informe, histograma, normalidad, resumen, subir, cargar, pdf, muestra, No. Informe, pata, planilla, Excel, borrar, papelera, no aparece]
+palabras: [laboratorio, muestra, resultado, concreto, informe, histograma, normalidad, resumen, subir, cargar, pdf, muestra, No. Informe, pata, planilla, Excel, borrar, papelera, no aparece, rotura de cilindros, resistencia, muestra de obra, ensayo de laboratorio, resultados por torre]
 opciones:
   - Resumen de ensayos: /ensayos/resumen
   - Por ensayo (una tabla por tipo): /ensayos/resumen?vista=ensayo
@@ -16,7 +16,36 @@ opciones:
   - Base de datos: /ensayos | Base de datos
   - Eliminar esta carga (va a la Papelera): /ensayos | Eliminar esta carga (va a la Papelera)
   - Gráficos: /ensayos | !Gráficos
-actualizado: 2026-11-19
+  - Resumen de ensayos desde Ensayos: /ensayos | Resumen de ensayos: todas las torres con las columnas marcadas «Resumen» en cada ensayo
+  - Nuevo grupo de ensayos: /ensayos | Nuevo grupo de ensayos
+  - Buscar grupo: /ensayos | Buscar grupo...
+  - Editar grupo: /ensayos | Editar grupo
+  - Eliminar grupo: /ensayos | Eliminar grupo
+  - Buscar tipo de ensayo: /ensayos | Buscar tipo de ensayo...
+  - Nuevo tipo de ensayo: /ensayos | Nuevo tipo de ensayo
+  - Editar tipo de ensayo: /ensayos | Editar tipo de ensayo
+  - Eliminar tipo de ensayo: /ensayos | Eliminar tipo de ensayo
+  - Vista de hoja de cálculo: /ensayos | Vista de hoja de cálculo
+  - Pantalla completa del ensayo: /ensayos | Pantalla completa
+  - Salir de pantalla completa del ensayo: /ensayos | Salir de pantalla completa
+  - Pantalla completa del resumen: /ensayos/resumen | Pantalla completa
+  - Salir de pantalla completa del resumen: /ensayos/resumen | Salir de pantalla completa
+  - Campos: /ensayos | Campos
+  - Exportar: /ensayos | !Exportar
+  - Editar muestra (fila seleccionada): /ensayos | Editar muestra (fila seleccionada)
+  - Campos de la plantilla del ensayo (tipo, unidad, fórmula, adjunto, importación): /ensayos | Campos de la plantilla del ensayo (tipo, unidad, fórmula, adjunto, importación)
+  - Gestionar documentos del informe: /ensayos | Gestionar documentos del informe
+  - Subir documentos del informe: /ensayos | Subir documentos del informe
+  - Leer archivo: /ensayos | Leer archivo
+  - Es esta torre: /ensayos | Es esta torre
+  - Ninguna, dejar sin torre: /ensayos | Ninguna, dejar sin torre
+  - Sí, eliminar carga: /ensayos | Sí, eliminar carga
+  - Buscar en lo mostrado (torre, valor…): /ensayos/resumen | Buscar en lo mostrado (torre, valor…)
+  - Grupo de ensayos: /ensayos/resumen | Grupo de ensayos
+  - Torre o localización: /ensayos/resumen | Torre o localización
+  - Hoja de vida de la torre: /ensayos/resumen?vista=torre | Hoja de vida de la torre
+  - Análisis estadístico: /ensayos | Análisis estadístico
+actualizado: 2026-11-21
 ---
 
 # Ensayos
@@ -95,12 +124,25 @@ Abra un grupo y luego el tipo de ensayo. Para cruzar resultados entre tipos, use
 4. Revise las columnas marcadas **Resumen** en cada tipo.
 5. Toque el botón de Excel (Exportar a Excel (una hoja por ensayo, lo filtrado)).
 
+### Cómo editar una muestra y su informe
+
+1. Abra el tipo de ensayo y seleccione una fila. Toque **Editar muestra (fila seleccionada)** y, al terminar, **Guardar**.
+2. En la fila use **Subir documentos del informe** o **Gestionar documentos del informe**, según haya archivos cargados.
+3. En **Base de datos**, use **Eliminar esta carga (va a la Papelera)** si necesita retirar una carga completa.
+
+### Cómo distinguir la plantilla de la tabla del ensayo
+
+1. Abra el tipo de ensayo. Use **Campos de la plantilla del ensayo (tipo, unidad, fórmula, adjunto, importación)** para editar la definición de sus resultados.
+2. Use **Campos** para configurar columnas de la tabla. Marque **Resumen** para incluir una columna en **Resumen de ensayos**. Marque **Información Bot** para controlar los datos mostrados fuera de la tabla, como en el bot y la hoja de vida.
+
+Para interpretar el histograma, los límites de especificación y el Cpk, consulte [Análisis estadístico de ensayos](analisis-estadistico-ensayos.md).
+
 ## Permisos
 
 - **Ver** permite consultar grupos, resultados, gráficos y resumen.
 - **Crear**, **Editar**, **Eliminar** e **Importar** corresponden a las operaciones sobre los ensayos y resultados.
 - **Descargar** permite exportar. **ConfigurarCampos** corresponde a la configuración de campos.
-- El rol de fábrica **Consulta** permite ver y descargar.
+- De fábrica, **Consulta sin descarga** puede ver. **Consulta** también descarga. **Colaborador** agrega resultados o evidencias. **Editor** y **Coordinador / aprobador** también editan, importan y eliminan. **Administrador del proyecto** incluye la configuración de campos.
 
 ## Problemas frecuentes
 
@@ -142,6 +184,15 @@ Abra **Resumen de ensayos**, aplique los filtros y toque **Exportar a Excel (una
 ### ¿Qué hago si el análisis dice «Este ensayo no tiene campos numéricos para analizar.»?
 
 En Ensayos, abra el tipo y compruebe en **Gráficos** si tiene campos numéricos disponibles. Solicite a quien configura el ensayo que revise el tipo de los campos que espera analizar.
+
+### ¿Cuál es el botón para editar una muestra que ya existe?
+Dentro del tipo de ensayo seleccione su fila y toque **Editar muestra (fila seleccionada)**.
+
+### ¿La casilla Información Bot también saca la columna en el Resumen de ensayos?
+Para el resumen marque **Resumen** en **Campos**. **Información Bot** controla los datos para el bot y las fichas.
+
+### ¿Dónde miro la resistencia con histograma y límites?
+Dentro del tipo de ensayo toque **Gráficos** y **Análisis estadístico**. Elija el campo numérico y revise el histograma.
 
 ## Relacionado
 

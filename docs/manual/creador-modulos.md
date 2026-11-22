@@ -7,7 +7,34 @@ palabras: [crear módulo, módulo nuevo, inspecciones, formulario nuevo, pasos, 
 opciones:
   - Creador de módulos: /admin/modulos
   - Módulo nuevo: /admin/modulos | !Módulo nuevo
-actualizado: 2026-11-19
+  - Crear: /admin/modulos | Crear
+  - Cancelar: /admin/modulos | Cancelar
+  - Diseñar: /admin/modulos | Diseñar
+  - Restaurar (vuelve al menú con sus registros): /admin/modulos | Restaurar (vuelve al menú con sus registros)
+  - Eliminar definitivamente (borra también sus registros en todos los proyectos): /admin/modulos | Eliminar definitivamente (borra también sus registros en todos los proyectos)
+  - Eliminar definitivamente: /admin/modulos | Eliminar definitivamente
+  - Diseño: /admin/modulos | Diseño
+  - Vista previa (así lo verá el usuario): /admin/modulos | Vista previa (así lo verá el usuario)
+  - Versiones publicadas: /admin/modulos | Versiones publicadas
+  - Fijar todos los paneles a los costados: /admin/modulos | Fijar todos los paneles a los costados
+  - Deshacer (Ctrl+Z): /admin/modulos | Deshacer (Ctrl+Z)
+  - Rehacer (Ctrl+Y): /admin/modulos | Rehacer (Ctrl+Y)
+  - Abrir el módulo publicado: /admin/modulos | Abrir el módulo publicado
+  - Duplicar (módulo nuevo con este diseño): /admin/modulos | Duplicar (módulo nuevo con este diseño)
+  - Reactivar (vuelve al menú): /admin/modulos | Reactivar (vuelve al menú)
+  - Archivar (sale del menú; los registros se conservan): /admin/modulos | Archivar (sale del menú; los registros se conservan)
+  - Eliminar (nunca se publicó: se borra el diseño): /admin/modulos | Eliminar (nunca se publicó: se borra el diseño)
+  - Eliminar (va a «Eliminados»: sale del menú, los registros se conservan y se puede restaurar): /admin/modulos | Eliminar (va a «Eliminados»: sale del menú, los registros se conservan y se puede restaurar)
+  - Descartar los cambios sin publicar (vuelve a la versión publicada): /admin/modulos | Descartar los cambios sin publicar (vuelve a la versión publicada)
+  - Guardar borrador (Ctrl+S; no cambia lo publicado): /admin/modulos | Guardar borrador (Ctrl+S; no cambia lo publicado)
+  - Publicar: aplicar en todos los proyectos: /admin/modulos | Publicar: aplicar en todos los proyectos
+  - Traer esta versión al borrador para revisarla y volver a publicarla: /admin/modulos | Traer esta versión al borrador para revisarla y volver a publicarla
+  - Confirmar: /admin/modulos | Confirmar
+  - Cambiar tamaño: /admin/modulos | Cambiar tamaño
+  - Prefijo del código: /admin/modulos | Prefijo del código
+  - Cifras del código: /admin/modulos | Cifras del código
+  - Nombre del estado: /admin/modulos | Nombre del estado
+actualizado: 2026-11-21
 ---
 
 # Creador de módulos
@@ -43,7 +70,7 @@ Los módulos publicados se abren desde su capítulo del menú (el que se eligió
     control elegido muestra el **paso** (título, indicación, N/A, mover, quitar) y el **módulo** (nombre, ícono, menú, código,
     estados).
   - Cada panel (herramientas, Esquema, Propiedades) tiene **pin**: suelto queda flotando y se arrastra por su título a donde
-    quiera; **Fijar todos los paneles** los devuelve a los costados. El navegador recuerda cómo los dejó.
+    quiera; **Fijar todos los paneles a los costados** los devuelve a los costados. El navegador recuerda cómo los dejó.
 - Encabezado del diseñador: **Diseño**, **Vista previa**, **Versiones publicadas**, deshacer y rehacer, abrir el módulo,
   **Duplicar**, **Archivar**/**Reactivar** (o **Eliminar** si nunca se publicó), **Descartar** cambios sin publicar,
   **Guardar borrador** y **Publicar**.
@@ -60,7 +87,7 @@ Los módulos publicados se abren desde su capítulo del menú (el que se eligió
    de la torre. Así cada inspección muestra los ensayos de la torre elegida. Lo mismo con un **Gráfico**, un **Indicador**,
    el **Mapa**, el **Visor PDF** (planos) o el **Modelo 3D**.
 5. Agregue pasos (pestañas) con lista de chequeo, fotos y firma.
-6. Revise la **Vista previa**, toque **Guardar borrador** y luego **Publicar**.
+6. Revise la **Vista previa (así lo verá el usuario)**, toque **Guardar borrador (Ctrl+S; no cambia lo publicado)** y luego **Publicar: aplicar en todos los proyectos**.
 7. En Administración › **Roles** dé permisos al nuevo módulo a cada rol. Hasta entonces solo lo ve el administrador.
 
 ### Cómo cambiar un módulo que ya se usa
@@ -79,7 +106,9 @@ campo nuevo y quite el anterior.
 Si solo quiere ocultarlo por un tiempo, use **Archivar**.
 
 ### Cómo volver a una versión anterior
-**Versiones publicadas** › botón de restaurar en la versión: queda en el borrador para revisarla y publicarla otra vez.
+1. Abra el diseño y toque **Versiones publicadas**.
+2. Toque **Traer esta versión al borrador para revisarla y volver a publicarla** en la versión elegida.
+3. Revise el borrador y publique cuando corresponda.
 
 ### Cómo usar un módulo creado
 En su capítulo del menú: la lista muestra los registros con buscador y filtro por estado; **Campos** permite columnas
@@ -95,6 +124,17 @@ lista, sí/no y vínculo, y mínimo, promedio, máximo y total de cada número. 
 ### Cómo ver los registros de una torre
 Si un módulo tiene un vínculo a **Trazado** (torres), la hoja de vida de cada torre muestra la pestaña **Módulos** con
 los registros que la enlazan; desde allí ＋ crea un registro nuevo ya enlazado a esa torre.
+
+### Cómo duplicar un diseño o descartar cambios
+
+1. Abra la tarjeta del módulo. Use **Duplicar (módulo nuevo con este diseño)** para crear otro diseño.
+2. En un módulo publicado, abra **Descartar los cambios sin publicar (vuelve a la versión publicada)** y toque **Confirmar** si quiere recuperar el diseño vigente.
+
+### Cómo editar o retirar un registro de un módulo publicado
+
+1. Abra el módulo desde el menú y localice la fila con el buscador o el filtro de estado.
+2. Use **Abrir / editar**, revise los pasos y toque **Guardar**. Si necesita cerrarlo, elija el estado final.
+3. Use **Eliminar (va a la Papelera)** y confirme si quiere retirar el registro.
 
 ## Permisos
 - Diseñar, publicar y archivar: solo el administrador del SGC.
@@ -149,6 +189,14 @@ puede deshacer.
 
 ### Publiqué y los usuarios no ven el módulo, ¿qué falta?
 Darle permiso Ver a los roles en Administración › Roles, y que el módulo esté habilitado en el proyecto.
+
+### ¿Puedo copiar un módulo para empezar otro parecido?
+
+En el diseñador, toque **Duplicar (módulo nuevo con este diseño)**.
+
+### ¿Dónde dejo el diseño como estaba publicado?
+
+En el diseñador, use **Descartar los cambios sin publicar (vuelve a la versión publicada)**.
 
 ## Relacionado
 - [Administración](administracion.md) — roles y módulos por proyecto.

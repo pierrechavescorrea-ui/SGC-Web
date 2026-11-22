@@ -5,12 +5,8 @@ menu: Contexto y liderazgo › Direccionamiento estratégico
 rutas: [/direccionamiento]
 palabras: [direccionamiento, visión, misión, política, política integrada, objetivos, valores, código de ética, responsabilidad social, compilado, PDF, subir, cargar, escaneado, separar páginas, unir, descargar, versión anterior, borrar, papelera, no aparece]
 opciones:
-  - Elegir PDF: /direccionamiento | Cargar documentos (PDF)
   - Direccionamiento estratégico: /direccionamiento
-  - Mosaicos: /direccionamiento?vista=mosaicos
-  - Lista: /direccionamiento?vista=lista
   - Pantalla completa: /direccionamiento?vista=mosaicos | Pantalla completa
-  - Cargar documentos (PDF): /direccionamiento | Cargar documentos (PDF)
   - Descargar compilado (PDF): /direccionamiento | Descargar compilado (PDF)
   - Ver actual: /direccionamiento?vista=mosaicos | Ver actual
   - Actualizar: /direccionamiento?vista=mosaicos | Actualizar
@@ -24,7 +20,21 @@ opciones:
   - Descargar: /direccionamiento?vista=mosaicos | Descargar
   - Eliminar: /direccionamiento?vista=mosaicos | Eliminar
   - Enviar a la Papelera: /direccionamiento?vista=mosaicos | Enviar a la Papelera
-actualizado: 2026-11-19
+  - Mosaicos: /direccionamiento?vista=mosaicos | Mosaicos
+  - Lista: /direccionamiento?vista=lista | Lista
+  - Cargar documentos (PDF): /direccionamiento | !Cargar documentos (PDF)
+  - Elegir PDF: /direccionamiento | Elegir PDF (uno con varios documentos, o varios por separado)
+  - Quitar archivo: /direccionamiento | Quitar archivo
+  - Desde: /direccionamiento | Desde
+  - Hasta: /direccionamiento | Hasta
+  - Clasificación: /direccionamiento | Clasificación
+  - Editar documento: /direccionamiento | Editar documento
+  - Editar: /direccionamiento | Editar
+  - Cancelar: /direccionamiento | Cancelar
+  - Tipo: /direccionamiento | Tipo
+  - Título: /direccionamiento | Título
+  - Sin archivo vigente: /direccionamiento | Sin archivo vigente
+actualizado: 2026-11-21
 ---
 
 # Direccionamiento estratégico
@@ -70,9 +80,7 @@ Use **Mover antes** / **Mover después**. Los documentos se ordenan primero por 
 Toque **Descargar compilado (PDF)**: une los documentos vigentes que se ven en pantalla.
 
 ## Permisos
-Ver y Descargar para consultar; Crear/Editar/Importar para cargar y actualizar; Eliminar para enviar a la Papelera.
-Como es un módulo de la empresa, en los proyectos se ve en **solo lectura**.
-> Por confirmar: qué rol personalizado permite gestionar el módulo en el espacio de la Empresa.
+**Ver** permite consultar. **Descargar** permite obtener los PDFs y el compilado. **Crear**, **Editar**, **Importar** y **Eliminar** corresponden a la gestión de registros, versiones y archivos. En un proyecto que usa la fuente de Empresa se consulta en solo lectura. Si el administrador configura fuente propia, se aplican los permisos de ese proyecto. **Consulta** de fábrica ve y descarga.
 
 ## Problemas frecuentes
 - **«No veo los botones de cargar o editar»** → en un proyecto este módulo es de solo lectura; se administra en la Empresa.
@@ -116,6 +124,10 @@ En Direccionamiento estratégico, toque **Eliminar** en el documento, revise el 
 ### ¿Cómo cambio el orden en que se muestran las políticas?
 
 En **Mosaicos** de Direccionamiento estratégico, use **Mover antes** o **Mover después** en la tarjeta. Estos controles cambian la posición dentro del mismo tipo.
+
+### ¿Dónde corrijo el título o la clasificación de una política?
+
+En su tarjeta, toque **Editar**. Revise **Clasificación** y toque **Guardar**.
 
 ## Relacionado
 - [Documentos](documentos.md) — cada documento estratégico es un documento del listado maestro (tipo «Direccionamiento estratégico»).

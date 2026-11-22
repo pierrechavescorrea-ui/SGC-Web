@@ -3,7 +3,7 @@ modulo: auditoria-interna
 titulo: Auditoría interna
 menu: Evaluación y mejora › Auditoría interna
 rutas: ['/auditoria-interna', '/auditoria-interna/{Id:int}']
-palabras: [auditoría, programa anual, hallazgo, no conformidad, evidencia, informe, auditor, programar, NC, cerrar, plan común, adjunto, pdf, imprimir, borrar, no aparece]
+palabras: [auditoría, programa anual, hallazgo, no conformidad, evidencia, informe, auditor, programar, NC, cerrar, plan común, adjunto, pdf, imprimir, borrar, no aparece, auditorías del año, fortalezas, conclusiones, plan de auditoría, imprimible]
 opciones:
   - Programa por proceso y mes: /auditoria-interna
   - Auditorías: /auditoria-interna?vista=auditorias
@@ -21,7 +21,28 @@ opciones:
   - Informe de auditoría (imprimible): /auditoria-interna?vista=auditorias | !Informe de auditoría (imprimible)
   - Exportar a PDF (imprimir y guardar como PDF): /auditoria-interna?vista=auditorias | Exportar a PDF (imprimir y guardar como PDF)
   - Exportar a Excel: /auditoria-interna?vista=auditorias | Exportar a Excel
-actualizado: 2026-11-19
+  - Cerrar programa: /auditoria-interna | Cerrar programa
+  - Editar programa: /auditoria-interna | Editar programa
+  - Buscar: /auditoria-interna?vista=hallazgos | Buscar
+  - Tipo de hallazgo: /auditoria-interna?vista=hallazgos | Tipo de hallazgo
+  - Eliminar auditoría: /auditoria-interna?vista=auditorias | Eliminar auditoría
+  - Editar datos de la auditoría: /auditoria-interna?vista=auditorias | Editar datos de la auditoría
+  - Reabrir auditoría: /auditoria-interna?vista=auditorias | Reabrir auditoría
+  - Un solo plan de acción para los hallazgos marcados: /auditoria-interna?vista=auditorias | Un solo plan de acción para los hallazgos marcados
+  - Marcar para un plan común con otros hallazgos: /auditoria-interna?vista=auditorias | Marcar para un plan común con otros hallazgos
+  - Crear un plan de acción para este hallazgo (queda ligado a él): /auditoria-interna?vista=auditorias | Crear un plan de acción para este hallazgo (queda ligado a él)
+  - Ligar a un plan de acción que ya existe: /auditoria-interna?vista=auditorias | Ligar a un plan de acción que ya existe
+  - Quitar vínculo (el plan se conserva): /auditoria-interna?vista=auditorias | Quitar vínculo (el plan se conserva)
+  - Reabrir hallazgo: /auditoria-interna?vista=auditorias | Reabrir hallazgo
+  - Editar hallazgo: /auditoria-interna?vista=auditorias | Editar hallazgo
+  - Eliminar hallazgo: /auditoria-interna?vista=auditorias | Eliminar hallazgo
+  - Crear un plan de acción sobre la auditoría, sin hallazgo: /auditoria-interna?vista=auditorias | Crear un plan de acción sobre la auditoría, sin hallazgo
+  - Editar fortalezas y conclusiones: /auditoria-interna?vista=auditorias | Editar fortalezas y conclusiones
+  - Exportar a Word: /auditoria-interna?vista=auditorias | Exportar a Word
+  - Avisar por correo: /auditoria-interna?vista=auditorias | Avisar por correo
+  - Guardar hallazgo: /auditoria-interna?vista=auditorias | Guardar hallazgo
+  - Volver a los hallazgos: /auditoria-interna?vista=auditorias | Volver a los hallazgos
+actualizado: 2026-11-21
 ---
 
 # Auditoría interna
@@ -118,6 +139,19 @@ Para crear un plan común, marque las casillas **Marcar para un plan común con 
 4. Revise **Planes de acción** y **Estado** para ver cuáles requieren seguimiento.
 5. Abra la auditoría vinculada para consultar el detalle y los anexos.
 
+### Cómo completar el informe y sacarlo en Word
+
+1. Abra el detalle de la auditoría desde **Auditorías**.
+2. Toque **Informe de auditoría (imprimible)** y revise las secciones.
+3. Use **Editar fortalezas y conclusiones** y toque **Guardar**.
+4. Toque **Exportar a Word**. También dispone de **Exportar a Excel** y **Exportar a PDF (imprimir y guardar como PDF)**.
+
+### Cómo usar el mismo plan para varios hallazgos
+
+1. En la auditoría, use **Marcar para un plan común con otros hallazgos** en cada uno de los hallazgos.
+2. Toque **Un solo plan de acción para los hallazgos marcados**.
+3. Diligencie y guarde el plan. Compruebe los vínculos en los hallazgos.
+
 ## Permisos
 
 - **Ver** corresponde a la consulta del programa, auditorías, hallazgos e informe.
@@ -126,7 +160,7 @@ Para crear un plan común, marque las casillas **Marcar para un plan común con 
 - **Aprobar** corresponde a la aprobación del programa y a las operaciones de cierre con visto bueno.
 - El rol de fábrica **Consulta** permite consultar y descargar. Los permisos efectivos dependen de la configuración del proyecto.
 
-> Por confirmar: qué permiso individual controla los cambios de estado de auditoría y la vinculación a un plan existente con un rol personalizado.
+En el rol de fábrica, **Colaborador** puede consultar, descargar y crear registros o aportar evidencias. **Editor** añade edición y eliminación. **Coordinador / aprobador** añade **Aprobar**. En permisos personalizados, cambiar un estado existente pasa por **Editar**, **Aprobar** o **Administrar**. Ligar un plan crea una relación y quitarla requiere permiso de escritura.
 
 ## Problemas frecuentes
 
@@ -173,6 +207,15 @@ Abra la auditoría desde **Auditorías** y toque **Informe de auditoría (imprim
 ### ¿A dónde va un programa de auditoría que borré?
 
 En Auditoría interna, **Eliminar programa** abre la revisión del impacto. Lea el aviso y confirme con **Eliminar (va a la Papelera)** cuando esté habilitado. Consulte la [Papelera](general.md) para restaurarlo.
+
+### ¿Cómo saco el informe de auditoría en Word?
+Abra la auditoría, toque **Informe de auditoría (imprimible)** y después **Exportar a Word**.
+
+### ¿Tengo que hacer un plan distinto para cada hallazgo?
+Puede marcar varios hallazgos de la auditoría y tocar **Un solo plan de acción para los hallazgos marcados**. También puede usar **Ligar a un plan de acción que ya existe** en cada hallazgo.
+
+### ¿Puedo quitar el vínculo al plan y conservar el plan?
+Sí. Use **Quitar vínculo (el plan se conserva)** en el hallazgo.
 
 ## Relacionado
 

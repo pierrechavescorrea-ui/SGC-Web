@@ -30,7 +30,19 @@ public sealed class AsistenteAyuda
     private readonly UsuarioActual _usuario;
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<AsistenteAyuda> _log;
-    public List<Mensaje> Historial { get; } = new();
+    private readonly List<Mensaje> _historial = new();
+    private string? _identidad;
+    public List<Mensaje> Historial
+    {
+        get
+        {
+            var permisos = _usuario.Permisos;
+            var identidad = string.Join('|',_usuario.Id,_usuario.Proyecto?.Id,permisos.Rol,permisos.AdminGlobal,permisos.AuditorGlobal,
+                string.Join(',',permisos.PorModulo.OrderBy(p => p.Key).Select(p => p.Key + "=" + (int)p.Value)));
+            if (identidad != _identidad) { _historial.Clear(); _identidad = identidad; }
+            return _historial;
+        }
+    }
 
     public AsistenteAyuda(ManualAyuda manual, UsuarioActual usuario, IWebHostEnvironment env, ILogger<AsistenteAyuda> log)
     { _manual = manual; _usuario = usuario; _env = env; _log = log; }
@@ -85,6 +97,30 @@ public sealed class AsistenteAyuda
         var palabras = TextoAyuda.Palabras(pregunta).ToList();
         var utiles = palabras.Where(p => !TextoAyuda.EsVacia(p) && !Saludos.Contains(p) && !Agradece.Contains(p)).ToList();
 
+        var frase = string.Join(' ', palabras);
+        if (frase is "que hace este icono" or "que hace ese icono")
+            return new Mensaje { De = Quien.Asistente, Texto = "¿Qué texto aparece al pasar el puntero sobre el ícono? Con ese nombre puedo buscar el control en esta pantalla." };
+        var ultima = Historial.Take(Historial.Count - 1).LastOrDefault(m => m.De == Quien.Asistente);
+        if (frase.StartsWith("no me refiero a ")) return Responder(frase["no me refiero a ".Length..], ruta);
+        if (frase.Contains(" y "))
+        {
+            var partes = frase.Split(" y ",2);
+            if (AccesoAyuda.Requisito(partes[0]) != Accion.Ver && AccesoAyuda.Requisito(partes[1]) != Accion.Ver)
+            {
+                var tareas = partes.Select(p => _manual.Buscar(p,ruta,1).FirstOrDefault()?.Seccion)
+                    .OfType<ManualAyuda.Seccion>().DistinctBy(s => s.Id).Select(s => ConEnlace(s,Etiqueta(s))).ToList();
+                if (tareas.Count > 1) return new Mensaje { De = Quien.Asistente, Texto = "¿Con qué tarea desea comenzar?", Sugerencias = tareas };
+            }
+        }
+        if (frase is "y eso donde" or "y donde" or "eso donde" && ultima?.Seccion is { } previa)
+            return DesdeSeccion(previa,ruta,new());
+        if (Sesion(frase,ruta) is { } personal) return personal;
+        if (frase == "y en la tabla" && ultima?.Seccion is { } tema)
+        {
+            var tablas = tema.Capitulo.Opciones.Where(o => o.Terminos.Contains("tabla") && PuedeVerOpcion(o))
+                .Take(3).Select(o => new Sugerencia(o.Etiqueta,Ruta:o.Ruta,Resaltar:o.Resaltar,Destino:o.Etiqueta)).ToList();
+            if (tablas.Count > 0) return new Mensaje { De = Quien.Asistente, Texto = $"En {tema.Capitulo.Titulo} puede consultar:", Atajos = tablas };
+        }
         if (palabras.Count > 0 && utiles.Count == 0)
         {
             if (palabras.Any(Agradece.Contains))
@@ -98,10 +134,24 @@ public sealed class AsistenteAyuda
 
         // Seguimiento: pregunta corta después de una respuesta → se queda en el tema (capítulo) anterior.
         var anterior = Historial.LastOrDefault(m => m.De == Quien.Asistente && m.Seccion is not null)?.Seccion?.Capitulo;
-        var contexto = utiles.Count <= 3 ? anterior : null;
-        var resultados = _manual.Buscar(pregunta, ruta, 5, contexto, TextoAyuda.TerminosDeFrases(pregunta));
-        var atajos = _manual.OpcionesPara(pregunta, ruta).Where(PuedeVerOpcion)
+        var contexto = utiles.Count <= 3 && (palabras.FirstOrDefault() == "y" || anterior == _manual.CapituloDeRuta(ruta)) ? anterior : null;
+        var consulta = pregunta;
+        if (contexto != null && ultima?.Seccion is { } anteriorSeccion && palabras.FirstOrDefault() == "y")
+            consulta += " " + anteriorSeccion.Titulo;
+        var resultados = _manual.Buscar(consulta, ruta, 5, contexto, TextoAyuda.TerminosDeFrases(pregunta));
+        var coincidencias = _manual.OpcionesPara(pregunta, ruta, int.MaxValue);
+        var opciones = coincidencias.Where(PuedeVerOpcion);
+        if (coincidencias.FirstOrDefault() is { } primera && (palabras.Contains("boton") || palabras.Contains("exporto"))
+            && !PuedeVerOpcion(primera) && !opciones.Any(o => o.Modulo == primera.Modulo && o.Nombre == primera.Nombre))
+            return new Mensaje { De = Quien.Asistente, Texto = $"Su rol ({Rol}) no tiene acceso a {primera.Etiqueta}. Consulte al administrador del {(primera.Ruta.StartsWith("/admin") ? "sistema" : "proyecto")}." };
+        var nombrePedido = frase.Contains("boton ") ? frase.Split("boton ",2)[1] : "";
+        var literales = opciones.Where(o => string.Join(' ',TextoAyuda.Palabras(o.Nombre)) == nombrePedido).ToList();
+        if (literales.Count > 0) opciones = literales;
+        var enPantalla = opciones.Where(o => o.Ruta.Split('?')[0] == ruta?.Split('?')[0]).ToList();
+        var atajos = (enPantalla.Count > 0 && !pregunta.Contains(" en ",StringComparison.OrdinalIgnoreCase) ? enPantalla : opciones).Take(3)
             .Select(o => new Sugerencia(o.Etiqueta, Ruta: o.Ruta, Resaltar: o.Resaltar, Destino: o.Etiqueta)).ToList();
+        if (atajos.Count > 0 && (palabras.Contains("boton") || palabras.Contains("icono") || palabras.Contains("exporto")))
+            return new Mensaje { De = Quien.Asistente, Texto = atajos.Count == 1 ? "Puede localizar el control con este enlace." : "¿A cuál de estos controles se refiere?", Atajos = atajos };
         if (resultados.Count == 0 || resultados[0].Puntaje < UmbralMinimo)
         {
             RegistrarSinRespuesta(pregunta, ruta);
@@ -120,6 +170,10 @@ public sealed class AsistenteAyuda
         }
 
         var mejor = resultados[0];
+        if (utiles.Count <= 3 && resultados.Count >= 2 && resultados[1].Puntaje >= mejor.Puntaje * .94 &&
+            resultados[1].Seccion.Capitulo != mejor.Seccion.Capitulo)
+            return new Mensaje { De = Quien.Asistente, Texto = "¿Sobre cuál de estas opciones pregunta?",
+                Sugerencias = resultados.Take(3).Select(r => ConEnlace(r.Seccion,Etiqueta(r.Seccion))).ToList() };
         // Otras secciones con puntaje cercano: se ofrecen como "también puede servirle".
         var otras = resultados.Skip(1).Where(x => x.Puntaje >= mejor.Puntaje * 0.55 && x.Seccion.Id != mejor.Seccion.Id)
             .Select(x => ConEnlace(x.Seccion, Etiqueta(x.Seccion))).Take(3).ToList();
@@ -129,11 +183,10 @@ public sealed class AsistenteAyuda
     }
 
     private bool PuedeVerOpcion(ManualAyuda.Opcion o) =>
-        PuedeAbrirRuta(o.Ruta) && (o.Capitulo.Modulo is "general" or "configuracion" or "administracion" || PuedeVer(o.Capitulo.Modulo));
+        AccesoAyuda.Permite(_usuario,o.Ruta,o.Requiere);
 
     private bool PuedeAbrirRuta(string? ruta) =>
-        SigWeb.Data.Navegacion.MenuAdmin.VistaDe(ruta) is not { } vista ||
-        (_usuario.EsAdministrador || !vista.SoloAdmin && _usuario.EsAuditor);
+        AccesoAyuda.Permite(_usuario,ruta,Accion.Ver);
 
     // Por debajo de esto la coincidencia es casual (una palabra suelta poco informativa).
     private const double UmbralMinimo = 2.6;
@@ -142,15 +195,20 @@ public sealed class AsistenteAyuda
     {
         var cap = s.Capitulo;
         string? aviso = null;
-        if (cap.Modulo is not ("general" or "configuracion" or "administracion") && !PuedeVer(cap.Modulo))
+        if (cap.RutaIr is { } rutaCapitulo && !PuedeAbrirRuta(rutaCapitulo) && !cap.Rutas.Any(PuedeAbrirRuta))
             aviso = $"Su rol no tiene acceso a {cap.Titulo} en este proyecto. Si lo necesita, pídalo al administrador.";
         var enEsaPantalla = _manual.CapituloDeRuta(ruta) == cap;
         // «Ir a» lleva a la opción exacta que trata la sección (vista, pestaña o botón); si no hay, al módulo.
         // En la misma pantalla solo se ofrece si hay una opción concreta que mostrar.
         var op = aviso is null ? _manual.OpcionPrincipal(s) : null;
         var destino = op?.Ruta ?? cap.RutaIr;
-        if (aviso is null && !PuedeAbrirRuta(destino))
-            aviso = "Esta opción requiere acceso a Administración.";
+        var accion = AccesoAyuda.Requisito(s.Titulo);
+        var pasos = AccesoAyuda.Requisito(s.Markdown);
+        if (aviso == null && PuedeAbrirRuta(destino) && !AccesoAyuda.Permite(_usuario,destino,pasos))
+            aviso = $"Su rol ({Rol}) puede consultar esta sección. Algunos pasos requieren permisos adicionales del administrador del proyecto.";
+        if (!PuedeAbrirRuta(destino) || op != null && !PuedeVerOpcion(op) ||
+            !AccesoAyuda.Permite(_usuario,destino,accion))
+            aviso = $"Su rol ({Rol}) no permite esta operación. Consulte al administrador {(destino?.StartsWith("/admin") == true ? "global" : "del proyecto")}.";
         return new Mensaje
         {
             De = Quien.Asistente,
@@ -176,9 +234,42 @@ public sealed class AsistenteAyuda
     private Sugerencia ConEnlace(ManualAyuda.Seccion s, string texto)
     {
         var o = _manual.OpcionPrincipal(s);
-        if (o is null || !PuedeVerOpcion(o))
+        if (o is null || !PuedeVerOpcion(o) || !AccesoAyuda.Permite(_usuario,o.Ruta,AccesoAyuda.Requisito(s.Titulo)))
             return new Sugerencia(texto, s.Id);
         return new Sugerencia(texto, s.Id, Ruta: o.Ruta, Resaltar: o.Resaltar, Destino: o.Etiqueta);
+    }
+
+    private string Rol => _usuario.Permisos.Rol ?? (_usuario.EsAdministrador ? "Administrador global" : _usuario.EsAuditor ? "Auditor global" : "sin rol asignado");
+
+    private Mensaje? Sesion(string frase, string? ruta)
+    {
+        string? texto = null;
+        var modulo = CatalogoModulos.Lista.OrderByDescending(m => m.Nombre.Length)
+            .FirstOrDefault(m => (" " + frase + " ").Contains(" " + TextoAyuda.SinTildes(m.Nombre.ToLowerInvariant()) + " "))
+            ?? CatalogoModulos.De(CatalogoModulos.ClaveDeRuta(ruta));
+        if (frase.Contains("mi rol") || frase.Contains("rol tengo") || frase.Contains("quien soy") || frase.Contains("proyecto estoy"))
+            texto = $"{(_usuario.Nombre.Length > 0 ? _usuario.Nombre + ". " : "")}Proyecto {_usuario.Proyecto?.Nombre ?? "sin seleccionar"}. Rol {Rol}."
+                + (_usuario.EsAdministrador ? " Usted es administrador global." : _usuario.EsAuditor ? " Usted es auditor global." : "");
+        else if (frase.Contains("modulos tengo") || frase.Contains("mis modulos"))
+            texto = "Módulos disponibles: " + string.Join(", ",CatalogoModulos.Lista.Where(m => _usuario.Puede(m.Clave,Accion.Ver)).Select(m => m.Nombre)) + ".";
+        else if (modulo != null && (frase.Contains("que puedo hacer") || frase.StartsWith("puedo ") ||
+            frase.StartsWith("por que no puedo ") || frase.Contains("que ve un consultor")))
+        {
+            var permisos = _usuario.Permisos.De(modulo.Clave);
+            texto = $"En {modulo.Nombre}, su rol ({Rol}) tiene estos permisos: {Acciones.Texto(permisos)}.";
+            var requiere = AccesoAyuda.Requisito(frase);
+            if (!permisos.HasFlag(requiere)) texto += " Para esa operación, solicite acceso al administrador del proyecto.";
+            if (frase.Contains("consultor")) texto += $" Para Consulta, la matriz de fábrica indica: {Acciones.Texto(RolesFabrica.Permiso("consulta",modulo))}.";
+            if (frase.Contains("que puedo hacer"))
+            {
+                var resumen = ResumenPantalla(ruta);
+                return new Mensaje { De = Quien.Asistente, Texto = texto, Seccion = resumen.Seccion,
+                    Sugerencias = resumen.Sugerencias, Atajos = _manual.CapituloDeRuta(ruta)?.Opciones
+                        .Where(o => o.Ruta.Split('?')[0] == ruta && PuedeVerOpcion(o)).Take(4)
+                        .Select(o => new Sugerencia(o.Nombre,Ruta:o.Ruta,Resaltar:o.Resaltar,Destino:o.Etiqueta)).ToList() ?? new() };
+            }
+        }
+        return texto == null ? null : new Mensaje { De = Quien.Asistente, Texto = texto };
     }
 
     private Mensaje ResumenPantalla(string? ruta)
@@ -210,11 +301,7 @@ public sealed class AsistenteAyuda
 
     private static string Etiqueta(ManualAyuda.Seccion s) => $"{s.Capitulo.Titulo} › {s.Titulo}";
 
-    private bool PuedeVer(string modulo)
-    {
-        try { return _usuario.Puede(modulo, Accion.Ver); }
-        catch { return true; }   // sin sesión resoluble: no se avisa nada
-    }
+
 
     // Preguntas sin respuesta → App_Data/asistente/sin-respuesta.log, para completar el manual.
     private void RegistrarSinRespuesta(string pregunta, string? ruta)

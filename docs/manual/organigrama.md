@@ -8,8 +8,6 @@ opciones:
   - Versión anterior: /organigrama?vista=cambios | Versión anterior
   - Versión posterior: /organigrama?vista=cambios | Versión posterior
   - Organigrama: /organigrama
-  - Lista de cargos: /organigrama?vista=lista
-  - Versiones y control de cambios: /organigrama?vista=cambios
   - Pantalla completa: /organigrama | Pantalla completa
   - Importar organigrama (Excel) a un borrador: /organigrama | Importar organigrama (Excel) a un borrador
   - Acercar: /organigrama | Acercar
@@ -17,7 +15,32 @@ opciones:
   - Ajustar a la pantalla: /organigrama | Ajustar a la pantalla
   - Desplegar todo: /organigrama | Desplegar todo
   - Plegar todo: /organigrama | Plegar todo
-actualizado: 2026-11-19
+  - Lista de cargos: /organigrama?vista=lista | Lista de cargos
+  - Versiones y control de cambios: /organigrama?vista=cambios | Versiones y control de cambios
+  - Organigrama (diagrama): /organigrama | Organigrama
+  - Buscar cargo o persona: /organigrama | Buscar cargo o persona
+  - Crear organigrama (borrador): /organigrama | Crear organigrama (borrador)
+  - Editar (crea un borrador): /organigrama | Editar (crea un borrador)
+  - Editar borrador: /organigrama | Editar borrador
+  - Agregar cargo (subordinado del seleccionado): /organigrama | Agregar cargo (subordinado del seleccionado)
+  - Agregar subordinado: /organigrama | Agregar subordinado
+  - Agregar cargo de apoyo: /organigrama | Agregar cargo de apoyo
+  - Mover antes: /organigrama | Mover antes
+  - Mover después: /organigrama | Mover después
+  - Quitar cargo: /organigrama | Quitar cargo
+  - Quitar también toda su rama: /organigrama | Quitar también toda su rama
+  - Cancelar edición: /organigrama | Cancelar edición
+  - Guardar: /organigrama | Guardar
+  - Exportar: /organigrama | Exportar
+  - Crear borrador con lo importado: /organigrama | Crear borrador con lo importado
+  - Eliminar versión: /organigrama | Eliminar versión
+  - Aprobar y publicar: /organigrama | Aprobar y publicar
+  - Publicar como vigente: /organigrama | Publicar como vigente
+  - Enviar a la Papelera: /organigrama | Enviar a la Papelera
+  - Elegir archivo: /organigrama | Elegir archivo
+  - Nuevo cargo: /organigrama | Nuevo cargo: arrástralo sobre un jefe o una línea de mando
+  - Nuevo cargo de apoyo: /organigrama | Nuevo cargo de apoyo: arrástralo sobre un jefe
+actualizado: 2026-11-21
 ---
 
 # Organigrama
@@ -44,10 +67,10 @@ Solo el borrador se edita.
 ## Cómo hacer…
 
 ### Cómo hacer un cambio en el organigrama
-1. Toque **Editar**. Si está viendo la vigente, la app crea un **borrador** copiándola.
+1. Use **Editar (crea un borrador)** desde la versión vigente o **Editar borrador** si ya lo tiene.
 2. Haga los cambios (ver abajo). Todo queda en pantalla hasta guardar.
 3. Toque **Guardar**. **Cancelar edición** descarta.
-4. Cuando esté listo, toque **Publicar como vigente**: escriba el motivo y quién **Elaboró**, **Revisó** y **Aprobó**.
+4. Use **Aprobar y publicar** para abrir el formulario. Diligencie la vigencia, el motivo y las firmas. Toque **Publicar como vigente**.
    La versión anterior pasa a obsoleta.
 
 ### Cómo agregar un cargo
@@ -70,7 +93,7 @@ Vista **Versiones y control de cambios**: línea de tiempo de versiones y compar
 3. Revise el borrador y publíquelo.
 
 ## Permisos
-Ver para consultar; Editar para el borrador; Importar para Excel; **Aprobar** para **Publicar como vigente**.
+**Ver** permite consultar, **Descargar** permite exportar, **Editar** permite cambiar el borrador e **Importar** corresponde a Excel. **Eliminar** corresponde a enviar una versión a la Papelera y **Aprobar** a publicar. **Consulta** de fábrica puede ver y descargar.
 
 ## Problemas frecuentes
 - **«No puedo cambiar nada»** → está viendo una versión publicada. Toque **Editar** para crear el borrador.
@@ -106,6 +129,14 @@ Va a la Papelera al guardar el borrador, con la misma fecha; las versiones anter
 ### ¿Cómo exporto el organigrama?
 Exportar Excel (hoja Organigrama y Control de cambios) o PDF en tamaño A3.
 
+### ¿Cómo veo si hay cargos sin persona asignada?
+
+Revise **Cargos sin ocupante** y **Lista de cargos**.
+
+### ¿Cómo apruebo el cambio para que lo vean todos?
+
+Abra el borrador, toque **Aprobar y publicar** en el encabezado, diligencie vigencia, motivo y firmas y use **Publicar como vigente**.
+
 ## Relacionado
 - [Partes interesadas](partes-interesadas.md) — mismo manejo de versiones.
-- Manuales de funciones — aún vacío.
+- [Manuales de funciones](manuales-funciones.md)

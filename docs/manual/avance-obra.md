@@ -2,8 +2,8 @@
 modulo: avance-obra
 titulo: Avance de obra
 menu: Operación › Avance de obra
-rutas: ['/avance-obra']
-palabras: [estado de las torres, estados, montada, ficha de la torre, avance físico, avance acumulado, importar avance, excel, F-054, informe diario, torre, pata, tendido, planta-perfil, tiro, subir, cargar, porcentaje, obra civil, sin casar, no aparece, foto, borrar, papelera]
+rutas: [/avance-obra, /linea3d]
+palabras: [estado de las torres, estados, montada, ficha de la torre, avance físico, avance acumulado, importar avance, excel, F-054, informe diario, torre, pata, tendido, planta-perfil, tiro, subir, cargar, porcentaje, obra civil, sin casar, no aparece, foto, borrar, papelera, longitudinal, planta y perfil, avance por fecha, tendido por tiro]
 opciones:
   - Cotas del visor 3D: /avance-obra | Actividades, pesos y cotas
   - Fecha de corte: /avance-obra | Fecha de corte
@@ -11,8 +11,8 @@ opciones:
   - Filtrar actividades: /avance-obra | Filtrar actividades
   - Filtrar actividades por grupo: /avance-obra | Filtrar actividades por grupo
   - Avance acumulado (matriz): /avance-obra?vista=matriz
-  - Estado de las torres: /avance-obra?vista=estado
-  - Torre por torre (visor 3D): /avance-obra | Torre por torre (visor 3D)
+  - 'Estado de las torres: /avance-obra?vista=estado | Estado de las torres (por tiro; clic en una torre = avance físico y PIE)'
+  - Torre por torre (visor 3D): /avance-obra | !Torre por torre (visor 3D)
   - Importar avance acumulado (Excel): /avance-obra | Importar avance acumulado (Excel)
   - Ajustes: /avance-obra | !Actividades, pesos y cotas
   - Tendido: /avance-obra?vista=tendido
@@ -29,7 +29,37 @@ opciones:
   - Importar el avance: /avance-obra | Importar el avance
   - Editar avances y fechas de la torre: /avance-obra | Editar avances y fechas de la torre
   - Base de datos: /avance-obra | !Base de datos
-actualizado: 2026-11-19
+  - 'Línea: tendido 3D por tiros y planta-perfil: /avance-obra?vista=tendido | Línea: tendido 3D por tiros y planta-perfil'
+  - Ver en planta-perfil: /avance-obra?vista=tendido | Ver en planta-perfil
+  - Ver en 3D: /avance-obra?vista=perfil | Ver en 3D
+  - Informe diario: /avance-obra | !Base de datos
+  - Actividades, pesos y cotas: /avance-obra | !Actividades, pesos y cotas
+  - Exportar: /avance-obra?vista=matriz | !Exportar
+  - Cancelar edición: /avance-obra | Cancelar edición
+  - Guardar avance del día: /avance-obra?vista=tendido | Guardar avance del día
+  - Guardar avances y fechas: /avance-obra | Guardar avances y fechas
+  - Guardar estados: /avance-obra?vista=estado | Guardar estados
+  - Editar estados de las torres: /avance-obra?vista=estado | Editar estados de las torres
+  - Editar avance del tiro a la fecha mostrada: /avance-obra?vista=tendido | Editar avance del tiro a la fecha mostrada
+  - Elegir las columnas de abscisa y cota: /avance-obra?vista=perfil | Elegir las columnas de abscisa y cota
+  - Capas y apariencia: /avance-obra?vista=tendido | Capas y apariencia
+  - 'Estados: nombres, colores, orden y en qué cuentan: /avance-obra?vista=estado | Estados: nombres, colores, orden y en qué cuentan'
+  - Poner o quitar la marca roja: /avance-obra?vista=estado | Poner o quitar la marca roja
+  - Ver cimentación: /avance-obra | Ver cimentación
+  - Ver torre completa: /avance-obra | Ver torre completa
+  - Suelo transparente: /avance-obra | Suelo transparente
+  - Ir a torre: /avance-obra | Ir a torre
+  - Recentrar la vista: /avance-obra | Recentrar la vista
+  - Agregar al informe: /avance-obra | Agregar al informe
+  - Guardar ajustes: /avance-obra | Guardar ajustes
+  - Reproducir el avance: /avance-obra | Reproducir el avance
+  - Pausar: /avance-obra | Pausar
+  - Tiro anterior: /avance-obra?vista=tendido | Tiro anterior
+  - Tiro siguiente: /avance-obra?vista=tendido | Tiro siguiente
+  - Torre anterior: /avance-obra?vista=tendido | Torre anterior
+  - Torre siguiente: /avance-obra?vista=tendido | Torre siguiente
+  - Pantalla completa: /avance-obra?vista=tendido | Pantalla completa
+actualizado: 2026-11-21
 ---
 
 # Avance de obra
@@ -145,13 +175,25 @@ Reglas: **NA** = no aplica; **Fecha ini** = la actividad empezó ese día (0 %);
 4. Si hizo cambios, toque el botón de disquete (Guardar ajustes).
 5. Vuelva al visor de torre para revisar el resultado.
 
+### Cómo elegir los datos del perfil
+
+1. Abra **Línea: tendido 3D por tiros y planta-perfil** y elija **Ver en planta-perfil**.
+2. Use **Elegir las columnas de abscisa y cota** y revise las dos columnas de la tabla de torres.
+3. Vuelva al tendido con **Ver en 3D**. En el visor, **Capas y apariencia** agrupa las opciones de visualización.
+
+### Cómo agregar un registro al informe del día
+
+1. Abra el informe y seleccione **Torre**, **Actividad** y **Pata** cuando corresponda.
+2. Registre la cantidad o **% acum.** según la actividad, y escriba la **Observación** si hace falta.
+3. Toque **Agregar al informe** y después **Guardar informe**.
+
 ## Permisos
 
 - **Ver** permite consultar las vistas. **Descargar** corresponde a exportaciones.
 - **Crear**, **Editar** e **Importar** corresponden al registro, la edición y la importación del avance desde Excel.
 - El rol de fábrica **Consulta** permite ver y descargar.
 
-> Por confirmar: qué permiso individual controla **Guardar ajustes** con un rol personalizado.
+- De fábrica, **Consulta sin descarga** puede ver. **Colaborador** agrega registros y soportes. **Editor** y **Coordinador / aprobador** también pueden editar, importar y eliminar. **Administrador del proyecto** incluye los permisos de configuración.
 
 ## Problemas frecuentes
 
@@ -198,6 +240,15 @@ En Avance de obra, abra el informe que desea quitar. Toque **Eliminar informe**,
 ### ¿Por qué no me aparece el botón para subir el Excel del avance?
 
 Para usar **Importar avance acumulado (Excel)**, confirme con el administrador del proyecto que tiene **Importar** en Avance de obra.
+
+### ¿Cómo cambio del tendido 3D al dibujo del perfil?
+Abra **Línea: tendido 3D por tiros y planta-perfil** y toque **Ver en planta-perfil**. Use **Ver en 3D** para regresar.
+
+### ¿Dónde corrijo la cota que toma el perfil?
+En **Planta-perfil**, use **Elegir las columnas de abscisa y cota** para revisar la selección de columnas.
+
+### ¿Cómo le pongo una marca roja a una torre?
+Entre en **Estado de las torres**, toque **Editar estados de las torres**, seleccione la torre, use **Poner o quitar la marca roja** y toque **Guardar estados**.
 
 ## Relacionado
 

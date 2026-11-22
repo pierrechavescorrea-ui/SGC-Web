@@ -3,11 +3,44 @@ modulo: planes-accion
 titulo: Planes de acción
 menu: Evaluación y mejora › Planes de acción
 rutas: ['/planes-accion', '/planes-accion/nuevo', '/planes-accion/{PlanId:int}']
-palabras: [acción correctiva, hallazgo, causa raíz, Ishikawa, 5 porqués, eficacia, producto]
+palabras: [acción correctiva, hallazgo, causa raíz, Ishikawa, 5 porqués, eficacia, producto, correctiva, espina de pescado, cinco porqués, no eficaz, evidencias, anexos, tablero kanban]
 opciones:
   - Planes de acción: /planes-accion
   - Abrir plan: /planes-accion | Abrir plan
-actualizado: 2026-11-19
+  - Pantalla completa: /planes-accion | Pantalla completa
+  - Salir de pantalla completa: /planes-accion | Salir de pantalla completa
+  - Plan por plan: /planes-accion | !Plan por plan
+  - Tablero por estado: /planes-accion | !Tablero por estado
+  - Lista: /planes-accion | !Lista
+  - Avisar por correo: /planes-accion | Avisar por correo
+  - Base de datos: /planes-accion | !Base de datos
+  - Campos: /planes-accion | Campos
+  - Importar planes (Excel): /planes-accion | Importar planes (Excel)
+  - Exportar: /planes-accion | !Exportar
+  - Eliminar plan seleccionado: /planes-accion | Eliminar plan seleccionado
+  - Editar en la tabla: /planes-accion | Editar en la tabla
+  - Editar plan (formulario completo): /planes-accion | Editar plan (formulario completo)
+  - Nuevo plan de acción: /planes-accion/nuevo
+  - Descartar cambios y salir de edición: /planes-accion | Descartar cambios y salir de edición
+  - Guardar cambios: /planes-accion | Guardar cambios
+  - Ver solo esta carga: /planes-accion | Ver solo esta carga
+  - Eliminar (va a la Papelera): /planes-accion | Eliminar (va a la Papelera)
+  - Agregar herramienta de análisis de causa (5 porqués, Ishikawa, árbol, Pareto…): /planes-accion/nuevo | Agregar herramienta de análisis de causa (5 porqués, Ishikawa, árbol, Pareto…)
+  - Agregar acción: /planes-accion/nuevo | Agregar acción
+  - Agregar producto: /planes-accion/nuevo | Agregar producto
+  - Asociar riesgo: /planes-accion/nuevo | Asociar riesgo
+  - Guardar: /planes-accion/nuevo | Guardar
+  - Ver y administrar todos los adjuntos: /planes-accion | Ver y administrar todos los adjuntos
+  - Nueva carpeta: /planes-accion | Nueva carpeta
+  - Crear carpeta: /planes-accion | Crear carpeta
+  - Renombrar carpeta: /planes-accion | Renombrar carpeta
+  - Eliminar carpeta: /planes-accion | Eliminar carpeta
+  - Editar (reemplazar archivo): /planes-accion | Editar (reemplazar archivo)
+  - Eliminar archivo: /planes-accion | Eliminar archivo
+  - Guardar la vista: /planes-accion?disenarVista=nueva | Guardar la vista
+  - Volver a la disposición inicial (como la clásica): /planes-accion?disenarVista=nueva | Volver a la disposición inicial (como la clásica)
+  - Quitar el widget: /planes-accion?disenarVista=nueva | Quitar el widget
+actualizado: 2026-11-21
 ---
 
 # Planes de acción
@@ -99,6 +132,24 @@ Si el plan guardado quedó como **No eficaz**, puede usar el botón de plan (No 
 
 Si el código ya existe, la importación puede añadirle acciones. En el panel de cargas puede usar el botón de ubicación (Ver solo esta carga).
 
+### Cómo diseñar la ficha Plan por plan
+
+1. Abra **Vistas (tableros de los registros)** en Configuración › Editor y elija Planes de acción.
+2. Cree una vista o abra una existente en el diseñador. Escriba el **Nombre de la vista**.
+3. Agregue, mueva o quite los bloques que necesita. **Volver a la disposición inicial (como la clásica)** recupera la distribución de partida.
+4. Toque **Guardar la vista**. En **Plan por plan**, toque el ícono del encabezado para elegir la vista de la ficha.
+
+### Cómo organizar los adjuntos del plan
+
+1. Seleccione un plan y toque **Ver y administrar todos los adjuntos** desde su ficha.
+2. Use **Nueva carpeta** y **Crear carpeta** para agrupar sus archivos. En una carpeta puede usar **Renombrar carpeta** o **Eliminar carpeta**.
+3. En el archivo use **Editar (reemplazar archivo)** o **Eliminar archivo**. Revise la confirmación **Eliminar (va a la Papelera)**.
+
+### Cómo borrar un plan o revisar una importación
+
+1. Seleccione el plan y toque **Eliminar plan seleccionado**. Revise el impacto antes de confirmar **Eliminar (va a la Papelera)**.
+2. Para revisar una carga, abra **Base de datos** y toque **Ver solo esta carga** en la fila del archivo.
+
 ## Permisos
 
 - **Ver** corresponde a la consulta de planes y acciones. **Descargar** corresponde a los archivos y las exportaciones.
@@ -107,7 +158,7 @@ Si el código ya existe, la importación puede añadirle acciones. En el panel d
 - El rol de fábrica **Coordinador / aprobador** incluye **Aprobar** y se describe como el rol que cierra planes y verifica eficacia.
 - El rol de fábrica **Consulta** permite ver y descargar. Los permisos efectivos dependen de la configuración del proyecto.
 
-> Por confirmar: qué permiso efectivo controla guardar el resultado de eficacia cuando se combinan permisos individuales.
+Los cambios en un plan existente pasan por el permiso de escritura del módulo. El control de **Resultado** aparece cuando el plan está cerrado o ya tiene una verificación guardada.
 
 ## Problemas frecuentes
 
@@ -119,7 +170,7 @@ Si el código ya existe, la importación puede añadirle acciones. En el panel d
 ## Preguntas frecuentes
 
 ### ¿Cómo creo un plan de acción?
-Botón **Agregar** del encabezado (o desde un riesgo, un seguimiento o un hallazgo de auditoría, que llenan el origen solos).
+Botón **Nuevo plan de acción** del encabezado (o desde un riesgo, un seguimiento o un hallazgo de auditoría, que llenan el origen solos).
 Llene los pasos, agregue las acciones y **Guardar**.
 
 ### ¿Cómo agrego los soportes de una acción?
@@ -146,6 +197,15 @@ Con las vistas del encabezado: Plan (uno a uno), Tablero (Abierta / En ejecució
 
 ### ¿Por qué no me deja guardar el plan?
 Falta algún campo obligatorio: el mensaje al pie dice cuál («Falta diligenciar: …»).
+
+### ¿Cómo cambio la vista de la ficha del plan?
+En **Plan por plan**, toque el ícono del encabezado y elija la vista disponible. Para diseñar una, entre en Configuración › Editor › **Vistas (tableros de los registros)**.
+
+### ¿Dónde veo todos los anexos del plan juntos?
+Abra el plan y use **Ver y administrar todos los adjuntos**. Ahí aparecen las carpetas del plan y las de sus acciones.
+
+### ¿Cómo borro un plan que no debía crear?
+Selecciónelo, toque **Eliminar plan seleccionado** y confirme **Eliminar (va a la Papelera)** tras revisar el impacto.
 
 ## Relacionado
 

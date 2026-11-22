@@ -3,7 +3,7 @@ modulo: costos-no-calidad
 titulo: Costos de no calidad
 menu: Evaluación y mejora › Costos de no calidad
 rutas: ['/costos-no-calidad']
-palabras: [costo de no calidad, rubro, hallazgo, Pareto, costo asociado, plan de acción, retrabajos, pérdida, concepto, pesos, exportar, excel, plan borrado, papelera, no aparece]
+palabras: [costo de no calidad, rubro, hallazgo, Pareto, costo asociado, plan de acción, retrabajos, pérdida, concepto, pesos, exportar, excel, plan borrado, papelera, no aparece, reproceso, sobrecosto, costos de fallas, desperdicio]
 opciones:
   - Ver el plan en Planes de acción: /costos-no-calidad?vista=plan | Ver el plan en Planes de acción
   - Ver el plan: /costos-no-calidad?vista=tabla | Ver el plan
@@ -22,7 +22,15 @@ opciones:
   - Ordenar por costo (mayor primero): /costos-no-calidad?vista=plan | Ordenar por costo (mayor primero)
   - Editar los costos (formulario del plan): /costos-no-calidad?vista=plan | Editar los costos (formulario del plan)
   - Exportar a Excel (lo filtrado): /costos-no-calidad?vista=tabla | Exportar a Excel (lo filtrado)
-actualizado: 2026-11-19
+  - Pantalla completa: /costos-no-calidad | Pantalla completa
+  - Salir de pantalla completa: /costos-no-calidad | Salir de pantalla completa
+  - Abrir el diseñador del formulario: /editor?pestana=formularios&form=planes-accion
+  - Buscar código, hallazgo, origen…: /costos-no-calidad | Buscar código, hallazgo, origen…
+  - Ordenar por fecha (reciente primero): /costos-no-calidad?vista=plan | Ordenar por fecha (reciente primero)
+  - Elementos del gráfico: /costos-no-calidad?vista=graficos | Elementos del gráfico
+  - Anterior: /costos-no-calidad?vista=plan | Anterior
+  - Siguiente: /costos-no-calidad?vista=plan | Siguiente
+actualizado: 2026-11-21
 ---
 
 # Costos de no calidad
@@ -97,6 +105,12 @@ También puede abrir el formulario de un plan desde el detalle de costos.
 4. Use campos numéricos para los rubros y los demás campos admitidos para clasificar los resultados.
 5. Vuelva al módulo y revise las columnas de **Tabla**.
 
+### Cómo navegar los costos plan por plan
+
+1. Abra **Plan por plan**. Ordene por costo o use **Ordenar por fecha (reciente primero)**.
+2. Use **Anterior** y **Siguiente** o elija un plan de la lista.
+3. Toque **Ver el plan en Planes de acción** para abrir su registro.
+
 ## Permisos
 
 - **Ver** da acceso a la consulta. **Descargar** corresponde a exportar los datos.
@@ -148,6 +162,12 @@ Solicite al administrador del proyecto que revise **Ver** en Costos de no calida
 ### ¿Dónde veo el hallazgo que originó un costo?
 
 En Costos de no calidad, ubique el registro en **Tabla** y toque su código, con el aviso **Ver el plan**. En el plan consulte el hallazgo y sus acciones.
+
+### ¿Cómo veo primero los hallazgos más recientes?
+En **Plan por plan**, use **Ordenar por fecha (reciente primero)**.
+
+### ¿Dónde ajusto cómo se ve el gráfico de costos?
+Entre en **Gráficos** y toque **Elementos del gráfico** en el gráfico que va a revisar.
 
 ## Relacionado
 

@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <_SalidaIndice>$(MSBuildProjectDirectory)/obj/$(Configuration)/$(TargetFramework)/asistente-interfaz.json</_SalidaIndice>
+    <_HerramientaIndice>$(MSBuildProjectDirectory)/obj/asistente-generador</_HerramientaIndice>
+  </PropertyGroup>
+  <Target Name="GenerarIndiceAsistente" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true'">
+    <MakeDir ContinueOnError="WarnAndContinue" Directories="$([System.IO.Path]::GetDirectoryName('$(_SalidaIndice)'))" />
+    <Exec Command="dotnet build &quot;$(MSBuildProjectDirectory)/Data/Asistente/Generador/Generador.csproj&quot; --artifacts-path &quot;$(_HerramientaIndice)&quot; -c Release --nologo --verbosity quiet" ContinueOnError="WarnAndContinue" />
+    <Exec Condition="'$(MSBuildLastTaskResult)' == 'true'" Command="dotnet &quot;$(_HerramientaIndice)/bin/Generador/release/Generador.dll&quot; &quot;$(MSBuildProjectDirectory)/Components&quot; &quot;$(_SalidaIndice)&quot;" ContinueOnError="WarnAndContinue" />
+    <ItemGroup Condition="Exists('$(_SalidaIndice)')">
+      <Content Include="$(_SalidaIndice)" Link="asistente-interfaz.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>

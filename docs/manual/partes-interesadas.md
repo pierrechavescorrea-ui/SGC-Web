@@ -7,16 +7,50 @@ palabras: [partes interesadas, stakeholders, necesidades, expectativas, impacto,
 opciones:
   - Inactivas: /partes-interesadas | Ver también las inactivas
   - Partes interesadas: /partes-interesadas
-  - Mapa influencia × impacto: /partes-interesadas
   - Mapa: /partes-interesadas
-  - Matriz: /partes-interesadas?vista=lista
   - Seguimiento: /partes-interesadas?vista=seguimiento
-  - Programación de seguimientos: /partes-interesadas?vista=seguimiento
-  - Resultados de los seguimientos: /partes-interesadas?vista=resultados
-  - Versiones y control de cambios: /partes-interesadas?vista=versiones
   - Ronda de seguimiento: /partes-interesadas | Ronda de seguimiento
   - Hacer seguimiento: /partes-interesadas | Hacer seguimiento
-actualizado: 2026-11-19
+  - Mapa influencia × impacto: /partes-interesadas | Mapa influencia × impacto
+  - Matriz: /partes-interesadas?vista=lista | Matriz
+  - Programación de seguimientos: /partes-interesadas?vista=seguimiento | Programación de seguimientos
+  - Elegir cada cuánto: /partes-interesadas?vista=seguimiento | Elegir cada cuánto
+  - Resultados de los seguimientos: /partes-interesadas?vista=resultados | Resultados de los seguimientos
+  - Versiones y control de cambios: /partes-interesadas?vista=versiones | Versiones y control de cambios
+  - Control de cambios: /partes-interesadas?vista=versiones | Control de cambios
+  - Versión anterior: /partes-interesadas?vista=versiones | Versión anterior
+  - Versión nueva: /partes-interesadas?vista=versiones | Versión nueva
+  - Crear la matriz (borrador): /partes-interesadas | Crear la matriz (borrador)
+  - Editar (crea un borrador): /partes-interesadas | Editar (crea un borrador)
+  - Editar borrador: /partes-interesadas | Editar borrador
+  - Agregar parte interesada: /partes-interesadas | Agregar parte interesada
+  - Exportar: /partes-interesadas | Exportar
+  - Eliminar versión: /partes-interesadas | Eliminar versión
+  - Llevar al borrador la valoración del último seguimiento: /partes-interesadas | Llevar al borrador la valoración del último seguimiento
+  - Aprobar y publicar: /partes-interesadas | Aprobar y publicar
+  - Guardar ronda: /partes-interesadas | Guardar ronda
+  - Guardar en el borrador: /partes-interesadas | Guardar en el borrador
+  - Guardar seguimiento: /partes-interesadas | Guardar seguimiento
+  - Sugerir según IMP × INF: /partes-interesadas | Sugerir según IMP × INF
+  - Nuevo seguimiento: /partes-interesadas | Nuevo seguimiento
+  - Editar parte: /partes-interesadas | Editar parte
+  - Eliminar parte (va a la Papelera): /partes-interesadas | Eliminar parte (va a la Papelera)
+  - Editar seguimiento: /partes-interesadas | Editar seguimiento
+  - Eliminar seguimiento: /partes-interesadas | Eliminar seguimiento
+  - Plan de acción desde este seguimiento: /partes-interesadas | Plan de acción desde este seguimiento
+  - Crear plan de acción para este hallazgo: /partes-interesadas | Crear plan de acción para este hallazgo
+  - Cancelar: /partes-interesadas | Cancelar
+  - Eliminar (va a la Papelera): /partes-interesadas | Eliminar (va a la Papelera)
+  - Guardar: /partes-interesadas | Guardar
+  - Buscar parte...: /partes-interesadas | Buscar parte...
+  - Identificación: /partes-interesadas | Identificación
+  - Valoración: /partes-interesadas | Valoración
+  - Gestión: /partes-interesadas | Gestión
+  - Responsable: /partes-interesadas | Responsable
+  - Cada: /partes-interesadas | Cada
+  - Unidad: /partes-interesadas | Unidad
+  - Primer seguimiento (si aún no hay): /partes-interesadas | Primer seguimiento (si aún no hay)
+actualizado: 2026-11-21
 ---
 
 # Partes interesadas
@@ -65,8 +99,15 @@ No cambia la versión de la matriz. Una parte desactivada queda **Inactiva** y s
 ### Cómo llevar al borrador lo que dijo el último seguimiento
 En el borrador, **Llevar al borrador la valoración del último seguimiento**.
 
+### Cómo aprobar o retirar una versión
+
+1. Abra el selector de versiones y elija el borrador.
+2. Toque **Aprobar y publicar**. Diligencie código del documento, vigencia, fecha de aprobación, motivo y firmas.
+3. Use **Aprobar y publicar** en el formulario. Para comparar, abra **Versiones y control de cambios** y elija **Versión anterior** y **Versión nueva**.
+4. Para retirar la versión, use **Eliminar versión** y revise el aviso antes de confirmar.
+
 ## Permisos
-Ver; Comentar o Crear para seguimientos; Editar para el borrador; **Aprobar** para **Aprobar y publicar**.
+**Ver** permite consultar y **Descargar** exportar. **Colaborar** o **Crear** permiten añadir seguimientos según la operación. **Editar** permite cambiar el borrador o modificar un seguimiento y **Eliminar** corresponde a su baja. **Aprobar** corresponde a publicar. **Consulta** de fábrica ve y descarga.
 
 ## Problemas frecuentes
 - **«No me deja guardar el seguimiento»** → tiene un hallazgo escrito sin plan de acción. Cree el plan o borre el hallazgo.
@@ -102,6 +143,14 @@ Exportar Excel (matriz, seguimientos y control de cambios) o PDF de la vista.
 
 ### ¿Dónde veo cómo ha cambiado la valoración de una parte?
 En el mapa, al elegir la parte se dibuja la trayectoria de sus seguimientos; la vista **Resultados** resume todos.
+
+### ¿Cómo paso al borrador la puntuación que quedó en el seguimiento?
+
+Seleccione la parte en el borrador y use **Llevar al borrador la valoración del último seguimiento**.
+
+### ¿Dónde saco un plan por un hallazgo del seguimiento?
+
+Describa el hallazgo al registrar el seguimiento y agregue el plan. En un seguimiento existente puede usar **Plan de acción desde este seguimiento**.
 
 ## Relacionado
 - [Planes de acción](planes-accion.md) — planes que nacen de los hallazgos de seguimiento.

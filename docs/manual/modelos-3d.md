@@ -2,8 +2,8 @@
 modulo: modelos-3d
 titulo: Modelos 3D
 menu: Operación › Modelos 3D
-rutas: ['/ifc', '/modelos3d/detalle']
-palabras: [IFC, visor, torre, piezas, perfiles, versiones, JSON, Línea 3D]
+rutas: [/ifc, /modelos3d, /modelos3d/detalle]
+palabras: [IFC, visor, torre, piezas, perfiles, versiones, JSON, Línea 3D, BOM, despiece, torre explotada, tornillería, perforaciones, modelo analítico]
 opciones:
   - BP6: /ifc?modelo=torre-bp6.ifc
   - Datos de la torre, validación y supuestos: /ifc?modelo=torre-bp6.ifc | Datos de la torre, validación y supuestos
@@ -15,7 +15,38 @@ opciones:
   - Lista de materiales: /ifc?modelo=torre-bp6.ifc | Lista de materiales
   - Versiones: /ifc?modelo=torre-bp6.ifc | Versiones
   - Nueva versión: /ifc?modelo=torre-bp6.ifc | Nueva versión
-actualizado: 2026-11-19
+  - Modelos 3D: /ifc
+  - Cargar modelo IFC: /ifc | Cargar modelo IFC
+  - Informe de validación: /ifc?modelo=torre-bp6.ifc | Informe de validación
+  - Modelo analítico (JSON): /ifc?modelo=torre-bp6.ifc | Modelo analítico (JSON)
+  - Ver en el visor IFC: /modelos3d?modelo=torre-bp6.json | Ver en el visor IFC
+  - Tipos de torre: /modelos3d | Tipos de torre
+  - Nombres, descripciones y vínculo con la tabla de torres: /modelos3d | Nombres, descripciones y vínculo con la tabla de torres
+  - Información de la torre: /modelos3d | Información de la torre
+  - Alcance y supuestos: /modelos3d | Alcance y supuestos
+  - Mostrar este modelo en Línea 3D: /ifc | Mostrar este modelo en Línea 3D
+  - Ver esta versión: /ifc | Ver esta versión
+  - Eliminar (va a la Papelera): /ifc | Eliminar (va a la Papelera)
+  - Cerrar lista: /ifc | Cerrar lista
+  - Ver en el modelo: /ifc | Ver en el modelo
+  - Adjuntar plano a esta pieza: /ifc | Adjuntar plano a esta pieza
+  - Quitar el plano: /ifc | Quitar el plano
+  - Quitar el perfil asignado: /ifc | Quitar el perfil asignado
+  - Vista isométrica: /modelos3d/detalle | Vista isométrica
+  - Encuadrar todo (F): /modelos3d/detalle | Encuadrar todo (F)
+  - Acercar a la pieza seleccionada: /modelos3d/detalle | Acercar a la pieza seleccionada
+  - 'Mover pieza: arrastrar la pieza seleccionada (M): /modelos3d/detalle | Mover pieza: arrastrar la pieza seleccionada (M)'
+  - Devolver la pieza a su sitio (Mayús = todas): /modelos3d/detalle | Devolver la pieza a su sitio (Mayús = todas)
+  - Aislar la selección (I): /modelos3d/detalle | Aislar la selección (I)
+  - Ocultar la selección (H): /modelos3d/detalle | Ocultar la selección (H)
+  - Mostrar todo (Alt+H): /modelos3d/detalle | Mostrar todo (Alt+H)
+  - Mostrar u ocultar la tornillería (T): /modelos3d/detalle | Mostrar u ocultar la tornillería (T)
+  - Vista explotada: /modelos3d/detalle | Vista explotada
+  - Explotar por: /modelos3d/detalle | Explotar por
+  - Conjuntos: /modelos3d/detalle | Conjuntos
+  - Ficha: /modelos3d/detalle | Ficha
+  - Pantalla completa: /modelos3d/detalle | Pantalla completa
+actualizado: 2026-11-21
 ---
 
 # Modelos 3D
@@ -103,13 +134,34 @@ Con **Automático**, la app busca encabezados como **Tipo de Estructura** y **Ca
 4. Revise el subtítulo **BP6 · torre completa (piloto)**.
 5. Use la flecha de regreso del encabezado para volver a la galería.
 
+### Cómo inspeccionar y mover una pieza en el piloto BP6
+
+1. Abra **Detalle por pieza: torre completa (piloto)**. Toque una pieza para verla en **Ficha**.
+2. Use **Acercar a la pieza seleccionada** o **Aislar la selección (I)**. Puede usar **Conjuntos** para mostrar, ocultar o aislar un conjunto.
+3. Use **Mover pieza: arrastrar la pieza seleccionada (M)** y arrástrela. Use **Devolver la pieza a su sitio (Mayús = todas)** para devolverla.
+4. Ajuste **Vista explotada** y elija **Explotar por** conjunto o pieza. Use **Mostrar u ocultar la tornillería (T)** cuando necesite despejar la vista.
+5. Toque **Mostrar todo (Alt+H)**, **Vista isométrica** o **Encuadrar todo (F)** para recuperar una vista general.
+
+### Cómo asignar un plano o perfil a una pieza en IFC
+
+1. Seleccione la pieza en el visor y abra **Lista de materiales**.
+2. Use **Adjuntar plano a esta pieza** y busque el plano vigente. **Quitar el plano** retira la asignación manual.
+3. Para asignar un perfil, elija la fila de perfil angular correspondiente en la lista y use su acción de asignar a la pieza seleccionada. **Quitar el perfil asignado** retira esa asignación.
+4. Revise la pieza en el visor. Las asignaciones corresponden a la versión del modelo abierta.
+
+### Cómo consultar el modelo analítico
+
+1. En un IFC que muestre **Modelo analítico (JSON)**, toque el enlace.
+2. Revise **Información de la torre**, **Lista de materiales** y **Alcance y supuestos**.
+3. Use **Ver en el visor IFC** para volver a la representación IFC.
+
 ## Permisos
 
 - **Ver** da acceso a la galería y a los visores. **Descargar** corresponde a la descarga del IFC y otros archivos.
 - **Importar**, **Crear**, **Editar** y **Eliminar** corresponden a las operaciones sobre cargas, registros, cambios y Papelera.
 - El rol de fábrica **Consulta** permite ver y descargar.
 
-> Por confirmar: qué acción individual controla la vinculación con Línea 3D y la asignación manual de perfil o plano a una pieza.
+Con los roles de fábrica, **Consulta sin descarga** puede ver. **Colaborador** agrega registros. **Editor** y **Coordinador / aprobador** también modifican, importan y eliminan. El **Administrador del proyecto** tiene todos los permisos del módulo.
 
 ## Problemas frecuentes
 
@@ -147,6 +199,15 @@ Botón **versiones**: puede ver una versión anterior o eliminar la actual (va a
 ### ¿Qué atajos de teclado tiene el visor?
 F (encuadrar), H / Alt+H (ocultar / mostrar), 1 3 7 0 (vistas; Ctrl = la opuesta), M (medir), Esc. El botón de atajos los
 lista todos.
+
+### ¿Cómo separo las piezas de la BP6 para ver los tornillos?
+En **Detalle por pieza**, ajuste **Vista explotada** y **Explotar por** conjunto o pieza. Puede alternar la tornillería con el botón correspondiente o con T.
+
+### ¿Dónde le pongo el plano correcto a una pieza?
+Seleccione la pieza en IFC, abra **Lista de materiales** y toque **Adjuntar plano a esta pieza**.
+
+### ¿Dónde veo el modelo analítico?
+En un IFC que ofrezca **Modelo analítico (JSON)**, toque ese enlace.
 
 ## Relacionado
 

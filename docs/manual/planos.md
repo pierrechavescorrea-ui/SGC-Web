@@ -6,14 +6,44 @@ rutas: [/planos]
 palabras: [planos, listado de planos, plano, hoja, hojas, revisión, rev, vigente, obsoleto, grupo de planos, estructural, civil, eléctrico, cargar PDF, actualizar plano, versión]
 opciones:
   - Planos: /planos
-  - ＋ (Nuevo grupo de planos): /planos | Nuevo grupo de planos
   - Base de datos: /planos | Base de datos
   - Cargas de archivos: /planos | Base de datos
   - Importar listado (Excel): /planos | Importar listado (Excel)
   - Cargar planos (PDF): /planos | Cargar planos (PDF)
   - Actualizar: /planos | Actualizar
   - Ver todos: /planos | Ver todos
-actualizado: 2026-11-19
+  - Nuevo grupo de planos: /planos | Nuevo grupo de planos
+  - Pantalla completa: /planos | Pantalla completa
+  - Salir de pantalla completa: /planos | Salir de pantalla completa
+  - Campos: /planos | Campos
+  - Exportar: /planos | Exportar
+  - Todos: /planos | Todos
+  - Grupo: /planos | Grupo
+  - Nueva categoría: /planos | Nueva categoría
+  - Elegir ícono: /planos | Elegir ícono
+  - Archivos de esta carga: /planos | Archivos de esta carga
+  - Ver solo esta carga: /planos | Ver solo esta carga
+  - Ver solo sus planos: /planos | Ver solo sus planos
+  - Eliminar (va a la Papelera): /planos | Eliminar (va a la Papelera)
+  - Ver plano: /planos | Ver plano
+  - Ver: /planos | Ver
+  - Descargar: /planos | Descargar
+  - Reemplazar: /planos | Reemplazar
+  - Reemplazar archivo: /planos | Reemplazar archivo
+  - Eliminar archivo: /planos | Eliminar archivo
+  - Cancelar: /planos | Cancelar
+  - Editar grupo: /planos | Editar grupo
+  - Eliminar grupo: /planos | Eliminar grupo
+  - Bases de datos Excel del listado: /planos | Bases de datos Excel del listado
+  - Grupo de los planos nuevos: /planos | Grupo de los planos nuevos
+  - Eliminar cargas seleccionadas: /planos | Eliminar cargas seleccionadas
+  - Eliminar cargas de archivos seleccionadas: /planos | Eliminar cargas de archivos seleccionadas
+  - Quitar: /planos | Quitar
+  - Agregar: /planos | Agregar
+  - Guardar: /planos | Guardar
+  - Obsoletos: /planos | Obsoletos
+  - Buscar plano: /planos | Buscar plano...
+actualizado: 2026-11-21
 ---
 
 # Planos
@@ -31,12 +61,12 @@ sus archivos (PDF) **vigentes** y **obsoletos**, incluidas todas sus **hojas**. 
 
 ## Qué hay en la pantalla
 - **Grupos de planos**: pestañas compactas sobre la tabla (por ejemplo estructural, civil, eléctrico), con el número de
-  planos de cada uno. **Todos**, cada grupo y **＋ (Nuevo grupo de planos)**. Se reordenan arrastrándolas.
+  planos de cada uno. **Todos**, cada grupo y **Nuevo grupo de planos**. Se reordenan arrastrándolas.
   Junto al buscador hay botones para editar o eliminar el grupo seleccionado.
 - **Tabla**: código del plano (en azul si tiene archivos), revisión vigente y anterior, y las columnas del proyecto.
   En cada fila, **Actualizar**.
 - **Encabezado**: pantalla completa · **Base de datos** (cargas de listado y de archivos) · Campos ·
-  **Importar listado (Excel)** · **Cargar planos (PDF)** · Exportar · **＋ (Nuevo grupo de planos)**.
+  **Importar listado (Excel)** · **Cargar planos (PDF)** · Exportar · **Nuevo grupo de planos**.
   El ＋ del encabezado crea un **grupo**, no un plano: los planos entran al listado importando el Excel.
 
 ### El menú del código
@@ -46,8 +76,7 @@ revisión más reciente) y **Obsoletos**. Por archivo: **Ver plano**, **Descarga
 ## Cómo hacer…
 
 ### Cómo agregar planos al listado
-Los planos entran al listado con **Importar listado (Excel)** (ver abajo). No hay un formulario para crear un plano suelto.
-> Por confirmar: si se pueden agregar filas a mano en la tabla.
+Use **Importar listado (Excel)** para incorporar los planos. **Nuevo grupo de planos** agrega una categoría al listado.
 
 ### Cómo cargar una revisión nueva de un plano
 1. Toque **Actualizar** en la fila del plano. Se abre la pantalla del plano sola.
@@ -70,15 +99,21 @@ Los planos entran al listado con **Importar listado (Excel)** (ver abajo). No ha
 Toque el código y luego **Ver todos**. La sección **Vigente** muestra las hojas de la revisión más reciente.
 
 ### Cómo crear o cambiar un grupo
-- Nuevo: **＋ (Nuevo grupo de planos)**, nombre y, si quiere, **Elegir ícono**.
+- Nuevo: **Nuevo grupo de planos**, nombre y, si quiere, **Elegir ícono**.
 - Editar o eliminar: seleccione la pestaña del grupo y use los botones junto al buscador. Eliminar envía a la Papelera.
 
 ### Cómo vincular un plano a una torre
 Se hace desde la torre, no desde aquí: ver [Trazado › Cómo vincular planos](trazado.md#cómo-vincular-planos-a-una-torre-o-elemento).
 
+### Cómo consultar o retirar un archivo de una carga
+
+1. Abra **Base de datos** y localice **Cargas de archivos**.
+2. Use **Archivos de esta carga** para revisar los adjuntos o **Ver solo sus planos** para filtrar el listado.
+3. Marque la carga. Use **Eliminar cargas de archivos seleccionadas** y revise el alcance. Confirme con **Eliminar (va a la Papelera)**.
+
 ## Permisos
 Ver (consultar), Descargar (abrir y bajar archivos, exportar), Crear y Editar (grupos, revisiones y archivos),
-Importar (Excel y carga masiva de PDF), Eliminar (a la Papelera) y ConfigurarCampos (columnas).
+Importar (Excel y carga masiva de PDF), Eliminar (a la Papelera) y Configurar campos (columnas). **Consulta** de fábrica ve y descarga.
 
 ## Problemas frecuentes
 - **«El Excel o PDF exportado solo trae algunos planos»** → se exporta el **grupo seleccionado**. Elija **Todos** antes de exportar.
@@ -114,6 +149,14 @@ Quedan como obsoletas en Ver todos; el listado muestra solo los vigentes de la r
 
 ### ¿Cómo elimino una carga equivocada?
 En el panel de cargas (botón de cargas), elimine la carga: sus filas o archivos van a la Papelera con la misma marca.
+
+### ¿Puedo descargar solo los planos de una categoría?
+
+Seleccione la categoría o el grupo antes de abrir **Exportar**. El grupo **Todos** vuelve al conjunto de planos.
+
+### ¿Dónde cambio el PDF de una revisión sin crear otra?
+
+En **Actualizar**, use **Reemplazar archivo** en la revisión correspondiente.
 
 ## Relacionado
 - [Documentos](documentos.md) — misma forma de trabajo.

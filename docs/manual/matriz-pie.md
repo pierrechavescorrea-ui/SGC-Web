@@ -3,7 +3,7 @@ modulo: matriz-pie
 titulo: Matriz PIE
 menu: Operación › Matriz PIE
 rutas: ['/matriz-pie']
-palabras: [plan de inspección, cumplimiento, actividades, parámetros, torre, estado, evidencia]
+palabras: [plan de inspección, cumplimiento, actividades, parámetros, torre, estado, evidencia, plan de inspección y ensayo, avance de calidad, liberación, soporte, semáforo]
 opciones:
   - Matriz PIE: /matriz-pie
   - Torre por torre: /matriz-pie?vista=torre
@@ -13,7 +13,22 @@ opciones:
   - Elegir actividades y parámetros: /matriz-pie | Elegir actividades y parámetros
   - Mostrar solo torres con estos estados: /matriz-pie | Mostrar solo torres con estos estados
   - Quitar todos los filtros: /matriz-pie | Quitar todos los filtros
-actualizado: 2026-11-19
+  - Mapa de calor (torres × actividades): /matriz-pie?vista=mapa | Mapa de calor (torres × actividades)
+  - Estados y pesos (%): /matriz-pie | !Estados y pesos (%)
+  - Exportar: /matriz-pie?vista=matriz | !Exportar
+  - Editar: /matriz-pie?vista=matriz | Editar
+  - Salir de edición: /matriz-pie?vista=matriz | Salir de edición
+  - Guardar cambios: /matriz-pie?vista=matriz | Guardar cambios
+  - Agregar estado: /matriz-pie | Agregar estado
+  - Eliminar estado: /matriz-pie | Eliminar estado
+  - Buscar torre: /matriz-pie | Buscar torre...
+  - Quitar selección: /matriz-pie | Quitar selección
+  - Quitar adjunto: /matriz-pie?vista=matriz | Quitar adjunto
+  - Cerrar sin guardar: /matriz-pie?vista=matriz | Cerrar sin guardar
+  - Anterior: /matriz-pie?vista=torre | Anterior
+  - Siguiente: /matriz-pie?vista=torre | Siguiente
+  - Abrir la hoja de vida en Trazado: /matriz-pie?vista=torre | Abrir la hoja de vida en Trazado
+actualizado: 2026-11-21
 ---
 
 # Matriz PIE
@@ -91,13 +106,19 @@ Abra una torre desde el mapa de calor. En el detalle, el vínculo **Hoja de vida
 4. Para crear uno, toque el botón de más (Agregar estado).
 5. Diligencie las columnas del nuevo estado y revise los cambios en la matriz.
 
+### Cómo volver al listado sin aplicar cambios
+
+1. Cuando edite la matriz, toque **Salir de edición**.
+2. Si hay cambios pendientes, toque **Seguir editando** para volver o **Descartar** para salir.
+3. Si quiere conservarlos, toque **Guardar cambios** en el encabezado.
+
 ## Permisos
 
 - **Ver** permite consultar mapa, torre, matriz y gráficos.
 - **Editar** corresponde a la modificación de registros. **Descargar** corresponde a descargas y exportaciones.
 - El rol de fábrica **Consulta** permite ver y descargar.
 
-> Por confirmar: qué acción individual controla la configuración de estados y pesos y la carga de documentación con un rol personalizado.
+En el rol de fábrica, **Colaborador** puede consultar, descargar y agregar registros o evidencias. **Editor** añade edición y eliminación. Modificar un estado existente requiere permiso de edición, aprobación o administración del módulo en la validación de escritura. Quitar documentos puede requerir **Eliminar**, según la operación.
 
 ## Problemas frecuentes
 
@@ -135,6 +156,15 @@ Con **Exportar** del encabezado; en la vista Mapa exporta el mapa de calor.
 
 ### ¿Cómo voy de la Matriz PIE a la hoja de vida o al avance de obra de la misma torre?
 En la vista Torre use los saltos de torre del encabezado: Hoja de vida y Avance de obra abren esa misma torre.
+
+### ¿Dónde miro el mapa de calor del PIE?
+Abra **Mapa de calor (torres × actividades)**. Use los filtros de torres, actividades o estados para acotar la consulta.
+
+### ¿Cómo vuelvo a ver todas las torres y actividades?
+Toque **Quitar todos los filtros**. Dentro de un filtro puede usar **Quitar selección** para limpiar solo ese selector.
+
+### ¿Dónde se cambian los pesos de los estados?
+Abra **Estados y pesos (%)**. Ahí puede revisar pesos y colores, o usar **Agregar estado**.
 
 ## Relacionado
 

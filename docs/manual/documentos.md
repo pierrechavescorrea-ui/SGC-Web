@@ -7,7 +7,6 @@ palabras: [listado maestro, documentos, procedimiento, formato, instructivo, PR,
 opciones:
   - control de cambios: /documentos | Actualizar
   - Documentos: /documentos
-  - ＋: /documentos | Nueva categoría
   - Quitar filtros: /documentos | Quitar filtros
   - Campos: /documentos | Campos
   - Actualizar: /documentos | Actualizar
@@ -17,7 +16,6 @@ opciones:
   - Cargar documentos (PDF, Word, Excel): /documentos | Cargar documentos (PDF, Word, Excel)
   - Eliminar documento seleccionado: /documentos | Eliminar documento seleccionado
   - Nuevo documento: /documentos | Nuevo documento
-  - ＋ (Nuevo documento): /documentos | Nuevo documento
   - Ver todos: /documentos | Ver todos
   - Agregar revisión: /documentos | Agregar revisión
   - Editar: /documentos | Editar
@@ -27,7 +25,36 @@ opciones:
   - Ver solo sus documentos: /documentos | Ver solo sus documentos
   - Eliminar cargas y sus documentos (van a la Papelera): /documentos | Eliminar cargas y sus documentos (van a la Papelera)
   - Eliminar cargas y sus archivos (van a la Papelera): /documentos | Eliminar cargas y sus archivos (van a la Papelera)
-actualizado: 2026-11-19
+  - Nueva categoría: /documentos | Nueva categoría
+  - Pantalla completa: /documentos | Pantalla completa
+  - Salir de pantalla completa: /documentos | Salir de pantalla completa
+  - Base de datos: /documentos | Base de datos
+  - Exportar: /documentos | Exportar
+  - Descartar cambios y salir de edición: /documentos | Descartar cambios y salir de edición
+  - Todas: /documentos | Todas
+  - Hoja: /documentos | Hoja
+  - Incluir columna: /documentos | Incluir columna
+  - Tipo documental de las filas de esta carga (si el Excel no trae la columna): /documentos | Tipo documental de las filas de esta carga (si el Excel no trae la columna)
+  - ¿Qué estás cargando?: /documentos | ¿Qué estás cargando?
+  - Fecha de las versiones: /documentos | Fecha de las versiones
+  - Archivos de esta carga: /documentos | Archivos de esta carga
+  - Ver: /documentos | Ver
+  - Descargar: /documentos | Descargar
+  - Reemplazar: /documentos | Reemplazar
+  - Reemplazar archivo: /documentos | Reemplazar archivo
+  - Eliminar archivo: /documentos | Eliminar archivo
+  - Deshacer: /documentos | Deshacer
+  - Eliminar (va a la Papelera): /documentos | Eliminar (va a la Papelera)
+  - Cancelar: /documentos | Cancelar
+  - Guardar: /documentos | Guardar
+  - Quitar revisión (sus archivos van a la Papelera): /documentos | Quitar revisión (sus archivos van a la Papelera)
+  - Quitar selección: /documentos | Quitar selección
+  - Quitar: /documentos | Quitar
+  - Buscar documento: /documentos | Buscar documento...
+  - Tipo documental: /documentos | Tipo documental
+  - Estado: /documentos | Estado
+  - Datos del documento: /documentos | Datos del documento
+actualizado: 2026-11-21
 ---
 
 # Documentos
@@ -69,7 +96,7 @@ Desde cada archivo: **Ver**, **Descargar**, **Reemplazar archivo** o **Eliminar 
 
 ### Cómo agregar un documento nuevo
 1. Elija la pestaña de categoría donde debe quedar (o **Todos**).
-2. Toque **＋ (Nuevo documento)**.
+2. Toque **Nuevo documento**.
 3. Escriba el **Código**, el nombre y los demás datos; elija **Tipo documental** y **Estado**.
 4. Cargue el archivo vigente y, si existe, el editable.
 5. Toque **Guardar**.
@@ -120,7 +147,7 @@ Desde cada archivo: **Ver**, **Descargar**, **Reemplazar archivo** o **Eliminar 
 - **Ver**: consultar el listado. **Descargar**: abrir y bajar archivos y exportar.
 - **Crear**: documentos nuevos y archivos. **Editar**: modificar datos y agregar revisiones.
 - **Importar**: Excel del listado y cargas masivas de archivos. **Eliminar**: enviar a la Papelera.
-- **ConfigurarCampos**: agregar o cambiar columnas (**Campos**).
+- **Configurar campos** permite cambiar columnas, fórmulas y formatos. **Consulta** de fábrica ve y descarga.
 
 ## Problemas frecuentes
 - **«El código no está en azul»** → el documento no tiene archivos cargados. Use **Actualizar** › **Agregar revisión**
@@ -170,6 +197,10 @@ En Documentos, abra **Cargas de archivos adjuntos**, use **Ver solo sus document
 ### ¿Por qué no veo el botón para cargar documentos en lote?
 
 Para usar **Cargar documentos (PDF, Word, Excel)**, revise el permiso **Importar** de Documentos con el administrador del proyecto.
+
+### ¿Cómo agrego una revisión al documento que ya existe?
+
+Localice el código, toque **Actualizar**, use **Agregar revisión** y diligencie sus datos y archivos. Termine con **Guardar**.
 
 ## Relacionado
 - [Planos](planos.md) — funciona igual, para planos.

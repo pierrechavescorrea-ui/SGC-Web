@@ -53,6 +53,7 @@ builder.Services.AddSingleton<SigWeb.Data.Formularios.ServicioFormularios>();
 builder.Services.AddScoped<SigWeb.Data.Formularios.ValoresFormulario>();
 builder.Services.AddSingleton<SigWeb.Data.Seguridad.LogoApp>();   // logo único de la app (lo elige el administrador; base Empresa)
 builder.Services.AddSingleton<SigWeb.Data.Asistente.ManualAyuda>();   // asistente de ayuda interno: índice del manual (docs/manual)
+builder.Services.AddHostedService<SigWeb.Data.Asistente.PrepararIndice>();
 builder.Services.AddScoped<SigWeb.Data.Asistente.AsistenteAyuda>();  // conversación del asistente (una por pestaña)
 builder.Services.AddScoped<SigWeb.Data.Navegacion.MenuIcono>();   // menú del ícono del encabezado (vistas / proyectos)
 // Plantillas de proyecto (Configuración › Catálogos): un IPlantillaModulo por módulo; ServicioPlantillas orquesta.

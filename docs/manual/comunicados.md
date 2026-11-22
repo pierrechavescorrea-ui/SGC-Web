@@ -14,9 +14,7 @@ opciones:
   - Responsable de RTA (área): /comunicados | Responsable de RTA (área)
   - Pendiente: /comunicados?estado=Pendiente | Estado
   - Vencida: /comunicados?plazo=Vencida | Plazo
-  - Plantillas: /comunicados | Consecutivos
   - Comunicados: /comunicados
-  - Consecutivos: /comunicados | Consecutivos
   - Mostrar filtros e indicadores: /comunicados | !Mostrar filtros e indicadores
   - Quitar filtros: /comunicados | Quitar filtros
   - Importar listado (Excel): /comunicados | Importar listado (Excel)
@@ -27,7 +25,54 @@ opciones:
   - Confirmar envío: /comunicados | Confirmar envío
   - Eliminar comunicado seleccionado: /comunicados | Eliminar comunicado seleccionado
   - Eliminar (va a la Papelera): /comunicados | Eliminar (va a la Papelera)
-actualizado: 2026-11-19
+  - Consecutivos: /comunicados | !Consecutivos
+  - Plantillas: /comunicados | Plantillas
+  - Actualizar consecutivos: /comunicados | Actualizar
+  - Cerrar consecutivos: /comunicados | Cerrar consecutivos
+  - Copiar consecutivo: /comunicados | Copiar consecutivo
+  - Buscar comunicado: /comunicados | Buscar comunicado
+  - Elegir comunicado: /comunicados | Elegir comunicado
+  - Nueva plantilla: /comunicados | Nueva plantilla
+  - Editar plantilla: /comunicados | Editar plantilla
+  - Cerrar plantillas: /comunicados | Cerrar plantillas
+  - Buscar reservas: /comunicados | Buscar reservas
+  - Anular: /comunicados | Anular
+  - Ver en el listado: /comunicados | Ver en el listado
+  - Ver en el listado de Comunicados: /comunicados | Ver en el listado de Comunicados
+  - Ajustes (plazo y responsables): /comunicados | Ajustes (plazo y responsables)
+  - Respuestas sugeridas: /comunicados | Respuestas sugeridas
+  - Aceptar: queda como su respuesta: /comunicados | Aceptar: queda como su respuesta
+  - Descartar esta sugerencia: /comunicados | Descartar esta sugerencia
+  - Solo con respuesta sugerida: /comunicados | Solo con respuesta sugerida
+  - Solo consecutivos repetidos: /comunicados | Solo consecutivos repetidos
+  - Gráficos: /comunicados | Gráficos
+  - Volver a la tabla: /comunicados | Volver a la tabla
+  - Pantalla completa: /comunicados | Pantalla completa
+  - Salir de pantalla completa: /comunicados | Salir de pantalla completa
+  - Ocultar filtros e indicadores: /comunicados | Ocultar filtros e indicadores
+  - Base de datos: /comunicados | Base de datos
+  - Campos: /comunicados | Campos
+  - Exportar: /comunicados | Exportar
+  - Editar: /comunicados | Editar
+  - Nuevo comunicado: /comunicados | Nuevo comunicado
+  - Descartar cambios y salir de edición: /comunicados | Descartar cambios y salir de edición
+  - Guardar: /comunicados | Guardar
+  - Cancelar: /comunicados | Cancelar
+  - Abrir: /comunicados | Abrir
+  - Descargar: /comunicados | Descargar
+  - Elegir el archivo nuevo: /comunicados | Elegir el archivo nuevo
+  - Guardar enlace: /comunicados | Guardar enlace
+  - Buscar comunicado en el listado: /comunicados | Buscar consecutivo, descripción…
+  - Desde: /comunicados | Desde
+  - Hasta: /comunicados | Hasta
+  - Identificación: /comunicados | Identificación
+  - Contenido: /comunicados | Contenido
+  - Respuesta: /comunicados | Respuesta
+  - Campos adicionales: /comunicados | Campos adicionales
+  - Mostrar 500 filas más: /comunicados | Mostrar 500 filas más
+  - Mostrar todas las filas: /comunicados | Mostrar todas las filas
+  - Quitar: /comunicados | Quitar
+actualizado: 2026-11-21
 ---
 
 # Comunicados
@@ -143,7 +188,7 @@ La importación identifica coincidencias por consecutivo normalizado y fecha. Re
 - **Importar** corresponde a la carga de listados. **ConfigurarCampos** corresponde a la configuración de campos.
 - El rol de fábrica **Consulta** permite ver y descargar. Los permisos efectivos dependen de la configuración del proyecto.
 
-> Por confirmar: qué permiso específico controla las plantillas, la confirmación o anulación de reservas y la revisión de respuestas sugeridas con un rol personalizado.
+Las plantillas, reservas y respuestas sugeridas guardan cambios en Comunicados. Para crear y actualizar estas filas, use un rol con las acciones de escritura correspondientes. **Consulta** de fábrica puede consultar y descargar.
 
 ## Problemas frecuentes
 
@@ -190,6 +235,10 @@ En Comunicados, seleccione la fila y toque **Eliminar comunicado seleccionado**.
 ### ¿Por qué no veo el botón para importar correspondencia?
 
 Si no aparece **Importar listado (Excel)** en Comunicados, revise el permiso **Importar** con el administrador del proyecto.
+
+### ¿Qué hago si ya no voy a usar un consecutivo reservado?
+
+Abra **Consecutivos**, localice la reserva y toque **Anular**. Diligencie el motivo y guarde.
 
 ## Relacionado
 

@@ -10,16 +10,34 @@ opciones:
   - Nuevo equipo: /equipos | Nuevo equipo
   - Base de datos: /equipos | Base de datos
   - Vista de hoja de cálculo: /equipos | Vista de hoja de cálculo
-  - Actualizar calibración y certificado: /equipos | Actualizar calibración y certificado
-  - Registrar mantenimiento: /equipos | Registrar mantenimiento
-  - Agregar fotos: /equipos | Agregar fotos
-  - Cargar anexos de la ficha técnica: /equipos | Cargar anexos de la ficha técnica
   - Importar listado (Excel): /equipos | Importar listado (Excel)
   - Ver solo esta carga: /equipos | Ver solo esta carga
   - Eliminar (va a la Papelera): /equipos | Eliminar (va a la Papelera)
   - Pantalla completa: /equipos | !Pantalla completa
   - Quitar: /equipos | Quitar
-actualizado: 2026-11-19
+  - Actualizar calibración y certificado: /equipos | Actualizar calibración y certificado
+  - Registrar mantenimiento: /equipos | Registrar mantenimiento
+  - Actualizar calibración: /equipos | Actualizar calibración
+  - Agregar fotos: /equipos | Agregar fotos
+  - Cargar anexos de la ficha técnica: /equipos | Cargar anexos de la ficha técnica
+  - Quitar foto: /equipos | Quitar foto
+  - Reemplazar foto: /equipos | Reemplazar foto
+  - Quitar (va a la Papelera): /equipos | Quitar (va a la Papelera)
+  - Confirmar eliminar: /equipos | Confirmar eliminar
+  - Avisar por correo: /equipos | Avisar por correo
+  - Campos: /equipos | Campos
+  - Exportar: /equipos | Exportar
+  - Campos de la matriz importada (tipo de dato y edición en la vista de hoja de cálculo): /equipos | Campos de la matriz importada (tipo de dato y edición en la vista de hoja de cálculo)
+  - Salir de pantalla completa: /equipos | Salir de pantalla completa
+  - Editar: /equipos | Editar
+  - Eliminar: /equipos | Eliminar
+  - Guardar: /equipos | Guardar
+  - Cancelar: /equipos | Cancelar
+  - Todas: /equipos | Todas
+  - Buscar equipo: /equipos | Buscar equipo, marca, serie...
+  - Periodicidad (meses): /equipos | Periodicidad (meses)
+  - Certificado vigente: /equipos | Certificado vigente
+actualizado: 2026-11-21
 ---
 
 # Equipos
@@ -123,6 +141,13 @@ Una carga puede incluir equipos y calibraciones. En el historial de cargas, **Eq
 4. Revise la etiqueta que aparece con el nombre del archivo.
 5. Para volver al listado general, toque el botón de equis (Quitar) en esa etiqueta.
 
+### Cómo registrar y consultar intervenciones de un equipo
+
+1. En el listado, seleccione el equipo y use **Abrir hoja de vida**.
+2. Toque **Registrar mantenimiento** o **Actualizar calibración**. Diligencie la intervención y su soporte según el tipo.
+3. Use **Editar** o **Eliminar** en la intervención. Para avisar a otra persona del proyecto, use **Avisar por correo** desde el encabezado.
+4. Para actualizar evidencia del equipo, use **Agregar fotos**, **Reemplazar foto** o **Cargar anexos de la ficha técnica**.
+
 ## Permisos
 
 - **Ver** permite consultar el listado y la hoja de vida.
@@ -131,7 +156,7 @@ Una carga puede incluir equipos y calibraciones. En el historial de cargas, **Eq
 - **Importar** corresponde a la carga del listado. **ConfigurarCampos** corresponde a la configuración de los campos de la matriz.
 - Con el rol de fábrica **Consulta**, usted puede ver y descargar. Los permisos efectivos dependen de la configuración del proyecto.
 
-> Por confirmar: qué permiso específico controla cada operación de fotos, anexos e intervenciones cuando el proyecto asigna permisos individuales.
+Registrar una intervención o agregar un anexo crea un registro. Cambiar fotos, ficha o calibración puede modificar el equipo o sus adjuntos. Para retirar un adjunto que va a la Papelera, necesita **Eliminar**.
 
 ## Problemas frecuentes
 
@@ -177,6 +202,10 @@ El control **Pantalla completa** se deshabilita en **Vista de hoja de cálculo**
 ### ¿Por qué no veo el botón para cargar el Excel de equipos?
 
 Para usar **Importar listado (Excel)**, pida que revisen el permiso **Importar** en Equipos para su proyecto.
+
+### ¿Dónde registro que le hice mantenimiento al equipo?
+
+Entre a **Abrir hoja de vida** desde el equipo y toque **Registrar mantenimiento**.
 
 ## Relacionado
 

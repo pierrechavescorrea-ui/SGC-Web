@@ -3,7 +3,7 @@ modulo: indicadores
 titulo: Indicadores
 menu: Evaluación y mejora › Indicadores
 rutas: ['/indicadores']
-palabras: [medición, meta, fórmula, tablero, matriz, tendencia, congelar, subir, cargar, pdf, foto, adjunto, candado, desbloquear, cerrar mes, borrar, papelera, no aparece]
+palabras: [medición, meta, fórmula, tablero, matriz, tendencia, congelar, subir, cargar, pdf, foto, adjunto, candado, desbloquear, cerrar mes, borrar, papelera, no aparece, KPI, periodo, seguimiento mensual, indicador automático]
 opciones:
   - Año: /indicadores?vista=matriz | Año
   - Fuente: /indicadores?vista=matriz | Fuente
@@ -18,7 +18,19 @@ opciones:
   - Congelar un periodo (todos los indicadores): /indicadores | !Congelar un periodo (todos los indicadores)
   - Eliminar indicador seleccionado: /indicadores | Eliminar indicador seleccionado
   - Eliminar (va a la Papelera): /indicadores | Eliminar (va a la Papelera)
-actualizado: 2026-11-19
+  - Pantalla completa: /indicadores | Pantalla completa
+  - Salir de pantalla completa: /indicadores | Salir de pantalla completa
+  - Indicador por indicador: /indicadores?vista=indicador | Indicador por indicador
+  - Gráficos: /indicadores?vista=graficos | Gráficos
+  - Ocultar columnas de descripción: /indicadores?vista=matriz | Ocultar columnas de descripción
+  - Avisar por correo: /indicadores | Avisar por correo
+  - Editar indicador seleccionado: /indicadores | Editar indicador seleccionado
+  - Nuevo indicador: /indicadores | Nuevo indicador
+  - Buscar indicador: /indicadores | Buscar indicador…
+  - Elementos del gráfico: /indicadores?vista=graficos | Elementos del gráfico
+  - Anterior: /indicadores?vista=indicador | Anterior
+  - Siguiente: /indicadores?vista=indicador | Siguiente
+actualizado: 2026-11-21
 ---
 
 # Indicadores
@@ -117,6 +129,12 @@ Un valor calculado en vivo puede cambiar con los datos de origen. Al congelarlo,
 4. Revise la lista de mediciones que se van a congelar.
 5. Toque el botón de candado (Congelar (N)). El aviso muestra la cantidad de mediciones.
 
+### Cómo abrir un gráfico de indicadores
+
+1. Elija **Año** y **Fuente**.
+2. Toque **Gráficos** y seleccione la gráfica que quiere revisar.
+3. Abra **Elementos del gráfico** para ajustar lo que se muestra.
+
 ## Permisos
 
 - **Ver** permite consultar las vistas y el detalle de cada indicador.
@@ -124,7 +142,7 @@ Un valor calculado en vivo puede cambiar con los datos de origen. Al congelarlo,
 - **Descargar** corresponde a la descarga de soportes. **EditarVistas** corresponde al diseño de vistas configurables.
 - El rol de fábrica **Consulta** permite ver y descargar. Los permisos efectivos dependen de la configuración del proyecto.
 
-> Por confirmar: qué acción específica controla congelar, descongelar y cargar soportes con un rol personalizado.
+**Colaborador** incluye el alta de registros y evidencias. **Editor** añade edición y eliminación. Al congelar o descongelar una medición existente se requiere permiso de escritura para modificarla. Retirar un soporte a la Papelera requiere **Eliminar** o **Administrar**.
 
 ## Problemas frecuentes
 
@@ -170,6 +188,12 @@ En Indicadores, revise **Fuente** en la ficha. Los indicadores de cobertura, opo
 ### ¿Cómo borro un indicador que creé por error?
 
 En Indicadores, seleccione la ficha y toque **Eliminar indicador seleccionado**. Revise el impacto y confirme con **Eliminar (va a la Papelera)**. La operación requiere **Eliminar**.
+
+### ¿Cómo paso al otro indicador sin volver al tablero?
+En **Indicador por indicador**, use **Anterior** o **Siguiente**.
+
+### ¿Cómo aviso a alguien del proyecto de un indicador?
+Seleccione el indicador y toque **Avisar por correo**. Revise el asunto, escriba el mensaje y elija destinatarios con acceso al módulo.
 
 ## Relacionado
 
