@@ -22,6 +22,10 @@ const ALTURAS = z => `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${
 const Z_ALTURAS = 14;     // nivel máximo de las alturas; más cerca se interpola dentro de la baldosa de ese nivel
 
 // ---------- Carga de Cesium (vendorizado en lib/cesium, global window.Cesium) ----------
+// CSP de la app (script-src 'self', sin 'unsafe-eval' ni blob:): lib/cesium/Cesium.js va parcheado (el Knockout embebido
+// usaba (0,eval)("this") y protobuf eval("require"); ahora globalThis y null; repetir al actualizar Cesium). Además se
+// borra CESIUM_WORKERS para que Cesium cree sus workers desde lib/cesium/Workers/*.js (módulos same-origin) y no
+// desde un blob: con importScripts, que la CSP bloquea (sin workers no hay terreno ni geometrías).
 let cargaCesium = null;
 function cesium() {
     if (window.Cesium) return Promise.resolve(window.Cesium);
@@ -30,7 +34,14 @@ function cesium() {
         window.CESIUM_BASE_URL = base;
         const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = base + 'Widgets/widgets.css'; document.head.appendChild(l);
         const s = document.createElement('script'); s.src = base + 'Cesium.js';
-        s.onload = () => res(window.Cesium); s.onerror = () => { cargaCesium = null; rej(new Error('No se pudo cargar Cesium')); };
+        const falla = m => { cargaCesium = null; s.remove(); rej(new Error(m)); };
+        s.onload = () => {
+            // onload llega aunque el script falle al evaluarse (p. ej. bloqueado por la CSP): window.Cesium queda vacío.
+            if (!window.Cesium?.Viewer) return falla('Cesium se descargó pero no se pudo ejecutar (¿política de seguridad de contenido?). Revise la consola.');
+            try { delete globalThis.CESIUM_WORKERS; } catch { globalThis.CESIUM_WORKERS = undefined; }
+            res(window.Cesium);
+        };
+        s.onerror = () => falla('No se pudo cargar Cesium');
         document.head.appendChild(s);
     });
 }
