@@ -118,7 +118,8 @@ function glb(geo) {
     dv.setUint32(12, jl, true); dv.setUint32(16, 0x4E4F534A, true); u8.set(js, 20);
     let o = 20 + jl; dv.setUint32(o, total, true); dv.setUint32(o + 4, 0x004E4942, true); o += 8;
     u8.set(new Uint8Array(pos.buffer), o); u8.set(new Uint8Array(nor.buffer), o + bl[0]); u8.set(new Uint8Array(idx.buffer), o + bl[0] + bl[1]);
-    return URL.createObjectURL(new Blob([out], { type: 'model/gltf-binary' }));
+    // Bytes del GLB, no una URL blob: Cesium pide las URL con fetch y la CSP (connect-src sin blob:) lo bloquea.
+    return u8;
 }
 
 const css = c => (c instanceof THREE.Color ? '#' + c.getHexString() : c);
@@ -136,7 +137,7 @@ class TendidoCesium {
         this.cuadros = {}; this.sel = null; this.tiros = []; this.torres = [];
         this.aspecto = 'satelite'; this.giro = false;
         this.obra = {}; this.simulado = false; this.escalaUsr = null; this.color = { modo: 'avance', hex: '#c7ccd2' }; this.ocultas = new Set();
-        this.selTorre = -1; this.urls = new Map(); this.modelos = []; this._pedido = 0;
+        this.selTorre = -1; this.urls = new Map(); this.modelos = []; this._pedido = 0; this._glb = 0;
     }
 
     async iniciar() {
@@ -300,7 +301,8 @@ class TendidoCesium {
                 for (const x of g.orden.lista) { if (acc + x.w > lim) break; acc += x.w; sel.push(x.m); }
                 geo = sel.length ? (g.usaReal ? geometriaL({ ...g.real.data, miembros: sel }) : geometria(sel)) : null;
             }
-            this.urls.set(k, geo ? glb(geo) : null);
+            // basePath propio por modelo: Cesium arma la clave de su caché con él (con '' todos compartirían geometría).
+            this.urls.set(k, geo ? { gltf: glb(geo), basePath: `${location.origin}/glb-tendido/${++this._glb}/` } : null);
             geo?.dispose();
         }
         return this.urls.get(k);
@@ -319,10 +321,10 @@ class TendidoCesium {
                 t.url = url;
                 if (url) {
                     const pedido = t._p = (t._p || 0) + 1;
-                    C.Model.fromGltfAsync({ url, modelMatrix: t.M, upAxis: C.Axis.Z, forwardAxis: C.Axis.X, id: { torre: i },
+                    C.Model.fromGltfAsync({ gltf: url.gltf, basePath: url.basePath, modelMatrix: t.M, upAxis: C.Axis.Z, forwardAxis: C.Axis.X, id: { torre: i },
                         shadows: C.ShadowMode.ENABLED, colorBlendMode: C.ColorBlendMode.MIX, colorBlendAmount: .6, backFaceCulling: false })
                         .then(m => { if (pedido !== t._p || !this.viewer) { m.destroy(); return; } t.mod = this.scene.primitives.add(m); this.pintarTorre(t, i); })
-                        .catch(() => { });
+                        .catch(e => console.warn('Tendido: no se pudo crear el modelo de la torre', t.nombre ?? t.id, e));
                 }
             }
             if (t.mod) { t.mod.modelMatrix = t.M; this.pintarTorre(t, i); }
@@ -560,7 +562,6 @@ class TendidoCesium {
         try { this.clic?.destroy(); } catch { }
         try { this.viewer?.destroy(); } catch { }
         this.viewer = null; this.torres = [];
-        for (const u of this.urls.values()) if (u) URL.revokeObjectURL(u);
         this.urls.clear();
     }
 }
