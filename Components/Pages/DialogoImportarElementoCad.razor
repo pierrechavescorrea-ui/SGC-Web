@@ -223,7 +223,7 @@
                 archivoOriginalNombre = nombre;
 
                 memoria.Position = 0;
-                CadDocument doc = extension == ".dwg" ? DwgReader.Read(memoria) : DxfReader.Read(memoria);
+                CadDocument doc = SigWeb.Data.Seguridad.TrabajoPesado.Ejecutar(() => extension == ".dwg" ? DwgReader.Read(memoria) : DxfReader.Read(memoria));
                 resultado = Analizar(doc);
 
                 if (extension == ".dwg")

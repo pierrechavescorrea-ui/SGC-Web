@@ -72,8 +72,8 @@ public static class LibroExcel
             throw new FormatoArchivoException("No se pudo abrir el libro: el paquete .xlsx está dañado. Ábralo en Excel y guárdelo de nuevo como .xlsx.");
         }
         Exception primero;
-        try { return new XLWorkbook(new MemoryStream(bytes)); }
-        catch (Exception ex) when (ex is not FormatoArchivoException) { primero = ex; }
+        try { return SigWeb.Data.Seguridad.TrabajoPesado.Ejecutar(() => new XLWorkbook(new MemoryStream(bytes))); }
+        catch (Exception ex) when (ex is not FormatoArchivoException and not SigWeb.Data.Seguridad.TrabajoPesado.OcupadoException) { primero = ex; }
 
         // 1) Imágenes/dibujos con identificador repetido ("The picture ID '0' already exists"): Excel lo tolera, ClosedXML no.
         //    Se renumeran los id de los dibujos y se conservan las imágenes. 2) Si aún falla, se quitan los dibujos de la copia

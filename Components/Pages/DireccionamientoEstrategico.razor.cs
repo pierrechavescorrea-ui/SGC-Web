@@ -24,6 +24,7 @@ public partial class DireccionamientoEstrategico
     private AppDbContext Db => _db ??= Compartida.ParaModulo("direccionamiento") ?? DbPropio;
     private bool EsCompartido => !ReferenceEquals(Db, DbPropio);
     [Inject] private IWebHostEnvironment Env { get; set; } = default!;
+    [Inject] private SigWeb.Data.Seguridad.IndiceArchivosProyecto IndiceArchivos { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private AnalizadorImpacto Impacto { get; set; } = default!;
@@ -152,6 +153,7 @@ public partial class DireccionamientoEstrategico
             var unido = PdfDireccionamiento.Unir(pdfs);
             var nombre = $"compilado-{Guid.NewGuid():N}.pdf";
             await File.WriteAllBytesAsync(Path.Combine(CarpetaTemporal(), nombre), unido);
+            IndiceArchivos.PermitirTemporal($"/uploads/{CarpetaTmp}/{nombre}");
             await JS.InvokeVoidAsync("sigDescargarUrl", $"/uploads/{CarpetaTmp}/{nombre}");
         }
         catch (Exception ex) { mensaje = "No se pudo unir los documentos: " + ex.Message; error = true; }
@@ -224,6 +226,7 @@ public partial class DireccionamientoEstrategico
                     var ruta = Path.Combine(CarpetaTemporal(), nombre);
                     await File.WriteAllBytesAsync(ruta, bytes);
                     var an = PdfDireccionamiento.Analizar(bytes);
+                    IndiceArchivos.PermitirTemporal($"/uploads/{CarpetaTmp}/{nombre}");
                     var arch = new ArchivoCarga { Nombre = f.Name, Url = $"/uploads/{CarpetaTmp}/{nombre}", Ruta = ruta, Paginas = an.Paginas, SinTexto = an.SinTexto };
                     foreach (var p in an.Partes) arch.Partes.Add(Sugerir(p, f.Name, an.Partes.Count == 1));
                     carga.Archivos.Add(arch);

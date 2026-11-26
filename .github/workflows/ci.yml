@@ -1,0 +1,48 @@
+# Integración continua: compila, prueba y revisa dependencias en cada cambio a main (y a mano desde la pestaña Actions).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compilar-y-probar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Compilar (Release)
+        run: dotnet build SigWeb.csproj -c Release
+
+      - name: Pruebas de seguridad
+        run: dotnet test tests/Seguridad/Seguridad.csproj -c Release --logger "console;verbosity=normal"
+
+      - name: Pruebas del asistente de ayuda
+        run: dotnet test tests/Asistente/Asistente.csproj -c Release
+
+      - name: Paquetes NuGet con vulnerabilidades conocidas
+        run: |
+          dotnet list SigWeb.csproj package --vulnerable --include-transitive | tee vulnerables.txt
+          if grep -q "has the following vulnerable packages" vulnerables.txt; then echo "::error::Hay paquetes vulnerables"; exit 1; fi
+
+      - name: Huellas de las librerías web (wwwroot/lib)
+        run: sha256sum -c docs/librerias-web.sha256
+
+  imagen-docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: compilar-y-probar
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construir la imagen (sin publicarla)
+        run: docker build --pull -t sigweb:ci .

@@ -121,6 +121,11 @@ public static class MiddlewareSeguridad
     private static bool EsRutaModelo(PathString path) =>
         path.StartsWithSegments("/modelos-ifc") || path.StartsWithSegments("/modelos3d");
 
+    // Miniaturas que Modelos 3D genera para los modelos del repositorio (no son documentos de un proyecto).
+    private static bool EsMiniaturaModelo(PathString path) =>
+        path.StartsWithSegments("/uploads/modelos-ifc/miniaturas", out var resto) &&
+        resto.Value is { } archivo && !archivo[1..].Contains('/') && archivo.EndsWith(".png", StringComparison.OrdinalIgnoreCase);
+
     private static bool EsRutaLogo(PathString path) =>
         path.StartsWithSegments("/uploads/marca", out var resto) &&
         resto.Value is { } archivo && archivo.Length > 1 && !archivo[1..].Contains('/') && !archivo.Contains((char)92) &&
@@ -206,6 +211,25 @@ public static class MiddlewareSeguridad
             {
                 Rechazar(ctx, StatusCodes.Status403Forbidden);
                 return;
+            }
+            // Aislamiento por proyecto (S01): el archivo debe estar referenciado en la base del proyecto activo o de la Empresa.
+            if (!logo && !modelo && AmbienteSig.Actual is { Sistema: false } sesAdj && !EsMiniaturaModelo(ctx.Request.Path))
+            {
+                var modoAdj = ctx.RequestServices.GetRequiredService<IConfiguration>()["Seguridad:AislarAdjuntos"] ?? "Bloquear";
+                if (!modoAdj.Equals("Apagado", StringComparison.OrdinalIgnoreCase))
+                {
+                    var indice = ctx.RequestServices.GetRequiredService<IndiceArchivosProyecto>();
+                    if (!await indice.PermitidoAsync(sesAdj, ctx.Request.Path.Value ?? "", ctx.RequestAborted))
+                    {
+                        ctx.RequestServices.GetRequiredService<AuditoriaAccesos>()
+                            .Registrar(ctx, "Adjunto de otro proyecto", false, ctx.Request.Path.Value);
+                        if (!modoAdj.Equals("Registrar", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Rechazar(ctx, StatusCodes.Status404NotFound);
+                            return;
+                        }
+                    }
+                }
             }
             var activo = ext is ".html" or ".htm" or ".svg" or ".svgz" or ".xml" or ".xhtml" or ".js" or ".mjs";
             ctx.Response.OnStarting(() =>

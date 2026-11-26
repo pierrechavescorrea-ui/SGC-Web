@@ -207,6 +207,10 @@ else
     private bool Ocupado => cargando || progreso is not null;
     private bool PuedeAdministrar => !Usuario.VeComoOtro && Usuario.Puede("papelera", Accion.Ver | Accion.Administrar);
     private Dictionary<string, IProveedorPapelera> proveedorPorModulo = new();
+    // S16: módulos de origen. Ver = listar; Eliminar en el origen (y Administrar en Papelera) = restaurar, borrar, purgar.
+    private bool VeOrigen(IProveedorPapelera p) => ModuloOrigenPapelera.ClaveDe(p.Modulo) is not { } c || Usuario.Puede(c, Accion.Ver);
+    private bool GestionaOrigen(IProveedorPapelera p) => PuedeAdministrar &&
+        (ModuloOrigenPapelera.ClaveDe(p.Modulo) is not { } c || Usuario.Puede(c, Accion.Ver | Accion.Eliminar));
     private CancellationTokenSource? ctsFiltro;
 
     // Ejecuta una operación de un proveedor sin tumbar la página: si la base la rechaza, limpia el
@@ -237,7 +241,7 @@ else
             var siguen = new List<(string Modulo, int Id, string Titulo)>();
             foreach (var r in pendientes)
             {
-                if (!proveedorPorModulo.TryGetValue(r.Modulo, out var proveedor)) continue;
+                if (!proveedorPorModulo.TryGetValue(r.Modulo, out var proveedor) || !GestionaOrigen(proveedor)) continue;
                 var fallo = Intentar(() => proveedor.EliminarDefinitivo(r.Id));
                 if (fallo is null) { ok++; motivos.Remove((r.Modulo, r.Id)); avance(ok); }
                 else { siguen.Add(r); motivos[(r.Modulo, r.Id)] = fallo; }
@@ -294,7 +298,7 @@ else
     protected override void OnInitialized()
     {
         // Barato, sin consultas: la lectura va en OnAfterRenderAsync (solo en el circuito interactivo).
-        proveedorPorModulo = Proveedores.GroupBy(p => p.Modulo).ToDictionary(g => g.Key, g => g.First());
+        proveedorPorModulo = Proveedores.Where(VeOrigen).GroupBy(p => p.Modulo).ToDictionary(g => g.Key, g => g.First());
         modulosDisponibles = proveedorPorModulo.Keys.OrderBy(m => m).ToList();
     }
 
@@ -306,7 +310,7 @@ else
         if (PuedeAdministrar)
             await Task.Run(() =>
             {
-                foreach (var proveedor in proveedorPorModulo.Values)
+                foreach (var proveedor in proveedorPorModulo.Values.Where(GestionaOrigen))
                     if (Intentar(proveedor.PurgarVencidos) is string f) fallosPurga.Add($"{proveedor.Modulo}: {f}");
             });
         if (fallosPurga.Count > 0) { mensaje = "No se pudieron purgar algunos vencidos:\n" + string.Join("\n", fallosPurga); errorMsg = true; }
@@ -459,7 +463,9 @@ else
     {
         if (Ocupado || !PuedeAdministrar) return;
         string? fallo = null;
-        if (proveedorPorModulo.TryGetValue(r.Modulo, out var proveedor))
+        if (proveedorPorModulo.TryGetValue(r.Modulo, out var proveedor) && !GestionaOrigen(proveedor))
+            fallo = "no tiene permiso para eliminar en " + r.Modulo + ".";
+        else if (proveedor is not null)
         {
             progreso = $"Restaurando \"{r.Titulo}\"…";
             StateHasChanged();

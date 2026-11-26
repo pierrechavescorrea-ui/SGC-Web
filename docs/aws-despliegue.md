@@ -53,6 +53,9 @@ En la definición de tarea de ECS, como `secrets` desde Secrets Manager / SSM:
 | `Seguridad__AdministradorInicial` | Correo del primer administrador (solo el primer arranque) |
 | `Aplicacion__UrlPublica` | `https://sigweb.dominio.com` (los enlaces de los correos salen de aquí) |
 | `AllowedHosts` | `sigweb.dominio.com` |
+| `Seguridad__LlavesCertificado` | Certificado PFX en base64 (o ruta) que cifra las llaves de Data Protection guardadas en la base central. Sin él la app arranca pero avisa en el registro |
+| `Seguridad__LlavesCertificadoClave` | Clave del PFX |
+| `Seguridad__LlavesCertificadoAnterior` (+`Clave`) | Solo al rotar: el certificado viejo, para seguir leyendo las llaves que cifró |
 
 Variables normales: `ASPNETCORE_ENVIRONMENT=Production`, `TZ=America/Bogota`.
 
@@ -112,6 +115,10 @@ docker push <cuenta>.dkr.ecr.<región>.amazonaws.com/sigweb:<tag>
 - [ ] Revisar los avisos de CSP en la auditoría (`/csp-reporte`) y pasar `Seguridad:CspSoloReporte` a `false`.
 - [ ] `Telegram:PermitirChatsSinUsuario = false` ya está en producción: volver a vincular cada chat desde Mi cuenta.
 - [ ] Prueba de restauración de una copia de RDS.
+- [ ] Certificado de llaves (`Seguridad__LlavesCertificado`) generado y guardado en Secrets Manager.
+- [ ] `Seguridad:AislarAdjuntos = Bloquear` (por defecto): un archivo de `/uploads` solo se entrega si la base del proyecto activo (o la Empresa) lo referencia. Si algo legítimo da 404, pasar a `Registrar` y revisar la auditoría («Adjunto de otro proyecto»).
+- [ ] CI de GitHub (`.github/workflows/ci.yml`) en verde: compila, pruebas, paquetes vulnerables, huellas de `wwwroot/lib` y `docker build`.
+- [ ] Archivos en **EFS** (montado en `wwwroot/uploads`). S3 NO está implementado: la app escribe y lee `uploads` en disco (unos 37 puntos de guardado, Dossier y bot); pasar a S3 es un cambio aparte.
 
 ## 11. Archivos de despliegue (`deploy/aws/`)
 

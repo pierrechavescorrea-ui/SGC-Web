@@ -21,7 +21,7 @@ Cada una conserva su autor y su licencia, y ninguna impide el uso comercial de S
 | Componente | Licencia |
 |---|---|
 | Bootstrap | MIT |
-| CesiumJS | Apache 2.0 |
+| CesiumJS 1.147.0 | Apache 2.0 |
 | Chart.js | MIT |
 | Leaflet | BSD 2-Clause |
 | PDF.js (Mozilla) | Apache 2.0 |

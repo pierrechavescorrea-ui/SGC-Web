@@ -189,7 +189,7 @@
                 using var memoria = new MemoryStream(bytes);
                 memoria.Position = 0;
 
-                CadDocument doc = extension == ".dwg" ? DwgReader.Read(memoria) : DxfReader.Read(memoria);
+                CadDocument doc = SigWeb.Data.Seguridad.TrabajoPesado.Ejecutar(() => extension == ".dwg" ? DwgReader.Read(memoria) : DxfReader.Read(memoria));
                 resultado = Inspeccionar(doc);
             }
         }

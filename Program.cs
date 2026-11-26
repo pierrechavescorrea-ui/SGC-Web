@@ -158,6 +158,17 @@ builder.Services.AddScoped<SigWeb.Data.Papelera.IProveedorPapelera, SigWeb.Data.
 
 builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(options => { options.MaximumReceiveMessageSize = 20 * 1024 * 1024; });
 
+TrabajoPesado.Configurar(builder.Configuration);   // S20: archivos grandes a la vez
+// Tipos de archivo propios también para el respaldo de archivos estáticos que MapStaticAssets agrega en desarrollo
+// (sin esto, en Development los .ifc subidos a uploads respondían 404 y el visor de Modelos 3D no abría).
+builder.Services.Configure<StaticFileOptions>(o =>
+{
+    var t = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+    t.Mappings[".ifc"] = "application/x-step";
+    t.Mappings[".wasm"] = "application/wasm";
+    t.Mappings.TryAdd(".md", "text/markdown; charset=utf-8");
+    o.ContentTypeProvider = t;
+});
 var app = builder.Build();
 
 // Bases de los proyectos: se preparan (sembradores idempotentes) al arrancar y al entrar a cada proyecto.
@@ -232,14 +243,16 @@ app.MapGet("/api/plantillas/proyecto.xlsx", async (string? modulos, int? datos, 
     var elegidas = claves.Length == 0 ? permitidas.ToArray() : claves;
     if (datos == 1 && elegidas.Any(c => !servicio.PuedeUsar(c, Accion.Descargar)))
         return Results.StatusCode(StatusCodes.Status403Forbidden);
-    var bytes = await servicio.GenerarAsync(elegidas, datos == 1, ct);
+    byte[] bytes;
+    using (await TrabajoPesado.EntrarAsync(ct)) bytes = await servicio.GenerarAsync(elegidas, datos == 1, ct);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         $"Plantilla proyecto SigWeb {DateTime.Now:yyyy-MM-dd}.xlsx");
 }).RequiereModulo("catalogos", Accion.Ver | Accion.Descargar);
 app.MapGet("/api/plantillas/costos.xlsx", async (string? modulo, int? datos, SigWeb.Data.Plantillas.ServicioPlantillas servicio, CancellationToken ct) =>
 {
     if (modulo is null || !SigWeb.Data.Plantillas.PlantillaCostos.EsDeCostos(modulo)) return Results.BadRequest();
-    var bytes = await servicio.GenerarAsync(new[] { modulo }, datos == 1, ct);
+    byte[] bytes;
+    using (await TrabajoPesado.EntrarAsync(ct)) bytes = await servicio.GenerarAsync(new[] { modulo }, datos == 1, ct);
     return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         $"Plantilla {modulo}.xlsx");
 }).RequiereModulo("costos", Accion.Ver | Accion.Descargar);

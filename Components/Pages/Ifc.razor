@@ -1116,7 +1116,7 @@ else
             c.Temp[clase] = (tmp, f.Name);
             if (clase == "ifc")
             {
-                c.Ifc = await Task.Run(() => ModelosCargados.LeerIfc(tmp));
+                c.Ifc = await Task.Run(() => SigWeb.Data.Seguridad.TrabajoPesado.Ejecutar(() => ModelosCargados.LeerIfc(tmp)));
                 // torre-bp7.ifc → BP7
                 if (!c.Fijo && ConfigModelos3D.Norm(c.Codigo).Length == 0)
                 {

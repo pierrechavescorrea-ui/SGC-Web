@@ -21,6 +21,17 @@ public static class ArranqueSeguridad
     public const string CookieAccesoLibre = "sig.dev.acceso";
     // Identificador de este arranque de la app: la cookie de acceso libre y la marca de desarrollo de la sesión lo llevan;
     // al reiniciar la app dejan de valer y la primera pantalla vuelve a ser el login (aunque el navegador restaure cookies).
+    // Certificado de las llaves de Data Protection (null = sin configurar: las llaves quedan sin cifrar, se avisa al arrancar).
+    public static System.Security.Cryptography.X509Certificates.X509Certificate2? CertificadoLlaves(IConfiguration cfg, string clave)
+    {
+        var valor = cfg[clave];
+        if (string.IsNullOrWhiteSpace(valor)) return null;
+        var contrasena = cfg[clave + "Clave"];
+        var bytes = File.Exists(valor) ? File.ReadAllBytes(valor) : Convert.FromBase64String(valor.Trim());
+        return System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadPkcs12(bytes, contrasena,
+            System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.EphemeralKeySet);
+    }
+
     public static readonly string IdArranque = Guid.NewGuid().ToString("N");
     public const string PoliticaAdmin = "AdminSGC";
     public const string PoliticaAuditoria = "AuditoriaSGC";
@@ -67,6 +78,7 @@ public static class ArranqueSeguridad
         s.AddDbContext<SeguridadDbContext>(o => o.UseNpgsql(CadenaCentral(cfg)));
         s.AddSingleton<ServicioProyectos>();
         s.AddSingleton<ServicioPermisos>();
+        s.AddSingleton<IndiceArchivosProyecto>();   // adjuntos aislados por proyecto (S01)
         s.AddSingleton<AuditoriaAccesos>();
         s.AddHostedService(sp => sp.GetRequiredService<AuditoriaAccesos>());
         s.AddSingleton<EnviadorCorreo>();
@@ -155,7 +167,16 @@ public static class ArranqueSeguridad
             .AddPolicy(PoliticaAuditoria, p => p.RequireRole(RolesFabrica.AdministradorGlobal, RolesFabrica.AuditorGlobal));
 
         // ---------- Data Protection (cookies y tokens) en la base central: sirve con varias instancias ----------
-        s.AddDataProtection().SetApplicationName("SigWeb").PersistKeysToDbContext<SeguridadDbContext>();
+        var dp = s.AddDataProtection().SetApplicationName("SigWeb").PersistKeysToDbContext<SeguridadDbContext>();
+        // S17: las llaves se cifran con un certificado (PFX) para que una copia de la base central no baste para falsificar
+        // cookies o tokens. Seguridad:LlavesCertificado = ruta del .pfx o el .pfx en base64; Seguridad:LlavesCertificadoClave =
+        // su contraseña (secreto). Seguridad:LlavesCertificadoAnterior(+Clave) = el de antes, solo para leer llaves viejas al rotar.
+        if (CertificadoLlaves(cfg, "Seguridad:LlavesCertificado") is { } cert)
+        {
+            dp.ProtectKeysWithCertificate(cert);
+            var anteriores = new[] { cert }.Concat(CertificadoLlaves(cfg, "Seguridad:LlavesCertificadoAnterior") is { } ant ? new[] { ant } : Array.Empty<System.Security.Cryptography.X509Certificates.X509Certificate2>()).ToArray();
+            dp.UnprotectKeysWithAnyCertificate(anteriores);
+        }
 
         s.AddAntiforgery(o =>
         {
@@ -226,6 +247,8 @@ public static class ArranqueSeguridad
         var log = sp.GetRequiredService<ILoggerFactory>().CreateLogger("SigWeb.Seguridad");
         var db = sp.GetRequiredService<SeguridadDbContext>();
         var cfg = app.Configuration;
+        if (!app.Environment.IsDevelopment() && string.IsNullOrWhiteSpace(cfg["Seguridad:LlavesCertificado"]))
+            log.LogWarning("Seguridad:LlavesCertificado no está configurado: las llaves de Data Protection quedan sin cifrar en la base central (ver docs/aws-despliegue.md).");
 
         if (!db.Database.GetMigrations().Any())
             throw new InvalidOperationException(
